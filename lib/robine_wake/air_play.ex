@@ -110,6 +110,15 @@ defmodule RobineWake.AirPlay do
   defp start_receiver(%{daemon: daemon} = state) when is_pid(daemon), do: state
 
   defp start_receiver(state) do
+    if network_available?() do
+      start_receiver_on_network(state)
+    else
+      Logger.info("AirPlay receiver is waiting for the network")
+      schedule_restart(%{state | reason: :network_unavailable})
+    end
+  end
+
+  defp start_receiver_on_network(state) do
     executable = Application.fetch_env!(:robine_wake, :airplay_executable)
     config_path = Application.fetch_env!(:robine_wake, :airplay_config_path)
 
@@ -142,6 +151,16 @@ defmodule RobineWake.AirPlay do
     exception ->
       Logger.error("Unable to start AirPlay receiver: #{Exception.message(exception)}")
       schedule_restart(%{state | reason: {:start_failed, Exception.message(exception)}})
+  end
+
+  defp network_available? do
+    case RobineWake.Network.status() do
+      %{state: :available, ipv4_addresses: []} -> false
+      %{state: :available} -> true
+      _status -> false
+    end
+  catch
+    :exit, _reason -> false
   end
 
   defp stop_receiver(%{daemon: nil} = state), do: state

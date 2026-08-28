@@ -25,6 +25,55 @@ defmodule RobineWakeWeb.RouterTest do
              Jason.decode!(conn.resp_body)
   end
 
+  test "smartphone dismissal setting is persistent and locked during an alarm" do
+    disabled =
+      conn(
+        :patch,
+        "/api/settings/smartphone-dismiss",
+        Jason.encode!(%{enabled: false})
+      )
+      |> put_req_header("content-type", "application/json")
+      |> csrf()
+      |> RobineWakeWeb.Router.call(@opts)
+
+    assert disabled.status == 200
+    refute Settings.smartphone_dismiss_enabled()
+
+    {:ok, alarm} =
+      Settings.create_alarm(%{
+        local_time: "08:00",
+        days_of_week: [1],
+        strong_sound_id: "wake_up_call"
+      })
+
+    assert {:ok, _pid} = WakeSession.start(alarm)
+
+    locked =
+      conn(
+        :patch,
+        "/api/settings/smartphone-dismiss",
+        Jason.encode!(%{enabled: true})
+      )
+      |> put_req_header("content-type", "application/json")
+      |> csrf()
+      |> RobineWakeWeb.Router.call(@opts)
+
+    assert locked.status == 409
+
+    assert %{"error" => %{"code" => "smartphone_dismiss_setting_locked"}} =
+             Jason.decode!(locked.resp_body)
+
+    refused =
+      conn(:post, "/api/session/dismiss", "{}")
+      |> put_req_header("content-type", "application/json")
+      |> csrf()
+      |> RobineWakeWeb.Router.call(@opts)
+
+    assert refused.status == 403
+    assert WakeSession.active()
+    assert {:ok, _session} = WakeSession.dismiss(:manual)
+  end
+
   test "Expo web client and its versioned assets are served at the root" do
     page = conn(:get, "/") |> RobineWakeWeb.Router.call(@opts)
 

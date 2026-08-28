@@ -142,7 +142,7 @@
         [theme/icon "phone-portrait-outline" 17 :muted]
         [:> Text {:style (theme/js-style {:font-size 11 :font-weight "700"
                                           :color (theme/c :muted)})}
-         "Arrêt sur le réveil"]])]]]])
+         "Arrêt sur le réveil"]])]]])
 
 (defn clock-warning []
   [theme/card {}

@@ -100,6 +100,30 @@ defmodule RobineWake.MCPTest do
              })
   end
 
+  test "cannot dismiss remotely when smartphone dismissal is disabled" do
+    assert {:ok, false} = Settings.set_smartphone_dismiss_enabled(false)
+
+    {:ok, alarm} =
+      Settings.create_alarm(%{
+        local_time: "08:00",
+        days_of_week: [1],
+        strong_sound_id: "wake_up_call"
+      })
+
+    assert {:ok, _pid} = RobineWake.WakeSession.start(alarm)
+
+    assert {:response, 200, response} =
+             request("tools/call", %{"name" => "dismiss_session", "arguments" => %{}})
+
+    assert response["result"]["isError"]
+
+    assert response["result"]["structuredContent"]["error"]["code"] ==
+             "smartphone_dismiss_disabled"
+
+    assert RobineWake.WakeSession.active()
+    assert {:ok, _session} = RobineWake.WakeSession.dismiss(:manual)
+  end
+
   defp request(method, params, protocol \\ "2025-06-18") do
     RobineWake.MCP.handle(
       %{"jsonrpc" => "2.0", "id" => 7, "method" => method, "params" => params},
