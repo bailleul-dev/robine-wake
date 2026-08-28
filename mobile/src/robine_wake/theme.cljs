@@ -47,6 +47,8 @@
 (def ActivityIndicator (.-ActivityIndicator rn))
 (def Dimensions (.-Dimensions rn))
 (def Platform (.-Platform rn))
+(def Animated (.-Animated rn))
+(def AnimatedView (.-View Animated))
 
 (def ios? (= "ios" (.-OS Platform)))
 (def liquid-glass?
@@ -234,6 +236,48 @@
                         :border-width 1 :border-color "rgba(255,231,183,0.11)"
                         :opacity (if disabled 0.45 1)}))}
    [icon icon-name 20 color]])
+
+(defn toggle [{:keys [value on-value-change disabled accessibility-label]}]
+  (r/with-let [^js progress (new (.-Value Animated) (if value 1 0))]
+    (let [_ (-> (.timing Animated progress
+                         #js {:toValue (if value 1 0)
+                              :duration 180
+                              :useNativeDriver false})
+                (.start))
+          thumb-offset (.interpolate progress
+                                     #js {:inputRange #js [0 1]
+                                          :outputRange #js [0 22]})
+          track-color (.interpolate progress
+                                    #js {:inputRange #js [0 1]
+                                         :outputRange #js ["#332B38" "#245448"]})
+          border-color (.interpolate progress
+                                     #js {:inputRange #js [0 1]
+                                          :outputRange #js ["rgba(189,177,190,0.28)"
+                                                            "rgba(120,217,188,0.56)"]})
+          thumb-color (.interpolate progress
+                                    #js {:inputRange #js [0 1]
+                                         :outputRange #js ["#CFC3CC" "#A9E8D5"]})]
+      [:> Pressable
+       {:accessibilityRole "switch"
+        :accessibilityLabel accessibility-label
+        :accessibilityState (clj->js {:checked (boolean value) :disabled (boolean disabled)})
+        :disabled disabled
+        :hitSlop 8
+        :onPress #(on-value-change (not value))
+        :style (fn [press-state]
+                 (js-style {:border-radius 999 :cursor (if disabled "default" "pointer")
+                            :outline-style "none" :opacity (if disabled 0.42 1)
+                            :transform [{:scale (if (.-pressed press-state) 0.96 1)}]}))}
+       [:> AnimatedView
+        {:style (js-style {:width 52 :height 30 :padding 3 :border-radius 999
+                           :justify-content "center" :background-color track-color
+                           :border-width 1 :border-color border-color})}
+        [:> AnimatedView
+         {:style (js-style {:width 22 :height 22 :border-radius 999
+                            :background-color thumb-color
+                            :shadow-color "#090812" :shadow-opacity 0.42
+                            :shadow-radius 4 :shadow-offset {:width 0 :height 2}
+                            :transform [{:translate-x thumb-offset}]})}]]])))
 
 (defn input-style
   ([] (input-style {}))

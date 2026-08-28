@@ -13,7 +13,6 @@
 (def Text (.-Text rn))
 (def ScrollView (.-ScrollView rn))
 (def Pressable (.-Pressable rn))
-(def Switch (.-Switch rn))
 (def TextInput (.-TextInput rn))
 (def Modal (.-Modal rn))
 (def Alert (.-Alert rn))
@@ -92,9 +91,9 @@
     [:> View {:style (theme/js-style {:align-self "stretch" :flex-direction "row" :align-items "center"})}
      [:> Text {:style (theme/js-style {:flex 1 :font-size 14 :font-weight "700" :color (theme/c :text)})}
       "Alarme active"]
-     [:> Switch {:value (:enabled @draft) :onValueChange #(swap! draft assoc :enabled %)
-                 :trackColor #js {:false "#34374A" :true "#7C7AC4"}
-                 :thumbColor (theme/c :moon)}]]]])
+     [theme/toggle {:value (:enabled @draft)
+                    :accessibility-label "Alarme active"
+                    :on-value-change #(swap! draft assoc :enabled %)}]]]])
 
 (defn schedule-card [draft]
   [theme/card {}
@@ -135,13 +134,13 @@
        [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center"})}
         [:> Text {:style (theme/js-style {:flex 1 :font-size 14 :font-weight "700" :color (theme/c :text)})}
          "Allumer progressivement"]
-        [:> Switch {:value (:light-enabled @draft)
-                    :onValueChange (fn [enabled]
-                                     (swap! draft assoc :light-enabled enabled)
-                                     (when (and enabled (nil? (:light-target-id @draft)))
-                                       (swap! draft assoc :light-target-id (:id (first targets))
-                                              :light-target-name (:name (first targets)))))
-                    :thumbColor (theme/c :moon)}]]
+        [theme/toggle {:value (:light-enabled @draft)
+                       :accessibility-label "Allumer progressivement"
+                       :on-value-change (fn [enabled]
+                                          (swap! draft assoc :light-enabled enabled)
+                                          (when (and enabled (nil? (:light-target-id @draft)))
+                                            (swap! draft assoc :light-target-id (:id (first targets))
+                                                   :light-target-name (:name (first targets)))))}]]
        (when (:light-enabled @draft)
          [:<>
           [:> Picker {:selectedValue (:light-target-id @draft)
@@ -191,9 +190,9 @@
     [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center"})}
      [:> Text {:style (theme/js-style {:flex 1 :font-size 14 :font-weight "700" :color (theme/c :text)})}
       "Autoriser la répétition"]
-     [:> Switch {:value (:snooze-enabled @draft)
-                 :onValueChange #(swap! draft assoc :snooze-enabled %)
-                 :thumbColor (theme/c :moon)}]]
+     [theme/toggle {:value (:snooze-enabled @draft)
+                    :accessibility-label "Autoriser la répétition"
+                    :on-value-change #(swap! draft assoc :snooze-enabled %)}]]
     (when (:snooze-enabled @draft)
       [:<>
        [value-slider draft :snooze-minutes "Pause" 1 30 " min" :moon]

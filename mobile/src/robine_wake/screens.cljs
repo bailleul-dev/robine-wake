@@ -15,7 +15,6 @@
 (def Text (.-Text rn))
 (def ScrollView (.-ScrollView rn))
 (def Pressable (.-Pressable rn))
-(def Switch (.-Switch rn))
 (def TextInput (.-TextInput rn))
 (def Alert (.-Alert rn))
 (def Settings (.-Settings rn))
@@ -253,11 +252,10 @@
          (:label alarm)]
         [:> Text {:style (theme/js-style {:font-size 14 :margin-top 5 :color (theme/c :muted)})}
          (models/schedule-label alarm)]]
-       [:> Switch {:value (:enabled alarm)
-                   :disabled (:busy? state)
-                   :trackColor #js {:false "#34374A" :true "#7C7AC4"}
-                   :thumbColor (theme/c :moon)
-                   :onValueChange #(actions/set-alarm-enabled! alarm %)}]]
+       [theme/toggle {:value (:enabled alarm)
+                      :disabled (:busy? state)
+                      :accessibility-label (str "Activer l’alarme " (:label alarm))
+                      :on-value-change #(actions/set-alarm-enabled! alarm %)}]]
       [theme/divider]
       [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center" :gap 9})}
        [:> Text {:style (theme/js-style {:flex 1 :font-size 12 :font-weight "700" :color (theme/c :lavender)})}
@@ -535,12 +533,10 @@
       [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center"})}
        [theme/eyebrow "Arrêt de l’alarme" :rose]
        [:> View {:style (theme/js-style {:flex 1})}]
-       [:> Switch {:value enabled?
-                   :disabled (or locked? (:busy? state))
-                   :onValueChange actions/set-smartphone-dismiss!
-                   :trackColor (clj->js {:false "rgba(255,140,163,0.25)"
-                                         :true "rgba(120,217,188,0.55)"})
-                   :thumbColor (if enabled? (theme/c :mint) (theme/c :muted))}]]
+       [theme/toggle {:value enabled?
+                      :disabled (or locked? (:busy? state))
+                      :accessibility-label "Autoriser l’arrêt de l’alarme depuis le smartphone"
+                      :on-value-change actions/set-smartphone-dismiss!}]]
       [:> Text {:style (theme/js-style {:font-size 14 :line-height 20
                                         :color (theme/c :muted)})}
        (if enabled?

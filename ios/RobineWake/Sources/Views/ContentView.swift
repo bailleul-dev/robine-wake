@@ -414,6 +414,7 @@ private struct AlarmsView: View {
                                 set: { bluetooth.setEnabled($0, for: alarm) }
                             ))
                             .labelsHidden()
+                            .tint(RobineTheme.mint)
                             .disabled(bluetooth.isBusy)
                         }
 

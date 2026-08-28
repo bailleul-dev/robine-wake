@@ -37,7 +37,7 @@
     "cljs:check": "./scripts/shadow compile test",
     "start": "./scripts/shadow compile app && expo start --dev-client",
     "web": "./scripts/shadow compile app && expo start --web",
-    "web:export": "./scripts/shadow release app && expo export --platform web --output-dir ../priv/web",
+    "web:export": "./scripts/shadow release app && expo export --platform web --output-dir ../priv/web && bash ./scripts/cache-bust-favicon.sh",
     "ios": "./scripts/shadow compile app && expo run:ios",
     "android": "./scripts/shadow compile app && expo run:android",
     "prebuild": "expo prebuild",

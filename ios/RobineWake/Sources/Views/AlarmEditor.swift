@@ -90,6 +90,7 @@ struct AlarmEditor: View {
                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 13))
             Toggle("Alarme active", isOn: $draft.enabled)
                 .font(.subheadline.weight(.semibold))
+                .tint(RobineTheme.mint)
         }
         .frame(maxWidth: .infinity)
         .robineCard(highlighted: true)
@@ -204,6 +205,7 @@ struct AlarmEditor: View {
 
             Toggle("Autoriser la répétition", isOn: $draft.snoozeEnabled)
                 .font(.subheadline.weight(.semibold))
+                .tint(RobineTheme.mint)
 
             if draft.snoozeEnabled {
                 Stepper("Pause de \(draft.snoozeMinutes) min", value: $draft.snoozeMinutes, in: 1...30)
@@ -220,6 +222,7 @@ struct AlarmEditor: View {
             if bluetooth.hue?.configured == true, !bluetooth.hueTargets.isEmpty {
                 Toggle("Allumer progressivement", isOn: lightEnabledBinding)
                     .font(.subheadline.weight(.semibold))
+                    .tint(RobineTheme.mint)
 
                 if draft.lightEnabled {
                     Picker("Pièce ou zone", selection: lightTargetBinding) {
@@ -260,6 +263,7 @@ struct AlarmEditor: View {
             } else if draft.lightEnabled {
                 Toggle("Allumer progressivement", isOn: $draft.lightEnabled)
                     .font(.subheadline.weight(.semibold))
+                    .tint(RobineTheme.mint)
                 Label(
                     "La cible \(draft.lightTargetName ?? "Hue enregistrée") est momentanément indisponible. Désactivez-la ou reconnectez le pont.",
                     systemImage: "exclamationmark.triangle.fill"
