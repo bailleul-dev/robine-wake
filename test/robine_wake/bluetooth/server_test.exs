@@ -14,7 +14,8 @@ defmodule RobineWake.Bluetooth.ServerTest do
              "body" => %{
                "alarms" => [],
                "sounds" => sounds,
-               "device" => %{"clock_trusted" => clock_trusted}
+               "device" => %{"clock_trusted" => clock_trusted},
+               "smartphone_dismiss" => %{"enabled" => true, "locked" => false}
              }
            } = response()
 
@@ -142,12 +143,24 @@ defmodule RobineWake.Bluetooth.ServerTest do
     assert "state.get" in operations
     assert "alarm.update" in operations
     assert "session.get" in operations
+    assert "settings.smartphone_dismiss.set" in operations
     assert "hue.pair" in operations
     assert "breathing.start" in operations
     assert "breathing.volume" in operations
     assert "breathing.stop" in operations
     assert "remote_button.pairing.begin" in operations
     assert "remote_button.dismiss" in operations
+  end
+
+  test "updates the smartphone dismissal preference" do
+    send_request(request("dismiss-setting", "settings.smartphone_dismiss.set", %{enabled: false}))
+
+    assert %{
+             "status" => "ok",
+             "body" => %{"enabled" => false, "locked" => false}
+           } = response()
+
+    refute Settings.smartphone_dismiss_enabled()
   end
 
   test "returns the active wake session through the lightweight session endpoint" do

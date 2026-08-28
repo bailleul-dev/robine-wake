@@ -159,9 +159,9 @@ La décision retenue est donc :
 
 - conserver l'enregistrement `storm_rain_lasonotheque_2719` comme ambiance constante ;
 - ne produire aucun guide audio et ne pas moduler le volume avec le souffle ;
-- guider l'inspiration par un bleu franc dont la luminosité monte de 1 à 30 % en quatre secondes ;
-- basculer la couleur en 750 ms vers un ambre profond au sommet ;
-- guider l'expiration par cet ambre dont la luminosité descend de 30 à 1 % en six secondes ;
+- guider l'inspiration par un ambre doré dont la luminosité monte de 1 à 30 % en quatre secondes ;
+- glisser en 750 ms vers un rose crépusculaire proche, sans traverser le blanc ;
+- guider l'expiration par ce rose dont la luminosité descend de 30 à 1 % en six secondes ;
 - basculer de nouveau la couleur en 750 ms au début du cycle suivant ;
 - reproduire ces couleurs et ces phases dans les interfaces web et iOS ;
 - ne pas ajouter de bruit rose en configuration par défaut.

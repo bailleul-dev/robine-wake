@@ -8,8 +8,8 @@ defmodule RobineWake.Hue do
 
   @breathing_low_brightness 1
   @breathing_high_brightness 30
-  @breathing_inhale_color %{"xy" => %{"x" => 0.2, "y" => 0.24}}
-  @breathing_exhale_color %{"xy" => %{"x" => 0.6, "y" => 0.34}}
+  @breathing_inhale_color %{"xy" => %{"x" => 0.56, "y" => 0.42}}
+  @breathing_exhale_color %{"xy" => %{"x" => 0.5, "y" => 0.3}}
   @breathing_color_transition_ms 750
   @breathing_audio_sound "breathing_meditation_ambience"
   @breathing_audio_default_volume 60
@@ -991,8 +991,8 @@ defmodule RobineWake.Hue do
       exhale_seconds: 6,
       low_brightness: @breathing_low_brightness,
       high_brightness: @breathing_high_brightness,
-      inhale_color: "clear_sky_blue",
-      exhale_color: "deep_amber",
+      inhale_color: "golden_amber",
+      exhale_color: "twilight_rose",
       synchronization: %{
         hue_latency_ms: breathing.hue_latency_ms,
         hue_round_trip_ms: breathing.hue_rtt_ms,

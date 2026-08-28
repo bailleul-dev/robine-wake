@@ -13,6 +13,7 @@
    :device nil
    :recent-sessions []
    :active-session nil
+   :smartphone-dismiss {:enabled true :locked false}
    :hue nil
    :hue-targets []
    :remote-button nil

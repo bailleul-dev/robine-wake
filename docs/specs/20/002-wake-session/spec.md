@@ -60,6 +60,12 @@ Manual dismissal is idempotent. Holding a physical button for more than 2
 seconds may dismiss; a short press may snooze. Final thresholds require hardware
 validation.
 
+A persistent global setting controls whether a smartphone may dismiss an alarm.
+The default remains enabled for backward compatibility. Its value is captured
+when a wake session starts and cannot be changed until that session ends. When
+disabled, Wi-Fi, Bluetooth, web, and MCP dismissal commands are rejected; the
+physical remote button, confirmed bed exit, and safety timeout remain available.
+
 ## Safety durations
 
 - default maximum audible duration: 30 minutes;
@@ -80,6 +86,8 @@ validation.
   configured strong sound after the five-minute ceiling plateau.
 - `SES-009` — The gentle ramp shall reach its configured ceiling at the target
   wake time independently of the selected pre-wake duration.
+- `SES-010` — Smartphone dismissal permission shall be immutable for the full
+  lifetime of an active wake session and enforced by the device.
 
 ## Acceptance criteria
 

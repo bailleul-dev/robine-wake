@@ -39,7 +39,9 @@
    "wake_session_active" "Une alarme utilise déjà la lumière Hue."
    "unsupported_operation" "Cette fonction nécessite une version plus récente du réveil."
    "pairing_window_closed" "La fenêtre d’association du bouton est fermée."
-   "remote_button_not_paired" "Ce bouton n’est plus associé au réveil."})
+   "remote_button_not_paired" "Ce bouton n’est plus associé au réveil."
+   "smartphone_dismiss_disabled" "L’arrêt depuis le smartphone est désactivé."
+   "smartphone_dismiss_setting_locked" "Ce réglage est verrouillé pendant une alarme."})
 
 (defn make-request-id []
   (str/lower-case (str (random-uuid))))
@@ -117,6 +119,7 @@
     :device (:device body)
     :recent-sessions (vec (:recent_sessions body))
     :active-session (:active_session body)
+    :smartphone-dismiss (:smartphone_dismiss body)
     :hue (:hue body)
     :hue-targets (vec (:hue_targets body))
     :remote-button (:remote_button body)

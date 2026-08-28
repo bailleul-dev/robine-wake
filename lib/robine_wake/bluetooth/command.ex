@@ -32,6 +32,7 @@ defmodule RobineWake.Bluetooth.Command do
     "session.get",
     "session.snooze",
     "session.dismiss",
+    "settings.smartphone_dismiss.set",
     "clock.confirm",
     "camera.calibrate",
     "history.erase",
@@ -140,7 +141,13 @@ defmodule RobineWake.Bluetooth.Command do
   end
 
   defp dispatch("session.dismiss", _body) do
-    with {:ok, session} <- WakeSession.dismiss(:manual), do: {:ok, session_dto(session)}
+    with {:ok, session} <- WakeSession.dismiss(:smartphone), do: {:ok, session_dto(session)}
+  end
+
+  defp dispatch("settings.smartphone_dismiss.set", %{"enabled" => enabled})
+       when is_boolean(enabled) do
+    with {:ok, enabled} <- Settings.set_smartphone_dismiss_enabled(enabled),
+         do: {:ok, smartphone_dismiss_dto(enabled, false)}
   end
 
   defp dispatch("clock.confirm", _body) do
@@ -222,13 +229,19 @@ defmodule RobineWake.Bluetooth.Command do
 
   defp state_payload do
     health = Health.snapshot()
+    active_session = WakeSession.active()
 
     %{
       "device" => device_dto(health),
       "alarms" => Enum.map(Settings.list_alarms(), &alarm_dto/1),
       "sounds" => Enum.map(SoundLibrary.list(), &sound_dto/1),
       "recent_sessions" => Enum.map(Settings.recent_sessions(8), &session_dto/1),
-      "active_session" => session_dto(WakeSession.active()),
+      "active_session" => session_dto(active_session),
+      "smartphone_dismiss" =>
+        smartphone_dismiss_dto(
+          Settings.smartphone_dismiss_enabled(),
+          not is_nil(active_session)
+        ),
       "hue" => normalize(Hue.status()),
       "hue_targets" => normalize(Hue.targets()),
       "remote_button" => normalize(RemoteButton.status()),
@@ -236,6 +249,9 @@ defmodule RobineWake.Bluetooth.Command do
       "transport" => transport_dto(health)
     }
   end
+
+  defp smartphone_dismiss_dto(enabled, locked),
+    do: %{"enabled" => enabled, "locked" => locked}
 
   defp transport_dto(health) do
     port = Application.get_env(:robine_wake, :web_port, 4000)
@@ -318,6 +334,7 @@ defmodule RobineWake.Bluetooth.Command do
       :audio_phase,
       :current_gain,
       :snooze_count,
+      :smartphone_dismiss_allowed,
       :occupancy,
       :confidence
     ])

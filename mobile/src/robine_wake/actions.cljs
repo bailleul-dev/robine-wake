@@ -38,6 +38,8 @@
 (defn trigger-strong! [id] (transport/command! "alarm.trigger_strong" {:alarm_id id}))
 (defn snooze! [] (transport/command! "session.snooze"))
 (defn dismiss! [] (transport/command! "session.dismiss"))
+(defn set-smartphone-dismiss! [enabled]
+  (transport/command! "settings.smartphone_dismiss.set" {:enabled enabled}))
 (defn confirm-clock! [] (transport/command! "clock.confirm"))
 (defn erase-history! [] (transport/command! "history.erase"))
 (defn pair-hue! [host] (transport/command! "hue.pair" {:bridge_host host}))

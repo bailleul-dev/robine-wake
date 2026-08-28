@@ -132,11 +132,17 @@ defmodule RobineWakeWeb.Router do
   end
 
   get "/api/state" do
+    active_session = WakeSession.active()
+
     json(conn, 200, %{
       health: Health.snapshot(),
       alarms: Enum.map(Settings.list_alarms(), &alarm_json/1),
       sessions: Settings.recent_sessions(),
-      active_session: WakeSession.active(),
+      active_session: active_session,
+      smartphone_dismiss: %{
+        enabled: Settings.smartphone_dismiss_enabled(),
+        locked: not is_nil(active_session)
+      },
       hue: Hue.status(),
       hue_targets: Hue.targets(),
       remote_button: RemoteButton.status(),
@@ -252,8 +258,15 @@ defmodule RobineWakeWeb.Router do
   end
 
   post "/api/session/dismiss" do
-    case WakeSession.dismiss(:manual) do
+    case WakeSession.dismiss(:smartphone) do
       {:ok, session} -> json(conn, 200, %{data: session})
+      {:error, reason} -> api_error(conn, reason)
+    end
+  end
+
+  patch "/api/settings/smartphone-dismiss" do
+    case Settings.set_smartphone_dismiss_enabled(conn.body_params["enabled"]) do
+      {:ok, enabled} -> json(conn, 200, %{data: %{enabled: enabled, locked: false}})
       {:error, reason} -> api_error(conn, reason)
     end
   end
@@ -522,10 +535,14 @@ defmodule RobineWakeWeb.Router do
               :revision_conflict,
               :active_session,
               :no_active_session,
+              :smartphone_dismiss_setting_locked,
               :snooze_limit,
               :snooze_disabled
             ],
        do: {409, Atom.to_string(reason)}
+
+  defp error_response(:smartphone_dismiss_disabled),
+    do: {403, "smartphone_dismiss_disabled"}
 
   defp error_response(:rate_limited), do: {429, "rate_limited"}
 
@@ -620,7 +637,7 @@ defmodule RobineWakeWeb.Router do
           </header>
           <p id="clock-warning" class="clock-warning" role="alert" hidden>L’heure doit être confirmée avant d’activer les alarmes. <button class="ghost" onclick="confirmTime()">Confirmer l’heure</button></p>
           <div class="dashboard">
-            <section id="session" class="session-banner" hidden><div><span class="panel-kicker">Réveil en cours</span><h2>Bonjour</h2><p id="session-state"></p></div><div class="actions"><button class="secondary" onclick="sessionAction('snooze')">Répéter</button><button class="danger" onclick="sessionAction('dismiss')">Je suis levé</button></div></section>
+            <section id="session" class="session-banner" hidden><div><span class="panel-kicker">Réveil en cours</span><h2>Bonjour</h2><p id="session-state"></p></div><div class="actions"><button class="secondary" onclick="sessionAction('snooze')">Répéter</button><button id="session-dismiss" class="danger" onclick="sessionAction('dismiss')">Je suis levé</button><small id="session-dismiss-disabled" hidden>Arrêt sur le réveil uniquement</small></div></section>
             <section class="panel full"><div class="panel-head"><div><span class="panel-kicker">Prochain réveil</span><h2>Vos matinées</h2></div><button class="primary" type="button" onclick="openAlarmEditor()">＋ Ajouter</button></div><div id="morning-alarms" class="alarm-list compact-alarm-list"><div class="empty-state">Chargement…</div></div></section>
             <section class="panel full"><div class="panel-head"><div><span class="panel-kicker">Historique</span><h2>Réveils récents</h2></div></div><div id="sessions" class="timeline"><div class="empty-state">Aucune séance enregistrée.</div></div></section>
           </div>
@@ -632,8 +649,8 @@ defmodule RobineWakeWeb.Router do
             <section class="panel full breathing-panel">
               <div class="panel-head"><div><span class="panel-kicker rose">Respiration 4 / 6</span><h2 id="breathing-title">Préparer la séance</h2></div><strong id="breathing-badge" class="breathing-badge">Prêt</strong></div>
               <div id="breathing-active" class="breathing-active" hidden><div class="phase-visual"><div id="phase-orb" class="phase-orb"></div><div><span id="breathing-phase" class="panel-kicker">Inspiration</span><strong id="breathing-remaining">—</strong><small id="breathing-target-name">Lumière Hue</small></div></div></div>
-              <p class="panel-copy">La couleur bascule rapidement à chaque phase ; seule la luminosité varie lentement. L’orage reste constant même si cet écran se ferme.</p>
-              <div class="phase-legends"><div><i class="inhale-dot"></i><span><strong>Inspiration</strong><small>4 s · bleu · 1 → 30 %</small></span></div><div><i class="exhale-dot"></i><span><strong>Expiration</strong><small>6 s · ambre · 30 → 1 %</small></span></div></div>
+              <p class="panel-copy">La couleur glisse directement entre deux teintes chaudes proches, sans passer par le blanc ; seule la luminosité varie lentement. L’orage reste constant même si cet écran se ferme.</p>
+              <div class="phase-legends"><div><i class="inhale-dot"></i><span><strong>Inspiration</strong><small>4 s · ambre doré · 1 → 30 %</small></span></div><div><i class="exhale-dot"></i><span><strong>Expiration</strong><small>6 s · rose crépusculaire · 30 → 1 %</small></span></div></div>
               <div class="evening-controls">
                 <label class="field">Pièce ou zone<select id="breathing-target"></select></label>
                 <label class="field">Durée<select id="breathing-duration"><option value="3">3 minutes</option><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select></label>
@@ -657,6 +674,7 @@ defmodule RobineWakeWeb.Router do
           <div class="screen-heading"><p class="eyebrow">État du réveil</p><h1>Robine Wake</h1><p>Connexions, matériel, confidentialité et maintenance locale.</p></div>
           <div class="dashboard">
             <section id="diagnostics-panel" class="panel full" tabindex="-1"><div class="panel-head"><div><span class="panel-kicker">Diagnostic</span><h2 id="diagnostics-title">État technique</h2></div><strong id="diagnostics-summary">Chargement…</strong></div><p class="panel-copy">Les éléments qui demandent une intervention apparaissent en premier.</p><div id="diagnostics-list" class="diagnostic-list"><div class="empty-state">Chargement…</div></div></section>
+            <section class="panel full"><div class="panel-head"><div><span class="panel-kicker">Arrêt de l’alarme</span><h2>Contrôle depuis le smartphone</h2></div><label class="day"><input id="smartphone-dismiss-setting" type="checkbox" onchange="setSmartphoneDismiss(this.checked)"><span>✓</span></label></div><p id="smartphone-dismiss-copy" class="panel-copy"></p><p id="smartphone-dismiss-lock" class="panel-copy" hidden>🔒 Réglage verrouillé jusqu’à la fin de l’alarme en cours.</p></section>
             <section id="remote-button-panel" class="panel full"><div class="panel-head"><div><span class="panel-kicker">Bouton déporté</span><h2>Arrêt sécurisé en LoRa</h2></div><strong id="remote-button-state">Chargement…</strong></div><p class="panel-copy">Le Raspberry écoute directement le bouton en 868 MHz. Chaque appui utilise un secret propre, un compteur anti-rejeu et un accusé de réception, sans Internet ni routeur.</p><div id="remote-button-list" class="timeline"><div class="empty-state">Aucun bouton associé.</div></div><p id="remote-button-message" class="panel-copy" aria-live="polite"></p><div class="actions"><button id="remote-button-pair" class="primary" onclick="beginRemoteButtonPairing()">Associer un bouton</button></div></section>
             <section class="panel"><div class="panel-head"><div><span class="panel-kicker">Système</span><h2>Prêt pour la nuit</h2></div></div><div class="system-row"><span>Firmware</span><strong id="update-state">Chargement…</strong></div><p class="panel-copy">Les mises à jour signées attendent toujours une fenêtre sûre.</p></section>
             <section class="panel"><div class="panel-head"><div><span class="panel-kicker">Vos données</span><h2>Confidentialité</h2></div></div><div class="privacy-note">Les exports contiennent uniquement les réglages et l’état technique.</div><div class="actions"><button class="ghost" onclick="location.href='/api/export'">Exporter</button><button class="ghost" onclick="location.href='/api/diagnostics'">Diagnostics</button><button class="danger" onclick="eraseHistory()">Effacer l’historique</button><button class="danger" onclick="factoryReset()">Réinitialiser</button></div></section>
@@ -752,7 +770,8 @@ defmodule RobineWakeWeb.Router do
           document.querySelector('#next-alarm-time').textContent=next?new Date(next.next_occurrences[0]).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'—';
           document.querySelector('#next-alarm-label').textContent=next?`${next.label} · ${new Date(next.next_occurrences[0]).toLocaleDateString('fr-FR',{weekday:'long'})}`:'Aucune alarme programmée.';
           const alarmsHtml=data.alarms.map(alarmMarkup).join('')||'<div class="empty-state">Aucune alarme.<br><button class="primary" type="button" onclick="openAlarmEditor()">Créer une alarme</button></div>';document.querySelector('#alarms').innerHTML=alarmsHtml;document.querySelector('#morning-alarms').innerHTML=data.alarms.slice(0,2).map(alarmMarkup).join('')||alarmsHtml;
-          const active=data.active_session; const session=document.querySelector('#session'); session.hidden=!active; if(active)document.querySelector('#session-state').textContent=`${active.audio_phase==='strong'?'Son de renfort':'Réveil progressif'} · volume ${active.current_gain} · ${active.snooze_count} répétitions`;
+          const active=data.active_session; const session=document.querySelector('#session'); session.hidden=!active; if(active){document.querySelector('#session-state').textContent=`${active.audio_phase==='strong'?'Son de renfort':'Réveil progressif'} · volume ${active.current_gain} · ${active.snooze_count} répétitions`;const allowed=active.smartphone_dismiss_allowed!==false;document.querySelector('#session-dismiss').hidden=!allowed;document.querySelector('#session-dismiss-disabled').hidden=allowed}
+          const smartphoneDismiss=data.smartphone_dismiss||{enabled:true,locked:Boolean(active)};const smartphoneDismissInput=document.querySelector('#smartphone-dismiss-setting');smartphoneDismissInput.checked=smartphoneDismiss.enabled!==false;smartphoneDismissInput.disabled=smartphoneDismiss.locked===true;document.querySelector('#smartphone-dismiss-copy').textContent=smartphoneDismiss.enabled!==false?'Le smartphone peut arrêter une alarme après le défi de réveil.':'L’alarme doit être arrêtée depuis le réveil ou le bouton déporté.';document.querySelector('#smartphone-dismiss-lock').hidden=smartphoneDismiss.locked!==true;
           document.querySelector('#sessions').innerHTML=data.sessions.slice(0,8).map(s=>`<div class="timeline-item"><div><strong>${esc(s.terminal_reason||s.state)}</strong><br><small>${esc(new Date(s.created_at).toLocaleString('fr-FR'))}</small></div></div>`).join('')||'<div class="empty-state">Votre historique apparaîtra ici.</div>';
           const updates=h.updates; document.querySelector('#update-state').textContent=`${h.firmware.version} · ${h.firmware.validation} · ${updates.state}${updates.reason?' · '+updates.reason:''}`;
           renderDiagnostics(data);
@@ -773,6 +792,7 @@ defmodule RobineWakeWeb.Router do
         async function deleteAlarm(id){if(confirm('Delete this alarm?')){const a=stateCache.alarms.find(item=>item.id===id);await request(`/api/alarms/${id}`,{method:'DELETE',body:JSON.stringify({revision:a.revision})});await refresh()}}
         async function toggleAlarm(id){const a=stateCache.alarms.find(item=>item.id===id);await request(`/api/alarms/${id}`,{method:'PATCH',body:JSON.stringify({enabled:!a.enabled,revision:a.revision})});await refresh()}
         async function sessionAction(action){await request(`/api/session/${action}`,{method:'POST',body:'{}'});await refresh()}
+        async function setSmartphoneDismiss(enabled){await request('/api/settings/smartphone-dismiss',{method:'PATCH',body:JSON.stringify({enabled})});await refresh()}
         async function observe(state){await request('/api/simulation/observation',{method:'POST',body:JSON.stringify({state,confidence:.95})});await refresh()}
         function syncBreathingVolume(){document.querySelector('#breathing-volume-output').textContent=`${document.querySelector('#breathing-volume').value} %`}
         async function commitBreathingVolume(){if(stateCache.hue?.breathing?.active!==true)return;const message=document.querySelector('#breathing-message');try{await request('/api/breathing/volume',{method:'POST',body:JSON.stringify({volume_percent:Number(document.querySelector('#breathing-volume').value)})});message.textContent='Volume mis à jour.'}catch(error){message.textContent=error.error?.message||'Impossible de modifier le volume.'}}

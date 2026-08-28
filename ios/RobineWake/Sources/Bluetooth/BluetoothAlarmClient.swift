@@ -116,6 +116,7 @@ final class BluetoothAlarmClient: NSObject, ObservableObject {
     @Published private(set) var hue: HueStatus?
     @Published private(set) var hueTargets: [HueTarget] = []
     @Published private(set) var remoteButton: RemoteButtonStatus?
+    @Published private(set) var smartphoneDismiss = SmartphoneDismissSetting(enabled: true, locked: false)
     @Published private(set) var breathingSynchronizedAt: Date?
     @Published private(set) var isBusy = false
     @Published private(set) var lastUpdated: Date?
@@ -213,6 +214,9 @@ final class BluetoothAlarmClient: NSObject, ObservableObject {
 
     func snooze() { send(operation: "session.snooze") }
     func dismissSession() { send(operation: "session.dismiss") }
+    func setSmartphoneDismissEnabled(_ enabled: Bool) {
+        send(operation: "settings.smartphone_dismiss.set", body: ["enabled": enabled])
+    }
     func confirmClock() { send(operation: "clock.confirm") }
     func eraseHistory() { send(operation: "history.erase") }
     func pairHue(bridgeHost: String) {
@@ -389,6 +393,9 @@ final class BluetoothAlarmClient: NSObject, ObservableObject {
                 breathingSynchronizedAt = stateBody.hue?.breathing?.active == true ? .now : nil
                 hueTargets = stateBody.hueTargets ?? []
                 remoteButton = stateBody.remoteButton
+                smartphoneDismiss =
+                    stateBody.smartphoneDismiss ??
+                    SmartphoneDismissSetting(enabled: true, locked: stateBody.activeSession != nil)
                 rememberHTTPTransport(stateBody.transport)
                 lastUpdated = .now
                 finishRequest()
@@ -662,7 +669,9 @@ private enum BluetoothError: LocalizedError {
                 "wake_session_active": "Une alarme utilise déjà la lumière Hue.",
                 "unsupported_operation": "Cette fonction nécessite une version plus récente du réveil.",
                 "pairing_window_closed": "La fenêtre d’association du bouton est fermée.",
-                "remote_button_not_paired": "Ce bouton n’est plus associé au réveil."
+                "remote_button_not_paired": "Ce bouton n’est plus associé au réveil.",
+                "smartphone_dismiss_disabled": "L’arrêt depuis le smartphone est désactivé.",
+                "smartphone_dismiss_setting_locked": "Ce réglage est verrouillé pendant une alarme."
             ][code] ?? "Le réveil a refusé la commande (\(code))."
         case .invalidTransport(let message): return message
         case .unsupportedVersion(let version): return "Version Bluetooth non prise en charge : \(version)."

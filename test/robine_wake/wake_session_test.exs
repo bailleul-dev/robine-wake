@@ -174,6 +174,31 @@ defmodule RobineWake.WakeSessionTest do
     assert length(Settings.recent_sessions()) == 1
   end
 
+  test "smartphone dismissal follows the setting captured when the alarm starts", %{
+    alarm: alarm
+  } do
+    assert Settings.smartphone_dismiss_enabled()
+    assert {:ok, false} = Settings.set_smartphone_dismiss_enabled(false)
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert %{smartphone_dismiss_allowed: false} = WakeSession.active()
+
+    assert {:error, :smartphone_dismiss_setting_locked} =
+             Settings.set_smartphone_dismiss_enabled(true)
+
+    assert {:error, :smartphone_dismiss_disabled} = WakeSession.dismiss(:smartphone)
+    assert %{state: :ringing} = WakeSession.active()
+
+    assert {:ok, %{state: :dismissed, terminal_reason: :manual}} =
+             WakeSession.dismiss(:manual)
+
+    assert {:ok, true} = Settings.set_smartphone_dismiss_enabled(true)
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert %{smartphone_dismiss_allowed: true} = WakeSession.active()
+
+    assert {:ok, %{state: :dismissed, terminal_reason: :smartphone}} =
+             WakeSession.dismiss(:smartphone)
+  end
+
   test "records one terminal timeout after the maximum audible duration", %{alarm: alarm} do
     previous = Application.fetch_env!(:robine_wake, :max_session_ms)
     Application.put_env(:robine_wake, :max_session_ms, 1_000)

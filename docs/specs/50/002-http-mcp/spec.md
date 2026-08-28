@@ -53,7 +53,7 @@ credentials, tokens, camera pixels, or raw diagnostic files.
 | `delete_alarm` | Delete using the current resource revision. |
 | `trigger_alarm` | Start an existing alarm immediately. |
 | `snooze_session` | Snooze the active wake session. |
-| `dismiss_session` | Dismiss the active wake session with reason `mcp`. |
+| `dismiss_session` | Dismiss the active wake session with reason `mcp` when smartphone dismissal is enabled. |
 
 Tool definitions include JSON Schema inputs and MCP safety annotations. Domain
 validation failures are successful JSON-RPC responses whose tool result has

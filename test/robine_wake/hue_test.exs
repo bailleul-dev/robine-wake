@@ -211,6 +211,8 @@ defmodule RobineWake.HueTest do
               duration_minutes: 10,
               inhale_seconds: 4,
               exhale_seconds: 6,
+              inhale_color: "golden_amber",
+              exhale_color: "twilight_rose",
               cycle_count: 0,
               phase_duration_ms: 4_000,
               phase_elapsed_ms: phase_elapsed_ms,
@@ -229,14 +231,14 @@ defmodule RobineWake.HueTest do
              {:get, "bedroom-group"},
              {:set, "bedroom-group",
               %{
-                "color" => %{"xy" => %{"x" => 0.6, "y" => 0.34}},
+                "color" => %{"xy" => %{"x" => 0.5, "y" => 0.3}},
                 "dimming" => %{"brightness" => 1},
                 "dynamics" => %{"duration" => 0},
                 "on" => %{"on" => true}
               }},
              {:set, "bedroom-group",
               %{
-                "color" => %{"xy" => %{"x" => 0.2, "y" => 0.24}},
+                "color" => %{"xy" => %{"x" => 0.56, "y" => 0.42}},
                 "dynamics" => %{"duration" => 750},
                 "on" => %{"on" => true}
               }},
@@ -256,7 +258,7 @@ defmodule RobineWake.HueTest do
              Enum.any?(HueDriver.commands(), fn
                {:set, "bedroom-group",
                 %{
-                  "color" => %{"xy" => %{"x" => 0.6, "y" => 0.34}},
+                  "color" => %{"xy" => %{"x" => 0.5, "y" => 0.3}},
                   "dynamics" => %{"duration" => 750},
                   "on" => %{"on" => true}
                 }} ->

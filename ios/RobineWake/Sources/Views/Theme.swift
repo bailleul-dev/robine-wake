@@ -12,8 +12,8 @@ enum RobineTheme {
     static let lavender = Color(red: 170 / 255, green: 167 / 255, blue: 1)
     static let mint = Color(red: 120 / 255, green: 217 / 255, blue: 188 / 255)
     static let rose = Color(red: 1, green: 140 / 255, blue: 163 / 255)
-    static let breathingBlue = Color(red: 72 / 255, green: 156 / 255, blue: 1)
-    static let breathingExhaleAmber = Color(red: 1, green: 137 / 255, blue: 55 / 255)
+    static let breathingInhaleAmber = Color(red: 245 / 255, green: 183 / 255, blue: 91 / 255)
+    static let breathingExhaleRose = Color(red: 224 / 255, green: 105 / 255, blue: 143 / 255)
     static let twilightRose = Color(red: 224 / 255, green: 105 / 255, blue: 143 / 255)
 }
 

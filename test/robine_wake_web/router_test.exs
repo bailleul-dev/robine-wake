@@ -20,6 +20,9 @@ defmodule RobineWakeWeb.RouterTest do
   test "web API is directly available on the local network" do
     conn = conn(:get, "/api/state") |> RobineWakeWeb.Router.call(@opts)
     assert conn.status == 200
+
+    assert %{"smartphone_dismiss" => %{"enabled" => true, "locked" => false}} =
+             Jason.decode!(conn.resp_body)
   end
 
   test "Expo web client and its versioned assets are served at the root" do

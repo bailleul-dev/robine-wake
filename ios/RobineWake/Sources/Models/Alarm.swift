@@ -225,6 +225,7 @@ struct WakeSession: Codable, Identifiable, Hashable {
     let snoozeCount: Int?
     let occupancy: String?
     let confidence: Double?
+    let smartphoneDismissAllowed: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, state, occupancy, confidence
@@ -235,7 +236,13 @@ struct WakeSession: Codable, Identifiable, Hashable {
         case audioPhase = "audio_phase"
         case currentGain = "current_gain"
         case snoozeCount = "snooze_count"
+        case smartphoneDismissAllowed = "smartphone_dismiss_allowed"
     }
+}
+
+struct SmartphoneDismissSetting: Codable, Hashable {
+    let enabled: Bool
+    let locked: Bool
 }
 
 struct DeviceState: Codable, Hashable {
@@ -296,12 +303,14 @@ struct RobineState: Codable {
     let hue: HueStatus?
     let hueTargets: [HueTarget]?
     let remoteButton: RemoteButtonStatus?
+    let smartphoneDismiss: SmartphoneDismissSetting?
     let transport: Transport?
 
     enum CodingKeys: String, CodingKey {
         case device, alarms, sounds, transport, hue
         case hueTargets = "hue_targets"
         case remoteButton = "remote_button"
+        case smartphoneDismiss = "smartphone_dismiss"
         case recentSessions = "recent_sessions"
         case activeSession = "active_session"
     }

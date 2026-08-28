@@ -135,8 +135,14 @@
      (if (= "strong" (:audio_phase session)) "Le son de renfort joue" "La lumière sonore monte doucement")]
     [:> View {:style (theme/js-style {:flex-direction "row" :gap 12})}
      [theme/button {:title "Répéter" :on-press actions/snooze!}]
-     [theme/button {:title "Je suis levé" :variant :primary
-                    :on-press #(store/set-state! :challenge {:session-id (:id session)})}]]]])
+     (if (not= false (:smartphone_dismiss_allowed session))
+       [theme/button {:title "Je suis levé" :variant :primary
+                      :on-press #(store/set-state! :challenge {:session-id (:id session)})}]
+       [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center" :gap 7})}
+        [theme/icon "phone-portrait-outline" 17 :muted]
+        [:> Text {:style (theme/js-style {:font-size 11 :font-weight "700"
+                                          :color (theme/c :muted)})}
+         "Arrêt sur le réveil"]])]]]])
 
 (defn clock-warning []
   [theme/card {}
@@ -305,7 +311,7 @@
           elapsed (if started (max 0 (- @tick started)) (or (:phase_elapsed_ms breathing) 0))
           progress (min 1 (/ elapsed duration))
           inhale? (= phase "inhale")
-          color (if inhale? :breathing-blue :breathing-amber)
+          color (if inhale? :breathing-inhale-amber :breathing-exhale-rose)
           size (+ 118 (* 54 (if inhale? progress (- 1 progress))))]
       [:> View {:style (theme/js-style {:align-items "center" :gap 14 :padding-vertical 8})}
        [:> View {:style (theme/js-style {:width 190 :height 190 :align-items "center" :justify-content "center"})}
@@ -372,7 +378,7 @@
           [:> View {:style (theme/js-style {:flex-direction "row"})}
            [theme/eyebrow "Respiration 4 / 6" :twilight-rose]
            [:> View {:style (theme/js-style {:flex 1})}]
-           [theme/icon "bulb" 21 :breathing-blue]]
+           [theme/icon "bulb" 21 :breathing-inhale-amber]]
           (if active?
             [:<>
              [breathing-guide breathing]
@@ -386,10 +392,10 @@
                             :variant :primary :disabled (:busy? state) :on-press actions/stop-breathing!}]]
             [:<>
              [:> Text {:style (theme/js-style {:font-size 14 :line-height 20 :color (theme/c :muted)})}
-              "L’orage reste naturel et constant. La lumière passe rapidement au bleu pour inspirer puis à l’ambre pour expirer ; seule son intensité évolue lentement."]
+              "L’orage reste naturel et constant. La lumière glisse directement de l’ambre doré au rose crépusculaire, sans passer par le blanc ; seule son intensité évolue lentement."]
              [:> View {:style (theme/js-style {:flex-direction "row" :gap 14})}
-              [phase-legend :breathing-blue "Inspiration" "4 s · bleu · 2 → 30 %"]
-              [phase-legend :breathing-amber "Expiration" "6 s · ambre · 30 → 2 %"]]
+              [phase-legend :breathing-inhale-amber "Inspiration" "4 s · ambre doré · 2 → 30 %"]
+              [phase-legend :breathing-exhale-rose "Expiration" "6 s · rose crépusculaire · 30 → 2 %"]]
              [:> Picker {:selectedValue selected :onValueChange #(reset! target-id %)
                          :dropdownIconColor (theme/c :moon)
                          :style (theme/picker-style)}
@@ -519,6 +525,34 @@
         [theme/button {:title "Associer un bouton" :variant :primary
                        :disabled (:busy? state) :on-press actions/begin-button-pairing!}])]]))
 
+(defn smartphone-dismiss-card [desktop?]
+  (let [state @store/app-state
+        setting (:smartphone-dismiss state)
+        enabled? (not= false (:enabled setting))
+        locked? (or (:locked setting) (some? (:active-session state)))]
+    [theme/card {:highlighted (not enabled?) :style (dashboard-card-style desktop?)}
+     [:> View {:style (theme/js-style {:gap 13})}
+      [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center"})}
+       [theme/eyebrow "Arrêt de l’alarme" :rose]
+       [:> View {:style (theme/js-style {:flex 1})}]
+       [:> Switch {:value enabled?
+                   :disabled (or locked? (:busy? state))
+                   :onValueChange actions/set-smartphone-dismiss!
+                   :trackColor (clj->js {:false "rgba(255,140,163,0.25)"
+                                         :true "rgba(120,217,188,0.55)"})
+                   :thumbColor (if enabled? (theme/c :mint) (theme/c :muted))}]]
+      [:> Text {:style (theme/js-style {:font-size 14 :line-height 20
+                                        :color (theme/c :muted)})}
+       (if enabled?
+         "Le smartphone peut arrêter une alarme après le défi de réveil."
+         "L’alarme doit être arrêtée depuis le réveil ou le bouton déporté.")]
+      (when locked?
+        [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center" :gap 8})}
+         [theme/icon "lock-closed" 16 :moon]
+         [:> Text {:style (theme/js-style {:font-size 11 :font-weight "700"
+                                           :color (theme/c :moon)})}
+          "Réglage verrouillé jusqu’à la fin de l’alarme en cours."]])]]))
+
 (defn system-screen [desktop?]
   (r/with-let [bridge-host (r/atom "")
                discovery (r/atom {:state :idle :bridges []})
@@ -544,6 +578,7 @@
           [theme/metric-row {:icon-name "volume-high" :title "Audio" :detail (status-label (get-in state [:device :audio :state])) :color :moon}]
           [theme/metric-row {:icon-name "cube" :title "Logiciel" :detail (or (get-in state [:device :firmware :version]) "—")}]]]
         [hue-card bridge-host discovery desktop?]
+        [smartphone-dismiss-card desktop?]
         [remote-button-card desktop?]
         [theme/card {:style (dashboard-card-style desktop?)}
          [:> View {:style (theme/js-style {:gap 15})}

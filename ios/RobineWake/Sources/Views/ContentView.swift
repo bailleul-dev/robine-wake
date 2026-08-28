@@ -112,17 +112,23 @@ private struct GlobalAlarmControls: View {
 
             Spacer(minLength: 4)
 
-            Button {
-                requestWakeConfirmation()
-            } label: {
-                Label("Je suis levé", systemImage: "sun.max.fill")
-                    .font(.subheadline.weight(.bold))
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 11)
-                    .foregroundStyle(RobineTheme.night950)
-                    .background(RobineTheme.moon, in: Capsule())
+            if session.smartphoneDismissAllowed != false {
+                Button {
+                    requestWakeConfirmation()
+                } label: {
+                    Label("Je suis levé", systemImage: "sun.max.fill")
+                        .font(.subheadline.weight(.bold))
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 11)
+                        .foregroundStyle(RobineTheme.night950)
+                        .background(RobineTheme.moon, in: Capsule())
+                }
+                .disabled(bluetooth.isBusy)
+            } else {
+                Label("Arrêt sur le réveil", systemImage: "iphone.slash")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RobineTheme.muted)
             }
-            .disabled(bluetooth.isBusy)
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -321,8 +327,14 @@ private struct ActiveSessionCard: View {
             HStack(spacing: 12) {
                 Button("Répéter") { bluetooth.snooze() }
                     .buttonStyle(RobineSecondaryButtonStyle())
-                Button("Je suis levé", action: requestWakeConfirmation)
-                    .buttonStyle(RobinePrimaryButtonStyle())
+                if session.smartphoneDismissAllowed != false {
+                    Button("Je suis levé", action: requestWakeConfirmation)
+                        .buttonStyle(RobinePrimaryButtonStyle())
+                } else {
+                    Label("Arrêt depuis le smartphone désactivé", systemImage: "iphone.slash")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RobineTheme.muted)
+                }
             }
         }
         .robineCard(highlighted: true)
@@ -539,7 +551,7 @@ private struct EveningView: View {
                         SectionEyebrow(text: "Respiration 4 / 6", color: RobineTheme.twilightRose)
                         Spacer()
                         Image(systemName: "lightbulb.led.fill")
-                            .foregroundStyle(RobineTheme.breathingBlue)
+                            .foregroundStyle(RobineTheme.breathingInhaleAmber)
                     }
 
                     if bluetooth.hue?.breathing?.active == true,
@@ -572,13 +584,13 @@ private struct EveningView: View {
                         .buttonStyle(RobinePrimaryButtonStyle())
                         .disabled(bluetooth.isBusy)
                     } else {
-                        Text("L’orage reste naturel et constant. La lumière passe rapidement au bleu pour inspirer puis à l’ambre pour expirer ; seule son intensité évolue lentement.")
+                        Text("L’orage reste naturel et constant. La lumière glisse directement de l’ambre doré au rose crépusculaire, sans passer par le blanc ; seule son intensité évolue lentement.")
                             .font(.subheadline)
                             .foregroundStyle(RobineTheme.muted)
 
                         HStack(spacing: 14) {
-                            phaseLegend(color: RobineTheme.breathingBlue, title: "Inspiration", detail: "4 s · bleu · 2 → 30 %")
-                            phaseLegend(color: RobineTheme.breathingExhaleAmber, title: "Expiration", detail: "6 s · ambre · 30 → 2 %")
+                            phaseLegend(color: RobineTheme.breathingInhaleAmber, title: "Inspiration", detail: "4 s · ambre doré · 2 → 30 %")
+                            phaseLegend(color: RobineTheme.breathingExhaleRose, title: "Expiration", detail: "6 s · rose crépusculaire · 30 → 2 %")
                         }
 
                         Picker("Pièce ou zone", selection: $breathingTargetID) {
@@ -742,6 +754,46 @@ private struct SystemView: View {
                     MetricRow(icon: "shippingbox.fill", title: "Logiciel", detail: bluetooth.device?.firmware.version ?? "—", color: RobineTheme.lavender)
                 }
                 .robineCard()
+
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        SectionEyebrow(text: "Arrêt de l’alarme", color: RobineTheme.rose)
+                        Spacer()
+                        Toggle(
+                            "Autoriser le smartphone",
+                            isOn: Binding(
+                                get: { bluetooth.smartphoneDismiss.enabled },
+                                set: { bluetooth.setSmartphoneDismissEnabled($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .tint(RobineTheme.mint)
+                        .disabled(
+                            bluetooth.smartphoneDismiss.locked ||
+                            bluetooth.activeSession != nil ||
+                            bluetooth.isBusy
+                        )
+                    }
+
+                    Text(
+                        bluetooth.smartphoneDismiss.enabled
+                            ? "Le smartphone peut arrêter une alarme après le défi de réveil."
+                            : "L’alarme doit être arrêtée depuis le réveil ou le bouton déporté."
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(RobineTheme.muted)
+
+                    if bluetooth.smartphoneDismiss.locked || bluetooth.activeSession != nil {
+                        Label(
+                            "Réglage verrouillé jusqu’à la fin de l’alarme en cours.",
+                            systemImage: "lock.fill"
+                        )
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RobineTheme.moon)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .robineCard(highlighted: !bluetooth.smartphoneDismiss.enabled)
 
                 VStack(alignment: .leading, spacing: 15) {
                     HStack {
@@ -985,7 +1037,7 @@ private struct BreathingGuideView: View {
             let progress = phaseProgress(at: context.date)
             let inhales = breathing.phase == "inhale"
             let scale = inhales ? 0.68 + 0.32 * progress : 1.0 - 0.32 * progress
-            let phaseColor = inhales ? RobineTheme.breathingBlue : RobineTheme.breathingExhaleAmber
+            let phaseColor = inhales ? RobineTheme.breathingInhaleAmber : RobineTheme.breathingExhaleRose
 
             VStack(spacing: 14) {
                 ZStack {

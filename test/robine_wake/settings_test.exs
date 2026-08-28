@@ -143,11 +143,22 @@ defmodule RobineWake.SettingsTest do
 
     assert export.format == "robine-wake-configuration"
     assert length(export.alarms) == 1
+    assert export.smartphone_dismiss_enabled
     refute encoded =~ "do-not-export"
     refute encoded =~ "admin_password"
 
     assert :ok = Settings.erase_history()
     assert Settings.recent_sessions() == []
+  end
+
+  test "persists the smartphone dismissal preference and validates its type" do
+    assert Settings.smartphone_dismiss_enabled()
+    assert {:ok, false} = Settings.set_smartphone_dismiss_enabled(false)
+    refute Settings.smartphone_dismiss_enabled()
+    assert Settings.snapshot().smartphone_dismiss_enabled == false
+
+    assert {:error, %{smartphone_dismiss_enabled: "must be a boolean"}} =
+             Settings.set_smartphone_dismiss_enabled("false")
   end
 
   test "persists a versioned non-image detection profile" do

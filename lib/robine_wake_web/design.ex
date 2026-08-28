@@ -106,14 +106,14 @@ defmodule RobineWakeWeb.Design do
     .phase-visual strong, .phase-visual small { display: block; }
     .phase-visual strong { margin-bottom: .2rem; font-size: 1.35rem; }
     .phase-orb { flex: 0 0 auto; width: 4.5rem; height: 4.5rem; border-radius: 50%; transition: .25s ease; }
-    .phase-orb.inhale { background: radial-gradient(circle at 35% 30%, #dff4ff, #489cff 58%, #173d8f); box-shadow: 0 0 32px rgba(72,156,255,.42); transform: scale(1.05); }
-    .phase-orb.exhale { background: radial-gradient(circle at 35% 30%, #ffe2b8, #ff8937 58%, #86331f); box-shadow: 0 0 32px rgba(255,137,55,.38); transform: scale(.82); }
+    .phase-orb.inhale { background: radial-gradient(circle at 35% 30%, #f5cf87, #f5b75b 58%, #9b593f); box-shadow: 0 0 32px rgba(245,183,91,.38); transform: scale(1.05); }
+    .phase-orb.exhale { background: radial-gradient(circle at 35% 30%, #efafae, #e0698f 58%, #843d62); box-shadow: 0 0 32px rgba(224,105,143,.34); transform: scale(.82); }
     .phase-legends { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: 1.2rem 0; }
     .phase-legends > div { display: flex; align-items: center; gap: .75rem; padding: .9rem; border: 1px solid var(--line); border-radius: 1rem; background: rgba(7,10,24,.42); }
     .phase-legends span strong, .phase-legends span small { display: block; }
     .phase-legends i { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; border-radius: 50%; }
-    .inhale-dot { background: #489cff; box-shadow: 0 0 14px rgba(72,156,255,.52); }
-    .exhale-dot { background: #ff8937; box-shadow: 0 0 14px rgba(255,137,55,.48); }
+    .inhale-dot { background: #f5b75b; box-shadow: 0 0 14px rgba(245,183,91,.48); }
+    .exhale-dot { background: #e0698f; box-shadow: 0 0 14px rgba(224,105,143,.44); }
     .evening-controls { display: grid; grid-template-columns: 1.4fr .8fr 1.2fr; gap: .9rem; margin-top: 1.25rem; }
     .volume-control output { justify-self: end; margin-top: -1.75rem; }
     .breathing-actions { margin-top: 1.25rem; }

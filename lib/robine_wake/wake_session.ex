@@ -142,7 +142,8 @@ defmodule RobineWake.WakeSession do
       restored_started_at: restored_started_at,
       elapsed_ms: max(0, DateTime.diff(now, restored_started_at, :millisecond)),
       snooze_remaining_ms: snooze_remaining_ms,
-      restored_snoozed?: snooze_remaining_ms > 0
+      restored_snoozed?: snooze_remaining_ms > 0,
+      smartphone_dismiss_allowed: Settings.smartphone_dismiss_enabled()
     }
   end
 
@@ -167,7 +168,8 @@ defmodule RobineWake.WakeSession do
       requested_phase: context.requested_phase,
       last_observation: nil,
       terminal_reason: nil,
-      audio_error: nil
+      audio_error: nil,
+      smartphone_dismiss_allowed: context.smartphone_dismiss_allowed
     }
   end
 
@@ -291,8 +293,12 @@ defmodule RobineWake.WakeSession do
   end
 
   def handle_call({:dismiss, reason}, _from, state) do
-    next = complete(state, reason)
-    {:stop, :normal, {:ok, public(next)}, next}
+    if remote_dismiss_reason?(reason) and not state.smartphone_dismiss_allowed do
+      {:reply, {:error, :smartphone_dismiss_disabled}, state}
+    else
+      next = complete(state, reason)
+      {:stop, :normal, {:ok, public(next)}, next}
+    end
   end
 
   def handle_call(:snooze, _from, state) do
@@ -600,6 +606,8 @@ defmodule RobineWake.WakeSession do
     |> Map.drop([:alarm, :requested_phase])
     |> Map.put(:alarm, Alarm.to_map(state.alarm))
   end
+
+  defp remote_dismiss_reason?(reason), do: reason in [:smartphone, :mcp]
 
   defp active_pid do
     case Registry.lookup(RobineWake.Registry, :active_session) do

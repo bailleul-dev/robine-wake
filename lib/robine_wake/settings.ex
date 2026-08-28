@@ -29,6 +29,19 @@ defmodule RobineWake.Settings do
   def recent_sessions(limit \\ 20), do: GenServer.call(__MODULE__, {:recent_sessions, limit})
   def erase_history, do: GenServer.call(__MODULE__, :erase_history)
   def export_configuration, do: GenServer.call(__MODULE__, :export_configuration)
+  def smartphone_dismiss_enabled, do: GenServer.call(__MODULE__, :smartphone_dismiss_enabled)
+
+  def set_smartphone_dismiss_enabled(enabled) when is_boolean(enabled) do
+    if RobineWake.WakeSession.active() do
+      {:error, :smartphone_dismiss_setting_locked}
+    else
+      GenServer.call(__MODULE__, {:set_smartphone_dismiss_enabled, enabled})
+    end
+  end
+
+  def set_smartphone_dismiss_enabled(_enabled),
+    do: {:error, %{smartphone_dismiss_enabled: "must be a boolean"}}
+
   def detection_profile, do: GenServer.call(__MODULE__, :detection_profile)
   def hue_bridge, do: GenServer.call(__MODULE__, :hue_bridge)
   def remote_buttons, do: GenServer.call(__MODULE__, :remote_buttons)
@@ -219,10 +232,27 @@ defmodule RobineWake.Settings do
       format_version: 1,
       exported_at: DateTime.to_iso8601(Clock.utc_now()),
       alarms: state |> sorted_alarms() |> Enum.map(&Alarm.to_map/1),
-      detection_profile: state.settings["detection_profile"]
+      detection_profile: state.settings["detection_profile"],
+      smartphone_dismiss_enabled: smartphone_dismiss_enabled(state)
     }
 
     {:reply, export, state}
+  end
+
+  def handle_call(:smartphone_dismiss_enabled, _from, state),
+    do: {:reply, smartphone_dismiss_enabled(state), state}
+
+  def handle_call({:set_smartphone_dismiss_enabled, enabled}, _from, state) do
+    next = %{state | settings: Map.put(state.settings, "smartphone_dismiss_enabled", enabled)}
+
+    case persist(next) do
+      :ok ->
+        notify_scheduler()
+        {:reply, {:ok, enabled}, next}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   def handle_call(:detection_profile, _from, state),
@@ -334,6 +364,7 @@ defmodule RobineWake.Settings do
        alarms: sorted_alarms(state),
        sessions: Enum.take(state.sessions, 20),
        remote_buttons: state.settings |> Map.get("remote_buttons", %{}) |> map_size(),
+       smartphone_dismiss_enabled: smartphone_dismiss_enabled(state),
        degraded: state[:degraded]
      }, state}
   end
@@ -395,6 +426,9 @@ defmodule RobineWake.Settings do
 
   defp sorted_alarms(state),
     do: state.alarms |> Map.values() |> Enum.sort_by(&{&1.local_time, &1.id})
+
+  defp smartphone_dismiss_enabled(state),
+    do: Map.get(state.settings, "smartphone_dismiss_enabled", true)
 
   defp fetch_alarm(state, id) do
     case Map.fetch(state.alarms, id) do

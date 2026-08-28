@@ -18,8 +18,8 @@
    :lavender "#AAA7FF"
    :mint "#78D9BC"
    :rose "#FF8CA3"
-   :breathing-blue "#489CFF"
-   :breathing-amber "#FF8937"
+   :breathing-inhale-amber "#F5B75B"
+   :breathing-exhale-rose "#E0698F"
    :twilight-rose "#E0698F"})
 
 (defn c [key] (get colors key))
