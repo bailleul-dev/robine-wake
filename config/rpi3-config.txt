@@ -1,0 +1,27 @@
+# Robine Wake Raspberry Pi 3 boot configuration
+
+kernel=zImage
+disable_splash=1
+gpu_mem=192
+
+# Hardware buses and HiFiBerry Amp2. Disable the built-in analog audio device
+# so the Amp2 receives a stable ALSA card identity.
+dtparam=i2c_arm=on
+dtparam=spi=on
+dtparam=audio=off
+
+# HiFiBerry's onboard EEPROM contains a legacy Linux 4.x device-tree overlay.
+# Ignore it and load the current kernel overlay below instead.
+force_eeprom_read=0
+dtoverlay=hifiberry-dacplus
+
+# The camera feature is disabled; do not probe or load camera overlays.
+camera_auto_detect=0
+
+# Standard Nerves Raspberry Pi 3 peripherals.
+dtoverlay=rpi-ft5406
+dtoverlay=rpi-backlight
+dtoverlay=ramoops
+enable_uart=1
+dtoverlay=miniuart-bt
+core_freq=250

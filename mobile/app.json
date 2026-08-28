@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Robine Wake",
+    "slug": "robine-wake-cljs",
+    "version": "0.2.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "robinewake",
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "Robine Wake",
+      "shortName": "Robine Wake",
+      "lang": "fr",
+      "backgroundColor": "#070914",
+      "themeColor": "#0D1022"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "fr.robine.wake",
+      "buildNumber": "24",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Robine Wake communique avec votre réveil sur le réseau local.",
+        "NSBluetoothAlwaysUsageDescription": "Robine Wake utilise le Bluetooth pour communiquer directement avec votre réveil.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "fr.robine.wake"
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "bluetoothAlwaysPermission": "Robine Wake utilise le Bluetooth pour communiquer directement avec votre réveil."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font"
+    ]
+  }
+}

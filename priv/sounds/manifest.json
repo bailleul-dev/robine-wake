@@ -1,0 +1,54 @@
+[
+  {
+    "id": "storm_rain_lasonotheque_2719",
+    "title": "Orage et pluie 4",
+    "artist": "Joseph SARDIN · LaSonotheque.org",
+    "filename": "storm_rain_lasonotheque_2719.mp3",
+    "format": "mp3",
+    "duration_ms": 2092152,
+    "intensity": "meditation",
+    "sha256": "b1387e121ccb2b2bd48c1257366327d57b7ef3f0729fe319d9c426c68f109af8",
+    "license": "CC0-1.0",
+    "source_url": "https://lasonotheque.org/"
+  },
+  {
+    "id": "jungle_sunrise",
+    "title": "Jungle Sunrise",
+    "artist": "Nature's Eye",
+    "filename": "jungle_sunrise.mp3",
+    "format": "mp3",
+    "duration_ms": 976056,
+    "intensity": "gentle",
+    "sha256": "637950eccbd6343df2a74506c8d1d90bfd00db3298ed978fa586e4f4c689eb95"
+  },
+  {
+    "id": "sleep_music_vol_16",
+    "title": "Sleep Music · Vol. 16",
+    "artist": "Relaxing Time",
+    "filename": "sleep_music_vol_16.mp3",
+    "format": "mp3",
+    "duration_ms": 1207920,
+    "intensity": "gentle",
+    "sha256": "02937f1a1e78f982f4a10a51f03df6fd0e54527ff22e9ae9b89bcad0dd0f9a57"
+  },
+  {
+    "id": "jazz_for_breakfast",
+    "title": "Jazz for Breakfast",
+    "artist": "TokyoRifft",
+    "filename": "jazz_for_breakfast.mp3",
+    "format": "mp3",
+    "duration_ms": 242112,
+    "intensity": "bright",
+    "sha256": "654cd456c5f2623c84b021feeebe69b0151f8ca7ed0886aa5d30ec9717a9ab5d"
+  },
+  {
+    "id": "wake_up_call",
+    "title": "Wake Up Call",
+    "artist": "4379051",
+    "filename": "wake_up_call.mp3",
+    "format": "mp3",
+    "duration_ms": 71040,
+    "intensity": "strong",
+    "sha256": "938bb132edd55a6859c5913f0e69713e9ab1aff6e6d17b0d5aab3f92ed1976db"
+  }
+]

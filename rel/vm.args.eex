@@ -1,0 +1,4 @@
+-mode embedded
+-setcookie <%= @release.options[:cookie] %>
+-kernel prevent_overlapping_partitions false
+-env HEART_INIT_TIMEOUT 600

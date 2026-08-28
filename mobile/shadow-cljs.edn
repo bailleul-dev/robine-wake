@@ -1,0 +1,11 @@
+{:source-paths ["src" "test"]
+ :dependencies [[reagent "2.0.1"]]
+ :builds
+ {:app {:target :react-native
+        :init-fn robine-wake.app/init
+        :output-dir "app"
+        :compiler-options {:infer-externs :auto}}
+  :test {:target :node-test
+         :output-to "out/tests.js"
+         :ns-regexp "-test$"
+         :autorun true}}}

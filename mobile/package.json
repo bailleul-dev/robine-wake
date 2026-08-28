@@ -1,0 +1,47 @@
+{
+  "name": "robine-wake-expo",
+  "version": "0.2.1",
+  "main": "app/index.js",
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.14",
+    "@expo/ui": "~57.0.14",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
+    "@react-native-community/slider": "5.2.0",
+    "@react-native-picker/picker": "2.11.4",
+    "create-react-class": "^15.7.0",
+    "expo": "~57.0.17",
+    "expo-blur": "~57.0.2",
+    "expo-dev-client": "~57.0.16",
+    "expo-font": "~57.0.1",
+    "expo-glass-effect": "~57.0.1",
+    "expo-haptics": "~57.0.2",
+    "expo-linear-gradient": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-ble-plx": "^3.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "shadow-cljs": "^3.5.0",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "cljs:watch": "./scripts/shadow watch app",
+    "cljs:release": "./scripts/shadow release app",
+    "cljs:check": "./scripts/shadow compile test",
+    "start": "./scripts/shadow compile app && expo start --dev-client",
+    "web": "./scripts/shadow compile app && expo start --web",
+    "web:export": "./scripts/shadow release app && expo export --platform web --output-dir ../priv/web",
+    "ios": "./scripts/shadow compile app && expo run:ios",
+    "android": "./scripts/shadow compile app && expo run:android",
+    "prebuild": "expo prebuild",
+    "test": "./scripts/shadow compile test"
+  },
+  "private": true
+}

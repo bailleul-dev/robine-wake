@@ -1,0 +1,37 @@
+/_build/
+/deps/
+/doc/
+/cover/
+/.elixir_ls/
+erl_crash.dump
+*.fw
+*.img
+.DS_Store
+
+# Local configuration and credentials. Keep the public template tracked.
+.env
+.env.*
+!.env.dist
+/data/
+/tmp/
+/hardware/remote_button/.pio/
+/hardware/remote_button/include/local_config.h
+/nerves_system_rpi3/.nerves/
+/nerves_system_rpi3/build.log
+
+.derived/
+
+# iOS / fastlane
+/build/ios/
+/ios/RobineWake/fastlane/report.xml
+/ios/RobineWake/fastlane/Preview.html
+/ios/RobineWake/fastlane/screenshots/
+/ios/RobineWake/fastlane/test_output/
+/ios/RobineWake/fastlane/.env
+/ios/RobineWake/fastlane/*.p8
+/ios/RobineWake/*.ipa
+/ios/RobineWake/*.dSYM.zip
+/ios/RobineWake/*.cer
+/ios/RobineWake/*.mobileprovision
+/ios/RobineWake/.bundle/
+/ios/RobineWake/vendor/bundle/

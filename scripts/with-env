@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+env_file="${ROBINE_ENV_FILE:-$repo_root/.env}"
+
+if [[ -f "$env_file" ]]; then
+  set -a
+  # .env is deliberately shell-compatible so values containing spaces and #
+  # can be quoted without adding a runtime dependency.
+  source "$env_file"
+  set +a
+fi
+
+exec "$@"
