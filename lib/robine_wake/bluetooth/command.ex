@@ -339,6 +339,7 @@ defmodule RobineWake.Bluetooth.Command do
       :occupancy,
       :confidence
     ])
+    |> Map.update("test_mode", false, &(&1 in [true, "true"]))
   end
 
   defp select(map, keys) do

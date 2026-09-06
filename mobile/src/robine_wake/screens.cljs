@@ -132,7 +132,7 @@
      [theme/icon "pulse" 22 :rose]]
     [:> Text {:style (theme/js-style {:font-size 20 :font-weight "700" :color (theme/c :text)})}
      (if (= "strong" (:audio_phase session)) "Le son de renfort joue" "La lumière sonore monte doucement")]
-    [:> View {:style (theme/js-style {:flex-direction "row" :gap 12})}
+    [:> View {:style (theme/js-style {:flex-direction "row" :flex-wrap "wrap" :gap 12})}
      [theme/button {:title "Répéter" :on-press actions/snooze!}]
      (when (:test_mode session)
        [theme/button {:title "Arrêt direct" :compact true :on-press actions/dismiss!}])

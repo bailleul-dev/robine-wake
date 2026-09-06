@@ -1,6 +1,7 @@
 (ns robine-wake.app
   (:require [reagent.core :as r]
             [shadow.expo :as expo]
+            [robine-wake.actions :as actions]
             [robine-wake.challenge :refer [wake-challenge]]
             [robine-wake.editor :refer [alarm-editor]]
             [robine-wake.routes :as routes]
@@ -148,7 +149,7 @@
     :fallback-background "rgba(49,33,49,0.97)"
     :style {:position "absolute" :left (if desktop? 280 14)
             :right (if desktop? 24 14) :bottom (if desktop? 24 102)
-            :padding 12 :border-radius 22 :flex-direction "row"
+            :padding 12 :border-radius 22 :flex-direction "row" :flex-wrap "wrap"
             :align-items "center" :gap 12
             :border-width 1 :border-color "rgba(255,140,163,0.35)"
             :shadow-color "#000" :shadow-opacity 0.35 :shadow-radius 18}}
@@ -161,8 +162,8 @@
     [:> Text {:style (theme/js-style {:font-size 12 :color (theme/c :muted)})}
      (if (= "strong" (:audio_phase session)) "Son de renfort" "Réveil progressif")]]
    (when (:test_mode session)
-       [theme/button {:title "Arrêt direct" :compact true :on-press actions/dismiss!}])
-     (if (not= false (:smartphone_dismiss_allowed session))
+     [theme/button {:title "Arrêt direct" :compact true :on-press actions/dismiss!}])
+   (if (not= false (:smartphone_dismiss_allowed session))
      [theme/button {:title (if (:test_mode session) "Tester l’arrêt" "Je suis levé")
                     :icon-name "sunny" :variant :primary :compact true
                     :on-press #(store/set-state! :challenge {:session-id (:id session)})}]

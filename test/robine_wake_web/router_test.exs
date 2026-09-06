@@ -102,6 +102,9 @@ defmodule RobineWakeWeb.RouterTest do
 
       assert stopped.status == 200
       assert WakeSession.active() == nil
+
+      assert %{"body" => %{"recent_sessions" => [%{"test_mode" => true} | _]}} =
+               BluetoothCommand.execute(%{"v" => 1, "op" => "state.get", "body" => %{}})
     end
   end
 
