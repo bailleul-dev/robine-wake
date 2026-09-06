@@ -1,8 +1,21 @@
 # MVP Implementation Status
 
-Status date: 2026-08-20
+Historical implementation audit: 2026-08-20. Product scope updated 2026-09-06.
 
-## Delivered software scope
+## Current product scope and pending implementation
+
+Camera, infrared illumination, visual calibration, bed-presence detection and
+automatic bed-exit dismissal are removed, not deferred. The accepted P1 addition
+is [DIY bed vibration](specs/30/004-bed-vibration/spec.md) for breathing, music and
+progressive waking, coupled to the rigid frame/casing of the user's slatted bed.
+
+This change updates specifications only. Existing camera code and controls still
+need removal; tactile hardware/control, manual-only legacy migration and updated
+host scenarios still need implementation and validation. The earlier delivery and
+test evidence below is a historical snapshot, including capabilities since retired;
+it does not describe the new scope as already delivered.
+
+## Historical delivered software scope — 2026-08-20
 
 The repository contains a bootable Nerves application for Raspberry Pi 3 and a
 fully runnable host simulation. The current MVP implements:
@@ -45,7 +58,7 @@ fully runnable host simulation. The current MVP implements:
 No image is stored by the application and no cloud service is required for the
 alarm, audio, or bed-exit decision path.
 
-## Verified on the development host
+## Historical verification on the development host
 
 The following checks pass:
 
@@ -85,7 +98,7 @@ The AirPlay implementation currently targets classic AirPlay through Shairport
 Sync. AirPlay 2 is intentionally deferred until its larger FFmpeg/Avahi/NQPTP
 stack and timing behavior have been measured on the Raspberry Pi 3.
 
-## Verified on target hardware
+## Historical verification on target hardware
 
 On 2026-08-20, a Raspberry Pi 3 B+ revision 1.3 (`a020d3`) at
 The test Raspberry Pi booted the signed firmware from the validated B slot. A
@@ -115,33 +128,26 @@ recovered after the configured two-second delay without restarting the BEAM.
 End-to-end music playback and acoustic-limit measurement remain to be confirmed
 from an Apple source device.
 
-## Required hardware validation
+## Required validation for the current scope
 
-The software MVP is ready for hardware bring-up, but the physical product is
-not accepted until the following checks have been completed on the intended
-unit:
+1. Verify camera-free boot, UI/API/health and exports, plus legacy dismissal/profile
+   migration with schedules, snoozes and session deadlines preserved.
+2. Record the final enclosure and wiring. Measure the main and tactile power
+   circuits separately, with the required margin and protected external supply.
+3. Measure audible startup, ramp, ceiling, distortion, stop and restart behavior.
+4. Validate the chosen motor/generator and power stage, stable control, frame fixation,
+   occupied-bed distribution and transmission to the floor before setting limits.
+5. Measure breathing/music synchronization, ramp limits and shutdown; inject
+   tactile failures without delaying the audible strong fallback or physical stop.
+6. Exercise reboot, power/network loss, untrusted time, DST, snooze and timeout.
+7. Complete thermal, electrical, mechanical, acoustic, privacy and endurance
+   gates listed in [simulation and validation](specs/80/001-simulation-validation/spec.md).
 
-1. Record the enclosure geometry. The Raspberry Pi, HiFiBerry, and bring-up
-   power supply are recorded above. The selected camera candidate is APKLVSR V0348,
-   advertised as OV5647 with two 850 nm IR boards; confirm the received hardware,
-   focus mechanism, current, temperature, and optical characteristics.
-2. Measure audible startup latency, volume ramp, maximum safe volume, distortion, and
-   behavior after stopping and restarting playback.
-3. Confirm the camera device and `rpicam-still` capture path in complete
-   darkness with the selected infrared illumination.
-4. Calibrate the bed region in the installed camera position and measure false
-   exits, missed exits, occlusion behavior, and the `unknown` fail-safe path
-   across expected bedding and sleeping positions.
-5. Run scheduled alarms across reboot, power loss, network loss, invalid wall
-   clock, daylight-saving transitions, snooze, and maximum-session timeout.
-6. Complete first-run password provisioning at `/setup` and verify that only
-   the PBKDF2 credential document and application state are persisted under
-   `/data`.
-7. Complete thermal, electrical, acoustic, privacy, and overnight soak tests.
+Camera procurement, nighttime capture/calibration and visual false-exit datasets
+are no longer delivery gates. Documentation changes are not firmware validation.
 
-## Deliberate MVP boundaries
+## Deliberate boundaries
 
-The current MVP does not include remote cloud control, video recording, face or
-identity recognition, a hardware dismiss button, or an external real-time
-clock. Those capabilities require a separate acceptance decision and, for
-hardware items, a selected component and wiring design.
+No cloud dependency, camera, presence sensor, sleep-stage inference or automatic
+presence-based dismissal is part of the current product. The tactile system is
+optional in operation; a disabled or unconfigured unit supports audio-only alarms.

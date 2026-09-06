@@ -4,7 +4,12 @@
 
 Status: research baseline and product design input, not a medical claim.
 
-Last literature search: 2026-08-20.
+Last literature search: 2026-08-20. Product scope revised: 2026-09-06.
+Camera, bed-presence feedback and automatic bed-exit dismissal are removed.
+The calibrated envelope below remains a design target, not a claim of deployed
+behavior. The current two-stage timing contract is recorded in
+[the wake-session specification](../../20/002-wake-session/spec.md); the scope
+change does not itself retime that audio implementation.
 
 This specification defines what Robine Wake means by a gentle awakening, which
 mechanisms are supported by human research, and how those mechanisms should be
@@ -59,9 +64,9 @@ Its severity is affected by at least:
 - **person and context** — chronotype, sleep debt, age, health, habitual behaviour,
   and task all contribute large variability.
 
-Consequently, a bedroom camera can support occupancy and bed-exit detection, but
-movement alone cannot establish sleep stage, circadian phase, alertness, or fitness
-to perform a safety-critical task.
+Robine Wake does not measure sleep stage, circadian phase, alertness or fitness
+to perform a safety-critical task. An explicit button response is not proof that
+sleep inertia has dissipated.
 
 ## Evidence map
 
@@ -78,7 +83,7 @@ the researchers or the plausibility of the mechanism.
 | preferred music | limited studies suggest benefits to comfort, sleepiness, or response speed | low | expose sound choice and learn preference; avoid one universal "best" track |
 | gradual audio loudness | no controlled evidence establishes an optimal duration or curve | insufficient | treat the envelope as a product hypothesis and calibrate/test it |
 | low-frequency tone or voice | wakes children and emergency-study populations more reliably than high-pitched alarms | moderate for emergency arousal; low for this product | consider for the strong fallback, not as proof of a pleasant adult awakening |
-| waking in "light sleep" | stage effects are inconsistent and practical stage estimation is imperfect | insufficient | never delay the hard deadline; do not claim optimal-stage waking from camera motion |
+| waking in "light sleep" | stage effects are inconsistent and practical stage estimation is imperfect | insufficient | never delay the hard deadline; do not claim optimal-stage waking |
 | snoozing | two small laboratory studies conflict; habitual snoozers may differ | low | make snooze explicit and measurable, not the default gentle mechanism |
 | temperature manipulation | promising subjective effects in older small studies; multimodal trial was null overall | insufficient | defer until independently testable hardware exists |
 | vibration | can wake sleepers and may be pleasant, but evidence targets prototypes or emergency/clinical use | low | optional secondary channel, not a replacement for the reliable audio fallback |
@@ -104,8 +109,9 @@ itself causes the previously assumed burst in cortisol secretion.
 
 **Design rule:** if light hardware is added, the default product profile is a
 30-minute dawn. Light duration must not be shortened because a non-EEG sensor
-labels the user as being in light sleep. The system must record pre-alarm wake and
-allow the intervention to be disabled.
+labels the user as being in light sleep. Record intervention start and explicit
+pre-alarm user interactions, without inferring sleep or wake state, and allow the
+intervention to be disabled.
 
 ### Sound identity
 
@@ -185,10 +191,10 @@ is a psychoacoustic engineering choice, not an outcome from an alarm trial.
 
 ### H4 — Failure is behavioural, not volumetric
 
-The gentle phase has failed when no credible wake behaviour occurs before its
-deadline. It has not failed merely because a volume curve reached its last point.
-Camera movement may pause escalation, and confirmed bed exit may dismiss the
-alarm, but uncertain or missing vision can never delay the fallback.
+For this camera-free product, absence of response means no authorized explicit
+snooze or dismissal before the deadline. Elapsed non-response triggers the strong
+fallback. No movement, occupancy or inferred sleep state can pause escalation;
+reaching the tactile ceiling cannot change the audio deadline.
 
 ### H5 — The fallback changes meaning before maximising level
 
@@ -208,13 +214,15 @@ only the actuator used to reach it.
 
 Future visible-light hardware should begin a slow environmental transition before
 the requested time. Audio remains the unambiguous declaration that wake time has
-arrived. The infrared camera illuminator is not a dawn signal and must not be used
-as one.
+arrived. Visible-light and tactile preparation remain independently configurable.
 
-## Selected Robine Wake envelope
+## Calibrated Robine Wake envelope — design target
 
-This is the product baseline derived from the hypotheses above. It deliberately
-replaces the current five-minute linear logical-volume ramp.
+This is the proposed calibrated profile derived from the hypotheses above. Its
+implementation and acoustic acceptance remain separate from the camera-removal
+and tactile work; current timing remains defined by `20-002` until that profile
+is implemented. The table below must not be combined with the current pre-wake
+ramp and five-minute plateau as though they were one timeline.
 
 Let:
 
@@ -243,18 +251,13 @@ of derivative, and reaches a useful level quickly. The later progression is step
 because the product is trying to renew salience, not draw an aesthetically smooth
 graph.
 
-### Camera feedback
+### Explicit response only
 
-- Credible movement during the gentle phase freezes the next escalation for 30 s.
-- Additional credible movement may extend that freeze once, for a maximum total
-  extension of 60 s.
-- Gain never falls merely because movement was observed.
-- Confirmed continuous bed vacancy follows the dismissal policy.
-- No signal, low confidence, an occupied bed, or a camera failure follows the
-  original 162 s fallback deadline.
-
-The strong deadline is therefore 162 s normally and at most 222 s when positive
-wake behaviour is observed. It is never extended by an inferred sleep stage.
+Only an authorized snooze or dismissal interrupts the escalation timeline.
+No movement-based extension exists. In the proposed calibrated profile, the
+strong crossfade therefore starts at 162 seconds with no former 60-second
+extension. For the current implementation, retain the deadline in `20-002`.
+Tactile output follows the same session clock and never postpones either deadline.
 
 ### Track preparation
 
@@ -272,11 +275,9 @@ sleep than wake and show inconsistent stage classification. One published smart
 alarm predictor reported only 66–70% four-class accuracy and did not establish a
 clinically meaningful improvement in morning function.
 
-Robine Wake's infrared camera observes movement and bed occupancy. It must not
-label N1, N2, N3, or REM, and it must not shift an alarm on that basis. A future
-probabilistic wake-opportunity signal may choose when to begin a non-disruptive
-prelude inside a user-authorised window, but it may not alter the base strong
-deadline. Only the bounded positive-movement rule above may extend escalation.
+Robine Wake has no camera or presence sensor and must not label N1, N2, N3 or
+REM. Any prelude is determined by explicit user settings and time, never an
+inferred sleep stage or detected movement.
 
 ### Snooze
 
@@ -293,46 +294,39 @@ profiles. Never describe snoozing as proven beneficial or harmful for everyone.
 
 ### Confirmation versus alertness
 
-Bed exit is a valuable behavioural confirmation that a person responded. It is not
-evidence that sleep inertia has ended. The device should distinguish:
-
-- `auditory_response`: interaction with the alarm;
-- `bed_exit_started`: credible transition away from the bed;
-- `bed_exit_confirmed`: continuous vacancy satisfies dismissal policy;
-- `wake_acknowledged`: explicit user interaction, distinct from bed exit and never
-  treated as proof that cognitive sleep inertia has ended.
+Record explicit snooze and authorized dismissal as user interactions. The system
+does not confirm bed exit or cognitive alertness. A physical response acknowledges
+the alarm, without proving that sleep inertia has ended.
 
 ## Evidence-informed wake sequence
 
 ```text
-optional 30-minute light prelude
-              |
-scheduled audio onset -> melodic audible invitation -> response observed?
-                                                    | yes
-                                                    v
-                                            confirm bed exit
-                                                    |
-                                                    v
-                                                  stop
-                                                    ^
-                                                    |
-                       no response -> discrete escalation -> strong fallback
+optional light prelude
+        |
+scheduled audio + optional progressive vibration
+        |
+        +-- authorized physical dismissal --> stop outputs
+        +-- authorized snooze --> silence outputs --> restart
+        +-- no explicit response --> strong audio at its fixed deadline
+                                      |
+                                      +--> dismissal / snooze / safety timeout
 ```
 
-The camera affects confirmation and escalation observations, never whether the
-scheduled alarm initially sounds. Loss of camera input leaves the audio path active.
+The vibration mode is defined in
+[bed vibration](../../30/004-bed-vibration/spec.md). Its failure does not suppress
+or delay the audible fallback. No presence signal participates in this sequence.
 
 ## Product diagnostics
 
 Each wake session should eventually support the following privacy-preserving event
-data, without retaining images:
+data, without collecting images or presence observations:
 
 - scheduled time, actual audio onset, and audio-start latency;
 - envelope segment, sound ID, normalised track loudness, mixer dB, and calibration
   profile identifier for every transition;
-- first detected movement, interaction, bed-exit start, confirmed exit, snooze,
-  escalation, dismissal, and return-to-bed when observable;
-- minutes of any pre-wake intervention and probable wake before scheduled time;
+- explicit interaction, snooze, escalation, dismissal and timeout;
+- tactile mode, calibrated intensity, limiter/cutoff events and failures;
+- minutes of any pre-wake intervention and explicit pre-alarm interactions;
 - the configured acoustic calibration and the fallback deadline applied.
 
 Raw camera frames, inferred medical conditions, and definitive sleep-stage labels
@@ -344,7 +338,7 @@ Commissioning is a hardware verification step, not a human-subject experiment. I
 must confirm that both installed speakers reproduce the requested levels at the
 pillow position, that transitions are click-free, that the limiter prevents output
 above 72 dBA under the calibration track, and that the strong fallback still starts
-on time with the camera disconnected.
+on time with the tactile output disconnected or failed.
 
 ## Requirements
 
@@ -355,19 +349,22 @@ on time with the camera disconnected.
 - `GWA-003` — Audio envelopes shall be defined in calibrated dB transitions rather
   than raw mixer percentages alone.
 - `GWA-004` — The strong fallback deadline shall be independent of sleep-stage
-  inference and camera availability.
-- `GWA-005` — Infrared observations shall not be presented as clinical sleep-stage
-  measurements.
-- `GWA-006` — Bed exit shall be treated as behavioural response, not proof that
-  cognitive sleep inertia has dissipated.
-- `GWA-007` — The default audio profile shall implement the fade–hold–step–fallback
-  envelope defined in this specification.
+  inference and tactile availability.
+- `GWA-005` — Retired: interpretation of infrared observations.
+- `GWA-006` — Retired: interpretation of detected bed exit.
+- `GWA-007` — Planned calibrated audio profile: implement the fade–hold–step–fallback
+  envelope after its separate implementation and acoustic validation; current
+  runtime timing is specified by `20-002`.
 - `GWA-008` — Any light prelude shall be user-controlled and shall not move the hard
   wake deadline.
-- `GWA-009` — Positive camera movement may pause escalation only within the bounded
-  60-second extension; all other camera states preserve the normal fallback deadline.
+- `GWA-009` — Retired: movement-based escalation extension is removed.
 - `GWA-010` — The interface shall label research-derived facts separately from
   hypothesis-driven product settings.
+
+- `GWA-011` — Only authorized explicit interactions shall interrupt escalation;
+  no presence or movement signal shall delay the selected strong deadline.
+- `GWA-012` — User acknowledgement shall not be presented as proof of bed exit
+  or recovered cognitive alertness.
 
 ## Research references
 

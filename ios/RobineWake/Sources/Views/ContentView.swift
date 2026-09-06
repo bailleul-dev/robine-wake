@@ -52,7 +52,8 @@ struct ContentView: View {
             AlarmEditor(draft: AlarmDraft(sounds: bluetooth.sounds))
         }
         .fullScreenCover(item: $wakeChallenge) { request in
-            WakeChallengeView(sessionID: request.id) {
+            WakeChallengeView(sessionID: request.id, allowsDirectStop: bluetooth.activeSession?.testMode == true) {
+                guard wakeChallenge?.id == request.id else { return }
                 wakeChallenge = nil
                 bluetooth.dismissSession()
             }
@@ -112,11 +113,16 @@ private struct GlobalAlarmControls: View {
 
             Spacer(minLength: 4)
 
+            if session.testMode == true {
+                Button("Arrêt direct") { bluetooth.dismissSession() }
+                    .buttonStyle(RobineSecondaryButtonStyle())
+                    .disabled(bluetooth.isBusy)
+            }
             if session.smartphoneDismissAllowed != false {
                 Button {
                     requestWakeConfirmation()
                 } label: {
-                    Label("Je suis levé", systemImage: "sun.max.fill")
+                    Label(session.testMode == true ? "Tester l’arrêt" : "Je suis levé", systemImage: "sun.max.fill")
                         .font(.subheadline.weight(.bold))
                         .padding(.horizontal, 15)
                         .padding(.vertical, 11)
@@ -327,9 +333,15 @@ private struct ActiveSessionCard: View {
             HStack(spacing: 12) {
                 Button("Répéter") { bluetooth.snooze() }
                     .buttonStyle(RobineSecondaryButtonStyle())
+                if session.testMode == true {
+                    Button("Arrêt direct") { bluetooth.dismissSession() }
+                        .buttonStyle(RobineSecondaryButtonStyle())
+                }
                 if session.smartphoneDismissAllowed != false {
-                    Button("Je suis levé", action: requestWakeConfirmation)
-                        .buttonStyle(RobinePrimaryButtonStyle())
+                    Button(session.testMode == true ? "Tester l’arrêt" : "Je suis levé") {
+                        requestWakeConfirmation()
+                    }
+                    .buttonStyle(RobinePrimaryButtonStyle())
                 } else {
                     Label("Arrêt depuis le smartphone désactivé", systemImage: "iphone.slash")
                         .font(.caption.weight(.semibold))
@@ -786,7 +798,7 @@ private struct SystemView: View {
 
                     if bluetooth.smartphoneDismiss.locked || bluetooth.activeSession != nil {
                         Label(
-                            "Réglage verrouillé jusqu’à la fin de l’alarme en cours.",
+                            "Réglage verrouillé sur le réveil.",
                             systemImage: "lock.fill"
                         )
                         .font(.caption.weight(.semibold))

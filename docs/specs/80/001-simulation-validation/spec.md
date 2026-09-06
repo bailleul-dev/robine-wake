@@ -2,104 +2,114 @@
 
 ## Purpose
 
-Enable full software progress before the camera arrives and before Raspberry Pi
-access is available, then govern progressive hardware validation.
+Validate the camera-free alarm and its DIY tactile extension on host, then on
+Raspberry Pi and the installed bed. Scope revised 2026-09-06; newly specified
+checks are acceptance work, not claims that tests have already passed.
 
 ## Test pyramid
 
-1. **Unit**: time calculation, session transitions, validation, and scoring.
-2. **Property**: no duplicate session, volume bounds, and idempotence.
-3. **Host integration**: supervisors with simulated adapters.
-4. **Vision scenarios**: frame sequences with ground truth.
-5. **Firmware smoke**: boot, devices, network, and storage.
-6. **Hardware system**: measured audio, nighttime IR, power loss, and endurance.
+1. **Unit**: time calculation, session transitions, validation and bounded envelopes.
+2. **Property**: no duplicate session, gain bounds, idempotence and stale ownership.
+3. **Host integration**: supervisors with simulated audio and tactile adapters.
+4. **Session scenarios**: breathing, music, alarm preemption and explicit controls.
+5. **Firmware smoke**: boot, devices, actuator interface, network and storage.
+6. **Hardware system**: measured audio/tactile timing, mounting, power and endurance.
 
 ## Simulation adapters
 
 ### Clock
 
-A manually advanced virtual clock with separate UTC, time-zone, and monotonic
-values. It simulates NTP jumps, restart, and DST transitions without real `sleep`.
+A manually advanced virtual clock with separate UTC, time-zone and monotonic
+values simulates NTP jumps, restart and DST without real sleeps.
 
-### Audio
+### Audio and vibration
 
-Records commands, timestamps, and gain; can inject unavailability, latency,
-transient failure, or a crash. It verifies session identifiers.
-
-### Camera
-
-Reads fixtures as images or synthetic matrices with timestamps. It can lose,
-delay, duplicate, or corrupt frames and change their quality.
+Record commands, timestamps, gain and owner; inject unavailability, latency,
+transient failure, blocked generation, lost control or a crash. The tactile
+adapter verifies envelopes, calibration limits and stop deadlines without hardware.
+No camera adapter, image fixture or detector is required by the active product suite.
 
 ### Storage and network
 
-Storage simulates partial writes, full disk, and old schema versions. Network
-simulates absence, reconnection, and late time synchronization.
+Storage simulates partial writes, full disk and old schema versions, including
+retired presence policies and exit candidates. Network simulates absence,
+reconnection and late time synchronization.
 
 ## Minimum scenario catalog
 
+IDs are never reused. Retired image scenarios remain listed for old reports.
+
 | ID | Scenario | Expected result |
 |---|---|---|
-| `SIM-001` | alarm, occupied bed, 30-second exit | dismissed by bed exit |
-| `SIM-002` | movement followed by stillness | alarm continues |
-| `SIM-003` | camera lost while ringing | safe mode; sound continues |
-| `SIM-004` | bed vacant before trigger | sound, then timed confirmation |
-| `SIM-005` | vacancy for 20 seconds, then return | candidate cancelled |
-| `SIM-006` | three snoozes, then a fourth | fourth rejected |
-| `SIM-007` | restart while ringing | session restored |
+| `SIM-001` | Retired: confirmed bed exit | no longer a delivery gate |
+| `SIM-002` | Retired: motion/stillness | no longer a delivery gate |
+| `SIM-003` | Retired: camera loss | no longer a delivery gate |
+| `SIM-004` | Retired: initially vacant bed | no longer a delivery gate |
+| `SIM-005` | Retired: interrupted vacancy | no longer a delivery gate |
+| `SIM-006` | three snoozes, then a fourth | fourth rejected; accepted snoozes silence outputs |
+| `SIM-007` | restart while ringing | deadlines preserved; tactile restarts from calibrated initial level |
 | `SIM-008` | clock jumps forward 10 minutes | catch-up policy applied |
-| `SIM-009` | audio failure | retries, then critical error |
-| `SIM-010` | saturated image | `unknown` observation |
-
-## Vision fixtures
-
-Synthetic fixtures are preferred initially. Future real captures must be
-consensual, restricted to the useful region, and anonymized where possible. A
-manifest records origin, conditions, resolution, annotation, and license.
-Sensitive fixtures are not committed to a public repository.
+| `SIM-009` | audio failure | retries, then critical error; controls remain available |
+| `SIM-010` | Retired: saturated image | no longer a delivery gate |
+| `SIM-011` | tactile enabled, then unavailable | sound and its strong deadline continue |
+| `SIM-012` | physical dismissal / snooze / timeout | tactile silence within specified deadline |
+| `SIM-013` | old `bed_exit` / `either` settings and exit candidate | manual policy and ringing recovery without retiming |
+| `SIM-014` | obsolete observations and confirmation timers | no dismissal or escalation extension |
+| `SIM-015` | 20 breathing cycles and phone disconnect | 4/6 timing continues and session ends locally |
+| `SIM-016` | music pause, mute, lost source | both outputs silent |
+| `SIM-017` | alarm preempts music or breathing | one tactile owner; stale commands ignored |
+| `SIM-018` | invalid/missing tactile calibration | bounded rejection or inactive default; alarm still sounds |
+| `SIM-019` | blocked tactile generator or lost control | electrical cutoff within one second; model residual mechanical decay; no runaway restart |
+| `SIM-020` | camera-free startup and interface | no capture/detector worker, presence state or calibration command |
 
 ## Hardware validation milestones
 
-- `VAL-HW-001`: Nerves boot and Pi 3 inventory;
-- `VAL-HW-002`: HiFiBerry detection and WAV playback;
-- `VAL-HW-003`: identify the received APKLVSR V0348/OV5647, then complete a
-  stable 30-minute 320×240, 5 frames/s capture in darkness while recording
-  stale frames, CPU load, undervoltage, IR switching, temperature, and current;
-- `VAL-HW-004`: nighttime calibration in the target bedroom;
-- `VAL-HW-005`: end-to-end scenario with bed exit;
-- `VAL-HW-006`: 8-hour endurance run followed by power-cycle recovery;
-- `VAL-HW-007`: campaign of 100 annotated scenarios.
+- `VAL-HW-001`: Nerves boot and Pi 3 inventory, without a camera dependency;
+- `VAL-HW-002`: HiFiBerry detection, playback, acoustic ceiling and startup latency;
+- `VAL-HW-003`: retired — camera capture;
+- `VAL-HW-004`: retired — nighttime visual calibration;
+- `VAL-HW-005`: retired — bed-exit scenario;
+- `VAL-HW-006`: eight-hour endurance and power-cycle recovery;
+- `VAL-HW-007`: retired — annotated visual scenarios;
+- `VAL-HW-008`: actuator/controller, stable addressing, dedicated power stage/supply and cutoff;
+- `VAL-HW-009`: occupied slatted-bed mounting, distribution, floor noise and calibration;
+- `VAL-HW-010`: breathing/music timing, wake escalation and explicit output shutdown;
+- `VAL-HW-011`: physical dismissal and audible fallback with tactile/network loss;
+- `VAL-HW-012`: camera-free boot, legacy data migration and clean UI/health/exports.
 
-Every milestone records date, hardware/firmware, commands, results, metrics,
-deviations, and decision. An undocumented tuning change must not hide a failure.
+Record date, hardware/firmware versions, wiring, commands, measurements,
+deviations and decisions for every active milestone. Document per-circuit peak
+current with 25% supply margin, thermal measurements, stable fixation, synchronization
+at start/end of sessions and behavior under forced output failures. Do not hide a
+failed run by silently changing the calibration. Tactile timing and thermal
+acceptance are specified in `30-004`. Exact frequency and faithful audio reproduction
+are not gates; measure starting threshold, comfort, noise and motor coasting.
 
-For `VAL-HW-003`, preserve the output of camera enumeration, a redacted health
-snapshot, firmware hash, camera-board photographs, power measurements with IR
-off/on, maximum recorded temperatures, frame count, stale-frame count, and
-process memory before/after. Nighttime sample pixels remain private test data
-and are not committed to this repository.
+## Delivery gates
 
-## MVP delivery gates
-
-- all P0 tests pass on `host`;
-- state machines and critical errors are covered;
-- property tests show no duplicate trigger;
-- normal mode persists no pixels;
-- `VAL-HW-001` through `VAL-HW-006` pass;
-- false-dismissal targets are evaluated and documented;
-- manual dismissal is tested with camera and network disconnected.
+- P0: all active offline alarm tests, explicit physical controls, no duplicate
+  trigger, audible fault reporting, legacy policy migration and camera-free startup;
+- P0 hardware: `VAL-HW-001`, `VAL-HW-002`, `VAL-HW-006`, `VAL-HW-011`, `VAL-HW-012`;
+- P1 tactile: `VAL-HW-008`, `VAL-HW-009`, `VAL-HW-010`, and endurance with vibration;
+- no image dataset, optical acceptance or false-bed-exit metric remains required;
+- disabled/unconfigured vibration must leave a fully usable audio-only product.
 
 ## Requirements
 
 - `TST-001` — No domain test shall use real time or `sleep`.
 - `TST-002` — Every P0 requirement shall link to at least one test.
-- `TST-003` — Failure injection shall cover every adapter.
-- `TST-004` — Vision results shall be reproducible with a fixed seed.
+- `TST-003` — Failure injection shall cover every active adapter.
+- `TST-004` — Retired: seeded vision tests.
 - `TST-005` — Hardware validations shall record versions and revisions.
 - `TST-006` — Sensitive real-world data shall remain outside public repositories.
+- `TST-007` — Tactile timing, limits, ownership and cutoff shall be reproducible
+  with the host clock and simulated output.
+- `TST-008` — Legacy camera/presence removal shall be verified across boot, alarms,
+  active-session recovery, interfaces, health and exports.
 
 ## Acceptance criteria
 
-One command runs the host suite and generates a report of scenarios, covered
-requirements, and failures. Hardware validation uses the same report format so
-simulation and target results can be compared.
+One command runs the host suite and generates a report of active scenarios,
+covered requirements and failures. Reports label retired IDs explicitly and must
+not count their old test results as evidence for new vibration requirements.
+Hardware records use the same format, with all tactile measurements attached.

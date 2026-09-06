@@ -10,7 +10,15 @@ defmodule RobineWake.DomainCase do
     end
   end
 
-  setup do
+  setup context do
+    original_remote_dismiss = Application.fetch_env!(:robine_wake, :remote_dismiss_enabled)
+
+    Application.put_env(
+      :robine_wake,
+      :remote_dismiss_enabled,
+      Map.get(context, :remote_dismiss_enabled, true)
+    )
+
     original_clock = Application.fetch_env!(:robine_wake, :clock)
 
     if pid = Process.whereis(RobineWake.Clock.Manual), do: Agent.stop(pid)
@@ -45,6 +53,7 @@ defmodule RobineWake.DomainCase do
     on_exit(fn ->
       if RobineWake.WakeSession.active(), do: RobineWake.WakeSession.dismiss(:test_cleanup)
       Application.put_env(:robine_wake, :clock, original_clock)
+      Application.put_env(:robine_wake, :remote_dismiss_enabled, original_remote_dismiss)
       if Process.alive?(manual_clock), do: Agent.stop(manual_clock)
     end)
 

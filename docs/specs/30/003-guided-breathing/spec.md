@@ -1,4 +1,4 @@
-# 30-003 — Respiration guidée Hue et ambiance sonore
+# 30-003 — Respiration guidée : lumière, son et vibration
 
 ## Objectif
 
@@ -88,6 +88,22 @@ santé ni une séance de musicothérapie conduite par un professionnel.
 Une alarme arrête d’abord l’ambiance respiratoire et récupère ensuite la sortie
 HiFiBerry, même si son profil lumineux est désactivé.
 
+## Vibration du lit — extension spécifiée
+
+La séance peut activer le canal tactile décrit dans
+[la spécification du lit](../004-bed-vibration/spec.md). Son intensité est réglée
+séparément du son. Il reprend exactement les phases et échéances monotones 4/6
+existantes : montée douce à l'inspiration, descente à l'expiration et arrêt
+automatique à la fin de la durée choisie. Une fréquence approximative convient ;
+la commande compense autant que nécessaire le seuil et l'inertie de l'actionneur.
+
+La vibration n'impose aucun suivi de présence ni capteur respiratoire. Une panne
+de l'un des médias laisse continuer les autres médias disponibles. Une alarme
+préempte aussi la vibration respiratoire ; l'arrêt de séance libère toutes les
+sorties. La configuration tactile est désactivée par défaut tant que le lit n'a
+pas été calibré. Les commandes devront transporter cette option et son intensité
+sans modifier la cadence ni casser les clients existants qui omettent ces champs.
+
 ## Exigences
 
 - `BRTH-001` — Le rythme nominal est exactement 4 s / 6 s et appartient au
@@ -103,6 +119,11 @@ HiFiBerry, même si son profil lumineux est désactivé.
 - `BRTH-007` — La panne d’un média ne doit pas arrêter l’autre.
 - `BRTH-008` — Une durée parmi 3, 5, 10, 15, 20 ou 30 minutes doit être imposée par le
   Raspberry Pi, avec arrêt automatique et restauration complète.
+
+- `BRTH-009` — La vibration optionnelle doit partager la phase 4/6 et la durée
+  de séance, avec intensité indépendante et absence de dérive cumulée.
+- `BRTH-010` — Arrêt, fin de durée et préemption par une alarme doivent libérer
+  aussi la sortie tactile ; sa panne ne doit pas interrompre lumière et son.
 
 ## Validation
 

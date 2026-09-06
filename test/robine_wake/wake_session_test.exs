@@ -174,6 +174,21 @@ defmodule RobineWake.WakeSessionTest do
     assert length(Settings.recent_sessions()) == 1
   end
 
+  test "a test bypasses the saved smartphone preference and retains its mode after restore", %{
+    alarm: alarm
+  } do
+    assert {:ok, false} = Settings.set_smartphone_dismiss_enabled(false)
+    assert {:ok, pid} = WakeSession.start_test(alarm, Clock.utc_now())
+    assert %{test_mode: true, smartphone_dismiss_allowed: true} = WakeSession.active()
+    [record] = Settings.recent_sessions()
+    :ok = GenServer.stop(pid, :normal)
+
+    assert {:ok, _pid} = WakeSession.restore(alarm, record)
+    assert %{test_mode: true, smartphone_dismiss_allowed: true} = WakeSession.active()
+    assert {:ok, %{state: :dismissed}} = WakeSession.dismiss(:smartphone)
+    refute Settings.smartphone_dismiss_enabled()
+  end
+
   test "smartphone dismissal follows the setting captured when the alarm starts", %{
     alarm: alarm
   } do
@@ -197,6 +212,26 @@ defmodule RobineWake.WakeSessionTest do
 
     assert {:ok, %{state: :dismissed, terminal_reason: :smartphone}} =
              WakeSession.dismiss(:smartphone)
+  end
+
+  test "disabling the feature overrides a saved preference and an already running session", %{
+    alarm: alarm
+  } do
+    assert {:ok, true} = Settings.set_smartphone_dismiss_enabled(true)
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert %{smartphone_dismiss_allowed: true} = WakeSession.active()
+
+    Application.put_env(:robine_wake, :remote_dismiss_enabled, false)
+    refute Settings.smartphone_dismiss_enabled()
+    assert {:error, :smartphone_dismiss_disabled} = WakeSession.dismiss(:smartphone)
+    assert {:ok, %{terminal_reason: :remote_button}} = WakeSession.dismiss(:remote_button)
+
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert %{smartphone_dismiss_allowed: false} = WakeSession.active()
+    assert {:ok, _session} = WakeSession.dismiss(:remote_button)
+
+    Application.put_env(:robine_wake, :remote_dismiss_enabled, true)
+    assert Settings.smartphone_dismiss_enabled()
   end
 
   test "records one terminal timeout after the maximum audible duration", %{alarm: alarm} do

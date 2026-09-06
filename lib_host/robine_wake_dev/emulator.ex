@@ -134,7 +134,7 @@ defmodule RobineWakeDev.Emulator do
 
   def trigger_alarm(id), do: Scheduler.trigger_now(id) |> normalize_ok()
   def snooze, do: WakeSession.snooze() |> normalize_ok()
-  def dismiss, do: WakeSession.dismiss(:manual) |> normalize_ok()
+  def dismiss, do: WakeSession.dismiss(:smartphone) |> normalize_ok()
 
   def reset_hardware do
     Application.put_env(:robine_wake, :host_audio_state, :available)

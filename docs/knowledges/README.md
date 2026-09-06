@@ -17,3 +17,6 @@ perceptifs de Robine Wake.
 
 - [Bouton déporté LoRa](remote-alarm-button.md) — architecture point-à-point, association,
   authentification, protection contre le rejeu et comportement en cas de perte radio.
+
+- [Vibration DIY du lit](diy-bed-vibration.md) — proposition matérielle et logicielle pour
+  le guidage respiratoire, les basses tactiles et le réveil progressif ; validation du sommier à faire.

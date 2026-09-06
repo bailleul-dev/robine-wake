@@ -11,6 +11,8 @@ The target firmware embeds Shairport Sync 4.3.7 in classic AirPlay mode. The
 receiver advertises the name `Robine Wake Bedroom`, accepts audio from devices
 on the local network, and sends stereo PCM directly to the HiFiBerry Amp2 ALSA
 device. The host emulator does not start or emulate an AirPlay protocol server.
+This direct-output path describes the existing implementation. The tactile
+extension specified below remains to be implemented.
 
 Classic AirPlay is selected for the first hardware iteration because it has a
 small embedded dependency footprint, uses Shairport Sync's built-in mDNS
@@ -31,6 +33,20 @@ handling. It opens `plughw:0`, with `hw:0` / `Digital` as the hardware mixer.
 This selection matches the hardware-validated HiFiBerry card for the current
 single-board product profile and must be revisited if another ALSA card is
 added.
+
+## Tactile music extension — specified, pending implementation
+
+When music vibration is enabled, derive a smoothed bass-energy or accent envelope
+from the musical signal to drive tactile intensity as specified in
+[bed vibration](../004-bed-vibration/spec.md). No faithful frequency reproduction,
+second audio card or full PCM duplication is required. Access to the source signal
+for envelope extraction remains to be implemented. Preserve common transport
+pause/mute and independently bounded intensity, and measure perceived delay.
+Direct bass playback through a shaker is an optional implementation variant.
+
+Loss of the tactile sink must not stall the audible sink. An alarm preempts both
+music outputs; a voluntary breathing session also suspends music. Releasing either
+session may restore receiver availability but never replay a stale tactile buffer.
 
 ## Audio ownership and alarm priority
 
@@ -66,8 +82,8 @@ must not be allowed to block alarm startup.
 ## Network behavior
 
 The receiver must remain optional: loss of Wi-Fi or mDNS only removes AirPlay
-availability. The scheduler, alarm audio, physical controls, and camera path
-continue locally. Classic AirPlay normally uses mDNS on UDP 5353, TCP 5000, and
+availability. The scheduler, alarm audio, physical controls, and generated breathing/wake
+vibration continue locally. Classic AirPlay normally uses mDNS on UDP 5353, TCP 5000, and
 a small negotiated UDP audio/control range beginning near 6001. No inbound
 internet connectivity or cloud account is required.
 
@@ -100,6 +116,10 @@ compatibility, and overnight timing stability on the Raspberry Pi 3.
   optional to every P0 alarm function.
 - `APY-007` — AirPlay 2 shall remain disabled until its dependency, timing,
   compatibility, and resource acceptance evidence is complete.
+
+- `APY-008` — Music shall support a separately limited tactile intensity envelope,
+  with stable control, transport silence and measured response; its failure
+  shall not block audible playback or alarm preemption.
 
 ## Acceptance criteria
 

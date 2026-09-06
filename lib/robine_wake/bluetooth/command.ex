@@ -240,7 +240,7 @@ defmodule RobineWake.Bluetooth.Command do
       "smartphone_dismiss" =>
         smartphone_dismiss_dto(
           Settings.smartphone_dismiss_enabled(),
-          not is_nil(active_session)
+          Settings.smartphone_dismiss_locked?()
         ),
       "hue" => normalize(Hue.status()),
       "hue_targets" => normalize(Hue.targets()),
@@ -335,6 +335,7 @@ defmodule RobineWake.Bluetooth.Command do
       :current_gain,
       :snooze_count,
       :smartphone_dismiss_allowed,
+      :test_mode,
       :occupancy,
       :confidence
     ])

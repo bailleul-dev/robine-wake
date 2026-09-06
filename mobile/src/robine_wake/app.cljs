@@ -160,8 +160,11 @@
      "Alarme en cours"]
     [:> Text {:style (theme/js-style {:font-size 12 :color (theme/c :muted)})}
      (if (= "strong" (:audio_phase session)) "Son de renfort" "Réveil progressif")]]
-   (if (not= false (:smartphone_dismiss_allowed session))
-     [theme/button {:title "Je suis levé" :icon-name "sunny" :variant :primary :compact true
+   (when (:test_mode session)
+       [theme/button {:title "Arrêt direct" :compact true :on-press actions/dismiss!}])
+     (if (not= false (:smartphone_dismiss_allowed session))
+     [theme/button {:title (if (:test_mode session) "Tester l’arrêt" "Je suis levé")
+                    :icon-name "sunny" :variant :primary :compact true
                     :on-press #(store/set-state! :challenge {:session-id (:id session)})}]
      [:> Text {:style (theme/js-style {:font-size 11 :font-weight "700"
                                        :color (theme/c :muted)})}

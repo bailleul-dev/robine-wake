@@ -226,6 +226,7 @@ struct WakeSession: Codable, Identifiable, Hashable {
     let occupancy: String?
     let confidence: Double?
     let smartphoneDismissAllowed: Bool?
+    let testMode: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, state, occupancy, confidence
@@ -237,6 +238,7 @@ struct WakeSession: Codable, Identifiable, Hashable {
         case currentGain = "current_gain"
         case snoozeCount = "snooze_count"
         case smartphoneDismissAllowed = "smartphone_dismiss_allowed"
+        case testMode = "test_mode"
     }
 }
 

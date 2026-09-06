@@ -2,76 +2,90 @@
 
 ## Purpose
 
-Define hardware assumptions, electrical interfaces, and decisions to confirm
-when components become available.
+Define the camera-free hardware profile and the DIY bed-vibration extension.
+Scope updated 2026-09-06; new hardware selection and validation remain pending.
 
-## Minimum bill of materials
+## Bill of materials
 
-| Item | Minimum requirement | Deferred decision |
+| Item | Requirement | Remaining decision |
 |---|---|---|
 | compute | Raspberry Pi 3 B+ revision 1.3 (`a020d3`) | enclosure validation |
 | storage | high-endurance microSD, at least 16 GiB | manufacturer/capacity |
 | audio | HiFiBerry Amp2 with two passive speakers | acoustic validation |
-| camera | APKLVSR V0348 candidate, OV5647, 15-pin CSI, advertised 130° | received-board verification |
-| illumination | two V0348-mounted 850 nm auto-switched IR boards | current, temperature, threshold, and beam validation |
-| power | regulated 16.5 V / 2 A supply through Amp2 for bring-up | measured margin with camera/IR |
-| control | physical dismiss/snooze button recommended | GPIO and model |
+| main power | regulated 16.5 V / 2 A through Amp2 for bring-up | measured margin with final peripherals |
+| tactile control | dedicated motor driver or simple oscillator/amplifier | stable Nerves interface, progressive response and cutoff |
+| tactile actuator | one enclosed vibrating motor or tactile shaker, frame-mounted | occupied-bed distribution, start threshold, inertia and noise |
+| tactile power | dedicated external certified supply, low-voltage protection and cutoff | voltage/current, gain limit and thermal validation |
+| control | physical dismiss/snooze button | installed button/link and end-to-end validation |
 | time | external I²C RTC recommended when offline | model |
+
+Camera and infrared illumination are removed from the bill of materials. There
+is no bed-presence sensor. Tactile hardware is optional for operation, but its
+three use cases are part of the P1 prototype scope.
+
+The priority is felt vibration with progressive intensity. Accurate frequency,
+audio reproduction and a second sound card are not hardware requirements.
 
 ## Integration constraints
 
-HiFiBerry generally uses I²S and part of the GPIO header. The selected candidate
-camera uses the Pi 3 dedicated 15-pin CSI connector, so it has no planned GPIO
-signal conflict with the HiFiBerry. The V0348 IR boards appear to receive power
-through their mechanical connection to the camera board; their actual rail,
-current, switching behavior, and interaction with the CSI supply are unknown
-until inspection. They must not be wired to or powered directly by a GPIO.
-Grounding and current requirements must be verified before enclosure use.
+HiFiBerry uses I²S and part of the GPIO header. Record conflicts with the physical
+button, its radio link and any RTC before wiring. Keep speaker outputs on the
+Amp2; a separate power stage drives the tactile actuator. GPIO may carry logic
+commands to a compatible driver only, not actuator current. Do not bridge Amp2
+outputs or power the actuator from GPIO or the Pi's 5 V rail. Protect a motor
+driver against inductive transients and overcurrent; keep rotating masses captive.
 
-The enclosure must provide ventilation, restrict microSD access, prevent direct
-IR glare, secure the camera cable, and keep hot parts out of reach. The camera
-must cover the bed without unnecessarily filming the rest of the room.
+The bed has a slatted base. Couple the actuator rigidly to a load-bearing frame
+crossmember or to the surrounding casing only if it is structurally connected
+to that frame. Use a removable plate; verify transmission through the slats and
+mattress with the bed occupied. Dimensions and coverage of sleeping places remain
+open. Isolation pads must not compromise bed stability or load capacity.
 
-## Infrared considerations
-
-- 850 nm: generally better sensitivity, with a possibly visible red glow.
-- 940 nm: more discreet, often with shorter range at equal power.
-- Illumination must be diffuse and avoid saturated hot spots.
-- Exposure and gain must be lockable after calibration.
-- A visible indicator or the UI must show when camera analysis is active.
+The enclosure must provide ventilation, cable retention, protected terminals,
+restricted microSD access, and separation of hot parts from bedding. Verify each
+power circuit with at least 25% margin over measured peak demand.
 
 ## Capability profile
 
-At startup, every adapter publishes `available`, `degraded`, or `unavailable`,
-with manufacturer/model when detectable. The product must not assume ALSA device
-0 is the HiFiBerry; it selects audio by stable name or validated configuration.
+At startup, adapters publish availability and manufacturer/model when detectable.
+Select HiFiBerry and the chosen tactile interface by stable configuration. USB
+audio is optional; if selected, its addressing must not depend on enumeration order.
+Disabled or uncalibrated vibration is an explicit inactive state, not a fault.
+Requested but unavailable vibration reports degradation without blocking sound.
+Camera absence is normal and must not affect startup or health.
 
 ## Hardware decision register
 
 | ID | Question | Expected evidence |
 |---|---|---|
-| `HW-DEC-001` | Raspberry Pi 3 B+ rev 1.3 (`a020d3`) | verified from `/proc/cpuinfo` on 2026-08-20 |
-| `HW-DEC-002` | HiFiBerry Amp2 | verified with `hifiberry-dacplus`, card `snd_rpi_hifiberry_dacplus` |
-| `HW-DEC-003` | APKLVSR V0348 CSI candidate | ASIN `B0CLGTM3Z8`; confirm received OV5647 identity |
-| `HW-DEC-004` | integrated 850 nm IR candidate | real nighttime, power, and thermal test |
-| `HW-DEC-005` | power supply | measured current budget |
+| `HW-DEC-001` | Raspberry Pi 3 B+ rev 1.3 (`a020d3`) | verified 2026-08-20 |
+| `HW-DEC-002` | HiFiBerry Amp2 | verified with `hifiberry-dacplus` and stable card name |
+| `HW-DEC-003` | Retired: camera candidate | removed 2026-09-06 |
+| `HW-DEC-004` | Retired: IR illumination | removed 2026-09-06 |
+| `HW-DEC-005` | power supplies | measured budget per circuit |
 | `HW-DEC-006` | RTC requirement | intended offline behaviour |
+| `HW-DEC-007` | actuator technology, count and mounting | trial enclosed motor first; shaker alternative if smoothness/noise requires it |
+| `HW-DEC-008` | controller, power stage and tactile supply | logic interface, load/current, cutoff, coasting and temperature; no mandatory DAC |
 
 ## Requirements
 
-- `HW-001` — No GPIO shall directly power the illuminator.
+- `HW-001` — Retired: illuminator power constraint.
 - `HW-002` — Audio hardware shall be addressed by a stable identifier.
 - `HW-003` — GPIO/I²C/I²S conflicts shall be documented before wiring.
-- `HW-004` — The camera shall cover only the area needed for operation.
-- `HW-005` — Loss of camera shall leave manual controls operational.
+- `HW-004` — Retired: camera framing.
+- `HW-005` — Retired: camera-loss behavior.
 - `HW-006` — The electrical budget shall include 25% margin over measured peak.
+- `HW-007` — Tactile power shall use a dedicated protected circuit with no load
+  on the Pi's GPIO/5 V power rails and no shared Amp2 speaker output.
+- `HW-008` — Frame coupling, fixation, bed stability, distribution, thermal load
+  and floor noise shall be validated on the actual occupied bed.
+- `HW-009` — Audio and vibration devices shall remain correctly assigned across
+  controller reconnect/restart; USB enumeration applies only if that variant is used.
 
 ## Acceptance criteria
 
-A completed validation sheet contains assembly photographs, overlay list, device
-detection output, idle/load voltage measurements, day/night samples, and results
-from a 30-minute wake-session test.
-
-The V0348 purchase listing is selection evidence only. `HW-DEC-003` and
-`HW-DEC-004` remain open until the physical unit passes the camera and electrical
-acceptance criteria in `40/001-infrared-camera`.
+Record assembly photographs, wiring, overlays, device detection, per-circuit
+idle/load measurements, cutoff results, and a 30-minute wake/breathing run plus
+prolonged music validation. Camera capture and optical tests are not gates.
+See [bed vibration](../../30/004-bed-vibration/spec.md) and
+[validation milestones](../../80/001-simulation-validation/spec.md).

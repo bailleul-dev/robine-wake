@@ -48,6 +48,15 @@ ALSA selection uses a configured stable identifier. At startup, a non-audible
 test verifies that the device can be opened. If HiFiBerry is unavailable, a
 fallback output is used only when explicitly configured.
 
+## Independent tactile output
+
+The HiFiBerry retains both speakers. Bed vibration uses a separate actuator and
+power stage with its own ceiling. Audio start and fallback never wait for the
+tactile path. A coarse music intensity envelope is sufficient; a second sound
+card and faithful bass reproduction are not required. Control and timing are defined in
+[bed vibration](../004-bed-vibration/spec.md); a wake vibration motif is independent
+of the audio track. Snooze and stop are coordinated by the owning session.
+
 ## Errors
 
 After a playback error, make three retry attempts after 250 ms, 1 second, and

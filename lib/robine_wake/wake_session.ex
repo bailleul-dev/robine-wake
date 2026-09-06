@@ -17,21 +17,30 @@ defmodule RobineWake.WakeSession do
   end
 
   def start(alarm, scheduled_for) do
-    start_with_phase(alarm, scheduled_for, :gentle)
+    start_with_phase(alarm, scheduled_for, :gentle, false)
+  end
+
+  def start_test(alarm, scheduled_for) do
+    start_with_phase(alarm, scheduled_for, :gentle, true)
   end
 
   def start_strong_test(alarm, scheduled_for \\ Clock.utc_now()) do
-    start_with_phase(alarm, scheduled_for, :strong)
+    start_with_phase(alarm, scheduled_for, :strong, true)
   end
 
-  defp start_with_phase(alarm, scheduled_for, phase) do
+  defp start_with_phase(alarm, scheduled_for, phase, test_mode) do
     case active_pid() do
       nil ->
         id = Id.generate()
 
         DynamicSupervisor.start_child(
           RobineWake.SessionSupervisor,
-          {__MODULE__, id: id, alarm: alarm, scheduled_for: scheduled_for, start_phase: phase}
+          {__MODULE__,
+           id: id,
+           alarm: alarm,
+           scheduled_for: scheduled_for,
+           start_phase: phase,
+           test_mode: test_mode}
         )
 
       _pid ->
@@ -131,6 +140,11 @@ defmodule RobineWake.WakeSession do
     restored_started_at = restored_datetime(restored, "started_at") || now
     snooze_remaining_ms = restored_snooze_remaining(restored, now)
 
+    test_mode =
+      if restored,
+        do: restored["test_mode"] in [true, "true"],
+        else: Keyword.get(opts, :test_mode, false)
+
     %{
       alarm: alarm,
       id: Keyword.fetch!(opts, :id),
@@ -143,7 +157,8 @@ defmodule RobineWake.WakeSession do
       elapsed_ms: max(0, DateTime.diff(now, restored_started_at, :millisecond)),
       snooze_remaining_ms: snooze_remaining_ms,
       restored_snoozed?: snooze_remaining_ms > 0,
-      smartphone_dismiss_allowed: Settings.smartphone_dismiss_enabled()
+      test_mode: test_mode,
+      smartphone_dismiss_allowed: test_mode or Settings.smartphone_dismiss_enabled()
     }
   end
 
@@ -169,6 +184,7 @@ defmodule RobineWake.WakeSession do
       last_observation: nil,
       terminal_reason: nil,
       audio_error: nil,
+      test_mode: context.test_mode,
       smartphone_dismiss_allowed: context.smartphone_dismiss_allowed
     }
   end
@@ -180,6 +196,7 @@ defmodule RobineWake.WakeSession do
       scheduled_for: context.scheduled_for,
       started_at: context.now,
       state: :starting,
+      test_mode: context.test_mode,
       snooze_count: 0
     }
   end
@@ -293,7 +310,8 @@ defmodule RobineWake.WakeSession do
   end
 
   def handle_call({:dismiss, reason}, _from, state) do
-    if remote_dismiss_reason?(reason) and not state.smartphone_dismiss_allowed do
+    if not state.test_mode and remote_dismiss_reason?(reason) and
+         (not Settings.remote_dismiss_enabled?() or not state.smartphone_dismiss_allowed) do
       {:reply, {:error, :smartphone_dismiss_disabled}, state}
     else
       next = complete(state, reason)
@@ -611,7 +629,7 @@ defmodule RobineWake.WakeSession do
 
   defp active_pid do
     case Registry.lookup(RobineWake.Registry, :active_session) do
-      [{pid, _}] -> pid
+      [{pid, _}] -> if Process.alive?(pid), do: pid, else: nil
       [] -> nil
     end
   rescue

@@ -134,8 +134,10 @@
      (if (= "strong" (:audio_phase session)) "Le son de renfort joue" "La lumière sonore monte doucement")]
     [:> View {:style (theme/js-style {:flex-direction "row" :gap 12})}
      [theme/button {:title "Répéter" :on-press actions/snooze!}]
+     (when (:test_mode session)
+       [theme/button {:title "Arrêt direct" :compact true :on-press actions/dismiss!}])
      (if (not= false (:smartphone_dismiss_allowed session))
-       [theme/button {:title "Je suis levé" :variant :primary
+       [theme/button {:title (if (:test_mode session) "Tester l’arrêt" "Je suis levé") :variant :primary
                       :on-press #(store/set-state! :challenge {:session-id (:id session)})}]
        [:> View {:style (theme/js-style {:flex-direction "row" :align-items "center" :gap 7})}
         [theme/icon "phone-portrait-outline" 17 :muted]
@@ -547,7 +549,7 @@
          [theme/icon "lock-closed" 16 :moon]
          [:> Text {:style (theme/js-style {:font-size 11 :font-weight "700"
                                            :color (theme/c :moon)})}
-          "Réglage verrouillé jusqu’à la fin de l’alarme en cours."]])]]))
+          "Réglage verrouillé sur le réveil."]])]]))
 
 (defn system-screen [desktop?]
   (r/with-let [bridge-host (r/atom "")

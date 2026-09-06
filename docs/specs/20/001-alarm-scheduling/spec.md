@@ -20,9 +20,18 @@ zone.
 | `strong_sound_id` | identifier | fallback sound after the gentle ramp; must be available |
 | `prewake_seconds` | integer, 0–3600 | how long before `local_time` the gentle phase starts |
 | `volume_profile` | structure | start, ceiling, ramp duration |
-| `dismiss_policy` | enum | `manual`, `bed_exit`, `either` |
+| `dismiss_policy` | enum | `manual` only; migrate legacy `bed_exit` and `either` to `manual` |
+| `vibration_profile` | structure | enabled, calibrated start/ceiling, progression duration; disabled until configured |
 | `snooze` | structure | enabled, duration, maximum count |
 | `revision` | integer | optimistic concurrency control |
+
+## Legacy presence settings
+
+Migrate stored `bed_exit` and `either` policies to `manual` atomically, preserving
+alarm IDs, schedules, sound choices, revisions, and snooze settings. New writes
+using retired policies are rejected with `validation_failed`; they must never
+reactivate a detector. Old presence settings cannot prevent boot or arming.
+Missing vibration settings default to disabled until the bed has been calibrated.
 
 ## Next-trigger calculation
 
@@ -65,6 +74,11 @@ history without playback. The window is configurable from 0 to 15 minutes.
 - `ALM-009` — The configurable pre-wake duration shall be available through the
   Web and mobile alarm editors.
 
+- `ALM-010` — Migration shall convert legacy presence dismissal to manual without
+  losing or retiming alarms; new presence policies shall be rejected.
+- `ALM-011` — Each alarm shall persist a separately bounded vibration profile,
+  disabled by default for existing alarms.
+
 ## Acceptance criteria
 
 - Deterministic tests before, during, and after two DST transitions.
@@ -72,3 +86,5 @@ history without playback. The window is configurable from 0 to 15 minutes.
 - Concurrent-update test rejecting a stale revision.
 - Validation tests for unavailable progressive and strong sound identifiers.
 - 10,000 recalculations without a duplicate trigger.
+- Legacy policy migration preserves schedules; unsupported policy writes fail.
+- Invalid vibration bounds are rejected without changing the stored alarm.

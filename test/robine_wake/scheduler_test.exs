@@ -16,7 +16,7 @@ defmodule RobineWake.SchedulerTest do
     Clock.Manual.advance(60_000)
     first = Scheduler.tick()
     assert first.triggers >= 1
-    assert %{alarm_id: alarm_id} = WakeSession.active()
+    assert %{alarm_id: alarm_id, test_mode: false} = WakeSession.active()
     assert alarm_id == alarm.id
 
     WakeSession.dismiss(:test)
@@ -29,6 +29,22 @@ defmodule RobineWake.SchedulerTest do
     assert {:ok, _pid} = Scheduler.trigger_now(alarm.id)
     assert %{alarm_id: alarm_id, state: :ringing} = WakeSession.active()
     assert alarm_id == alarm.id
+  end
+
+  @tag remote_dismiss_enabled: false
+  test "both manual test phases can be stopped remotely in button-only mode" do
+    {:ok, alarm} = Settings.create_alarm(%{local_time: "23:00", days_of_week: [1]})
+
+    for trigger <- [&Scheduler.trigger_now/1, &Scheduler.trigger_strong_test/1] do
+      assert {:ok, _pid} = trigger.(alarm.id)
+      assert %{test_mode: true, smartphone_dismiss_allowed: true} = WakeSession.active()
+      assert {:ok, %{state: :dismissed}} = WakeSession.dismiss(:smartphone)
+      refute Settings.smartphone_dismiss_enabled()
+    end
+
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert %{test_mode: false, smartphone_dismiss_allowed: false} = WakeSession.active()
+    assert {:error, :smartphone_dismiss_disabled} = WakeSession.dismiss(:smartphone)
   end
 
   test "starts the gentle phase at the configured lead time while preserving wake time" do

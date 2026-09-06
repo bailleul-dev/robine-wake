@@ -74,6 +74,74 @@ defmodule RobineWakeWeb.RouterTest do
     assert {:ok, _session} = WakeSession.dismiss(:manual)
   end
 
+  @tag remote_dismiss_enabled: false
+  test "a test exposes direct dismissal through HTTP and Bluetooth" do
+    {:ok, alarm} = Settings.create_alarm(%{local_time: "23:00", days_of_week: [1]})
+
+    for path <- ["trigger", "trigger-strong"] do
+      started =
+        conn(:post, "/api/alarms/#{alarm.id}/#{path}", "{}")
+        |> put_req_header("content-type", "application/json")
+        |> csrf()
+        |> RobineWakeWeb.Router.call(@opts)
+
+      assert started.status == 202
+      state = conn(:get, "/api/state") |> RobineWakeWeb.Router.call(@opts)
+
+      assert %{"active_session" => %{"test_mode" => true, "smartphone_dismiss_allowed" => true}} =
+               Jason.decode!(state.resp_body)
+
+      assert %{"body" => %{"active_session" => %{"test_mode" => true}}} =
+               BluetoothCommand.execute(%{"v" => 1, "op" => "state.get", "body" => %{}})
+
+      stopped =
+        conn(:post, "/api/session/dismiss", "{}")
+        |> put_req_header("content-type", "application/json")
+        |> csrf()
+        |> RobineWakeWeb.Router.call(@opts)
+
+      assert stopped.status == 200
+      assert WakeSession.active() == nil
+    end
+  end
+
+  @tag remote_dismiss_enabled: false
+  test "button-only mode locks remote settings and rejects web and iPhone dismissal" do
+    state = conn(:get, "/api/state") |> RobineWakeWeb.Router.call(@opts)
+
+    assert %{"smartphone_dismiss" => %{"enabled" => false, "locked" => true}} =
+             Jason.decode!(state.resp_body)
+
+    assert {:error, :smartphone_dismiss_setting_locked} =
+             Settings.set_smartphone_dismiss_enabled(true)
+
+    assert %{"status" => "error"} =
+             BluetoothCommand.execute(%{
+               "v" => 1,
+               "op" => "settings.smartphone_dismiss.set",
+               "body" => %{"enabled" => true}
+             })
+
+    {:ok, alarm} = Settings.create_alarm(%{local_time: "08:00", days_of_week: [1]})
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert %{smartphone_dismiss_allowed: false} = WakeSession.active()
+
+    refused =
+      conn(:post, "/api/session/dismiss", "{}")
+      |> put_req_header("content-type", "application/json")
+      |> csrf()
+      |> RobineWakeWeb.Router.call(@opts)
+
+    assert refused.status == 403
+
+    assert %{"status" => "error", "error" => %{"code" => "smartphone_dismiss_disabled"}} =
+             BluetoothCommand.execute(%{"v" => 1, "op" => "session.dismiss"})
+
+    assert {:error, :smartphone_dismiss_disabled} = WakeSession.dismiss(:mcp)
+    assert WakeSession.active()
+    assert {:ok, %{terminal_reason: :remote_button}} = WakeSession.dismiss(:remote_button)
+  end
+
   test "Expo web client and its versioned assets are served at the root" do
     page = conn(:get, "/") |> RobineWakeWeb.Router.call(@opts)
 

@@ -7,26 +7,29 @@ making alarm operation depend on that browser.
 
 ## MVP screens
 
-1. **Home**: next alarm, device time, and audio/camera/network health.
+1. **Home**: next alarm, device time, and audio/vibration/network health.
 2. **Alarms**: list, create, edit, enable, disable, and delete.
-3. **Active wake session**: volume, snooze, dismissal, explained detection state.
-4. **Calibration**: one-time framing, bed polygon, IR quality, and test mode.
+3. **Active wake session**: sound and tactile intensity, snooze, and dismissal according to device policy.
+4. **Vibration**: per-use activation/intensity, bed calibration, short test and stop.
 5. **Diagnostics**: versions, uptime, storage, and recent redacted events.
 6. **Maintenance**: configuration export, restart, and signed update.
 
 ## Domain API
 
 Mutating routes carry a CSRF token and resource revision. They call domain
-services and never control ALSA, the camera, or an OTP process directly. Errors
+services and never control ALSA, the tactile power stage, or an OTP process directly. Errors
 use stable codes: `validation_failed`, `revision_conflict`,
 `capability_unavailable`, `not_found`, `rate_limited`, and `internal_error`.
 
 ## Real-time state
 
 The interface receives updates through LiveView or a local channel: next
-occurrence, session state, volume, occupancy, confidence, and health. It does
-not stream camera video. Only during calibration may a rate-limited still image
-be requested after local confirmation.
+occurrence, session state, volume, tactile mode/intensity, and health. Camera
+views, bed-presence indicators, confidence, calibration and capture commands are
+removed across web and mobile clients. No replacement presence indicator is shown.
+Old clients cannot reactivate these capabilities; retired commands return an
+explicit unsupported-capability error. Remote dismissal stays subject to the
+physical-stop policy, disabled by default.
 
 ## Accessibility and safety
 
@@ -59,9 +62,15 @@ firmware updates retain their independent authentication.
   sound selection, ramp controls, recurrence, snooze, and dismissal in one
   keyboard-operable screen.
 
+- `UI-009` — Web/mobile state, screens and APIs shall not expose camera or presence
+  functionality; retired capture/calibration commands shall have no side effects.
+- `UI-010` — Vibration controls shall expose independent use profiles, calibration,
+  bounded test/stop and capability state without changing the audible gain ceiling.
+
 ## Acceptance criteria
 
 Automated journeys cover recurring-alarm creation, edit conflict, active session,
-two-stage sound selection, missing camera, untrusted time, and calibration.
+two-stage sound selection, missing tactile output, untrusted time, and tactile
+calibration. Verify that no camera/presence screen or active command remains.
 Essential screens pass keyboard, responsive-layout, and contrast review. A
 network test confirms no listening on unconfigured interfaces.

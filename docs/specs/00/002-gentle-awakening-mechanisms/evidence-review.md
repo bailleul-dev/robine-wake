@@ -1,5 +1,9 @@
 # Scientific Evidence Review — Awakening and Sleep Inertia
 
+Product scope note (2026-09-06): camera and bed-presence features are removed.
+Camera-related observations below are research context, not active hardware
+requirements. This scope update does not constitute a new literature review.
+
 ## Review question
 
 Which measured physiological factors and controlled interventions affect:
@@ -101,7 +105,7 @@ choice**, not scientific data.
 | Lee et al., 2025 meta-analysis | **24 studies, 798 participants**, wrist devices vs polysomnography | mean difference: total sleep time **−16.854 min** (95% CI −26.332 to −7.375), sleep efficiency **−4.691 points** (−7.079 to −2.302), sleep latency **+2.574 min** (.606 to 4.542), WASO **+13.255 min** (4.522 to 21.988) | aggregate sleep metrics differ significantly from PSG; stage-triggered product decisions require direct validation |
 | Campanella et al., 2024 sensor | EarlySense commercial mattress sensor vs cited PSG validation | sleep sensitivity **.96**, specificity **.49**; light-sleep sensitivity **.57**, specificity **.69** | its trigger often cannot identify light sleep reliably; a shorter stage-triggered dawn did not produce a robust overall benefit |
 
-Polysomnographic sleep stage is not recoverable from Robine Wake's infrared camera
+Polysomnographic sleep stage is not recoverable from an ordinary infrared camera
 without a separately validated model and reference-PSG study. Even a correct stage
 label would not remove circadian phase, sleep pressure, or individual variability.
 

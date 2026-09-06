@@ -29,8 +29,9 @@
                feedback (r/atom nil)
                answering? (r/atom false)]
     (letfn [(complete! []
-              (store/set-state! :challenge nil)
-              (actions/dismiss!))
+              (when (:challenge @store/app-state)
+                (store/set-state! :challenge nil)
+                (actions/dismiss!)))
             (answer! [value]
               (when-not @answering?
                 (reset! answering? true)
@@ -96,5 +97,7 @@
             [:> Text {:style (theme/js-style {:text-align "center" :font-size 14 :font-weight "700"
                                               :color (theme/c (if (= :correct @feedback) :mint :rose))})}
              (if (= :correct @feedback) "✓  Bien joué" "↻  Presque — nouveau défi")])]]
+        (when (get-in @store/app-state [:active-session :test_mode])
+          [theme/button {:title "Arrêt direct" :on-press complete!}])
         [:> Text {:style (theme/js-style {:text-align "center" :font-size 12 :color (theme/c :muted)})}
          "L’alarme continue jusqu’à la résolution des trois défis."]]])))

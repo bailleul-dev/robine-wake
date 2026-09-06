@@ -31,8 +31,14 @@ defmodule RobineWake.Settings do
   def export_configuration, do: GenServer.call(__MODULE__, :export_configuration)
   def smartphone_dismiss_enabled, do: GenServer.call(__MODULE__, :smartphone_dismiss_enabled)
 
+  def remote_dismiss_enabled?,
+    do: Application.get_env(:robine_wake, :remote_dismiss_enabled, false)
+
+  def smartphone_dismiss_locked?,
+    do: not remote_dismiss_enabled?() or not is_nil(RobineWake.WakeSession.active())
+
   def set_smartphone_dismiss_enabled(enabled) when is_boolean(enabled) do
-    if RobineWake.WakeSession.active() do
+    if smartphone_dismiss_locked?() do
       {:error, :smartphone_dismiss_setting_locked}
     else
       GenServer.call(__MODULE__, {:set_smartphone_dismiss_enabled, enabled})
@@ -428,7 +434,7 @@ defmodule RobineWake.Settings do
     do: state.alarms |> Map.values() |> Enum.sort_by(&{&1.local_time, &1.id})
 
   defp smartphone_dismiss_enabled(state),
-    do: Map.get(state.settings, "smartphone_dismiss_enabled", true)
+    do: remote_dismiss_enabled?() and Map.get(state.settings, "smartphone_dismiss_enabled", true)
 
   defp fetch_alarm(state, id) do
     case Map.fetch(state.alarms, id) do

@@ -57,7 +57,7 @@ defmodule RobineWake.Scheduler do
   def handle_call({:trigger_now, alarm_id}, _from, state) do
     with {:ok, alarm} <- Settings.get_alarm(alarm_id),
          scheduled_for = DateTime.add(Clock.utc_now(), alarm.prewake_seconds, :second),
-         {:ok, pid} <- WakeSession.start(alarm, scheduled_for) do
+         {:ok, pid} <- WakeSession.start_test(alarm, scheduled_for) do
       {:reply, {:ok, pid}, %{state | triggers: state.triggers + 1}}
     else
       {:error, reason} -> {:reply, {:error, reason}, state}

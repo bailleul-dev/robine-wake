@@ -9,7 +9,7 @@ Pi 3.
 
 - `host`: development and testing without hardware;
 - `rpi3`: Raspberry Pi 3 B/B+ using the official Nerves system where possible;
-- `robine_rpi3`: derived system if camera drivers, HiFiBerry overlays, or native
+- `robine_rpi3`: derived system if actuator-driver support, HiFiBerry overlays, or native
   packages are absent from the official system.
 
 The final choice between `rpi3` and `robine_rpi3` is made after hardware spike
@@ -24,18 +24,26 @@ lib/robine_wake_web/         local interface
 config/                      compile-time and runtime configuration
 rootfs_overlay/              target-specific files when required
 test/                        unit and host integration tests
-test/fixtures/vision/        anonymized or synthetic sequences
+test/fixtures/               synthetic signal and migration fixtures
 ```
 
 ## Configuration
 
 Compile-time configuration contains structural choices only: adapter modules,
 target, and included capabilities. Runtime configuration contains the network
-name, time zone, ALSA device, and camera settings. Secrets are neither compiled
+name, time zone, stable ALSA devices, and vibration calibration/settings. Secrets are neither compiled
 into firmware nor written to logs.
 
 Priority order is: validated persisted values, factory provisioning, defaults.
 A migration transforms older versions before exposing them to the domain.
+
+## Camera-free target migration
+
+The target no longer requires a capture stack, camera overlay or detector worker.
+Remove camera-specific packages/configuration when migrating the implementation.
+Existing presence settings must not affect boot; migrate them under `60-001`.
+Validate the chosen motor/generator interface and stable selection before enabling
+vibration. USB audio support is required only if that optional variant is selected.
 
 ## Network and time
 
@@ -66,7 +74,8 @@ avoid restart loops.
 - `NRV-001` — `MIX_TARGET=host mix test` shall require no Raspberry Pi tooling.
 - `NRV-002` — Target firmware shall be reproducible from the repository and lockfile.
 - `NRV-003` — Runtime settings shall be validated before publication.
-- `NRV-004` — The system shall continue in degraded mode without camera or audio.
+- `NRV-004` — The system shall continue with explicit degradation when a required
+  audio output or enabled vibration output fails; disabled vibration is not a fault.
 - `NRV-005` — Unvalidated firmware shall be able to revert to its predecessor.
 - `NRV-006` — No secret shall appear in public firmware, logs, or diagnostics.
 - `NRV-007` — Clock health shall be observable by the domain layer.

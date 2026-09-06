@@ -8,10 +8,12 @@ its primary function or bedroom privacy.
 ## Health
 
 Overall state is `healthy`, `degraded`, or `unhealthy`. It aggregates clock,
-scheduler, storage, audio, camera, detector, network, and firmware. Every
+scheduler, storage, audio, vibration, network, and firmware. Every
 capability exposes state, last success, last redacted error, and restart count.
 
-Missing network or camera may make the product `degraded`; only an unavailable
+Missing network or requested vibration may make the product `degraded`; disabled
+or unconfigured vibration is not a fault. Camera absence is normal and has no
+health entry or startup dependency. Only an unavailable
 scheduler, critical storage failure, or crash loop makes it `unhealthy`.
 
 ## Logs and telemetry
@@ -21,8 +23,8 @@ session/alarm ID, and redacted fields. Prohibited content includes pixels,
 passwords, an SSID marked sensitive, and authentication request bodies.
 
 Minimum metrics: uptime, BEAM memory, process restarts, clock drift/confidence,
-scheduled/triggered/missed alarms, audio latency, camera frame rate, dropped
-frames, observation distribution, bed-exit decisions, and errors.
+scheduled/triggered/missed alarms, audio/tactile latency, tactile mode and gain,
+limiter/cutoff events, snooze, explicit dismissal, timeout, and errors.
 
 ## Diagnostic bundle
 
@@ -53,6 +55,9 @@ required to report status.
 - `OPS-005` — Updates shall avoid the critical window around an alarm.
 - `OPS-006` — Unhealthy new firmware shall not be validated.
 - `OPS-007` — Critical events shall survive a controlled restart.
+
+- `OPS-008` — Health and diagnostics shall omit camera/detector dependencies and
+  distinguish disabled vibration from failure of an enabled tactile output.
 
 ## Acceptance criteria
 

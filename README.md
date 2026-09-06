@@ -4,8 +4,15 @@
 [![coverage](https://ci.base59.dev/badges/github/laibulle/robine-wake/coverage.svg)](https://ci.base59.dev/repositories)
 
 Robine Wake is a privacy-first smart alarm clock for Raspberry Pi 3, Nerves,
-HiFiBerry, and an infrared camera. The MVP runs fully on `host` with simulated
+and HiFiBerry, with a planned DIY bed-vibration channel for breathing, music
+and progressive waking. The MVP runs fully on `host` with simulated
 hardware, while preserving target adapters for the real device.
+
+The product scope was updated on 2026-09-06: camera and bed-presence features are
+removed. Their existing implementation still needs removal; the tactile extension
+is specified but not implemented. See the
+[bed-vibration specification](docs/specs/30/004-bed-vibration/spec.md) and the
+[scope and migration status](docs/MVP_STATUS.md).
 
 ## Run on a development computer
 
@@ -55,9 +62,11 @@ the [HTTP MCP specification](docs/specs/50/002-http-mcp/spec.md) for the complet
 contract and security profile.
 
 The host build also starts a Phoenix LiveView Hardware Lab at
-<http://127.0.0.1:4111>. It emulates infrared scenes, camera loss, HiFiBerry
-availability and failures, network loss, clock trust, deterministic time
-advancement, alarms, snooze, and dismissal through the real domain processes.
+<http://127.0.0.1:4111>. It emulates HiFiBerry availability and failures, network
+loss, clock trust,
+deterministic time advancement, alarms, snooze, and dismissal through the real
+domain processes. Existing camera simulation controls are legacy functionality
+scheduled for removal; tactile simulation is specified and remains to be added.
 Change its port with `ROBINE_DEV_PORT`. The laboratory is loopback-only and its
 Phoenix/LiveView code is excluded from Raspberry Pi compilation. See the
 [host hardware emulator specification](docs/specs/80/002-host-hardware-emulator/spec.md).
@@ -83,8 +92,8 @@ automatically retry the same idempotent request over Bluetooth when Wi-Fi is not
 available. A replayable Server-Sent Events stream pushes alarm and state changes;
 the app does not poll the clock on a timer. The app connects to the first nearby
 `Robine Wake` peripheral. Its native
-morning dashboard, alarm journey editor, sound library, private bed-presence
-status, session controls, and system view mirror the functional language of the
+morning dashboard, alarm journey editor, sound library, session controls, and
+system view mirror the functional language of the
 LiveView application. Use a physical iPhone for BLE testing; the iOS Simulator
 build only validates compilation and UI integration.
 
@@ -154,9 +163,17 @@ an active stream and the receiver returns after alarm playback ends. Each alarm
 selects two sounds: a progressive wake track and a strong fallback track that
 starts if the gentle ramp completes without dismissal. Curated MP3 assets and
 their manifest live in `priv/sounds`; validated custom WAV files remain under
-the persistent `/data/sounds` directory. The exact camera stack remains a
-hardware validation item. See
+the persistent `/data/sounds` directory. The DIY tactile assembly and its firmware
+integration remain validation items. See
 [the specifications](docs/specs/README.md) and
 [the MVP implementation status](docs/MVP_STATUS.md). The
 [requirements matrix](docs/REQUIREMENTS_TRACEABILITY.md) records verified,
 partial, deferred, and hardware-dependent requirements individually.
+
+### Arrêt du réveil
+
+L’arrêt depuis l’iPhone et le web est désactivé côté réveil : le bouton physique
+reste disponible. Le réglage distant est verrouillé, y compris lorsqu’une ancienne
+préférence autorisait l’arrêt depuis le smartphone. La fonctionnalité est conservée
+et peut être réactivée dans le firmware avec `remote_dismiss_enabled: true` dans
+`config/config.exs`.

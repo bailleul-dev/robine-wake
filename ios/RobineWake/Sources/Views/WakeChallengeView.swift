@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WakeChallengeView: View {
     let sessionID: String
+    var allowsDirectStop = false
     let onCompleted: () -> Void
 
     @State private var step = 0
@@ -24,6 +25,10 @@ struct WakeChallengeView: View {
                 header
                 Spacer(minLength: 8)
                 challengeCard
+                if allowsDirectStop {
+                    Button("Arrêt direct", action: onCompleted)
+                        .buttonStyle(RobineSecondaryButtonStyle())
+                }
                 Spacer(minLength: 8)
                 Text("L’alarme continue jusqu’à la résolution des trois défis.")
                     .font(.caption)

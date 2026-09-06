@@ -13,6 +13,8 @@ config :robine_wake,
   audio_driver: RobineWake.Audio.Driver.Host,
   camera_driver: RobineWake.Camera.Driver.Host,
   camera_enabled: false,
+  # Keep remote dismissal implemented, but require the physical button in this build.
+  remote_dismiss_enabled: false,
   network_driver: RobineWake.Network.Driver.Host,
   hue_driver: RobineWake.Hue.Driver.HTTP,
   hue_request_timeout_ms: 5_000,

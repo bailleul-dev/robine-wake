@@ -62,6 +62,14 @@ JSON-RPC errors.
 Every successful tool response includes both human-readable text content and
 `structuredContent`.
 
+## Camera-free state and tactile configuration
+
+`get_state` must omit presence/confidence and camera/detector capabilities.
+Alarm schemas accept the vibration profile defined in `20-001`, disabled when
+omitted by old clients. Retired presence policies are rejected on new writes;
+no MCP command may activate capture or infer dismissal from presence. Tactile
+hardware access remains inside the domain service and its calibration limits.
+
 ## Requirements
 
 - `MCP-001` — The server shall negotiate a supported MCP version and advertise

@@ -3,27 +3,27 @@
 ## Purpose
 
 Orchestrate one alarm occurrence from trigger to completion by combining audio,
-bed detection, and user commands.
+optional bed vibration, light, and explicit user commands.
 
 ## State machine
 
 ```text
-scheduled -> starting -> ringing -> exit_candidate -> dismissed
-                            |  ^          |
-                            |  +----------+ (presence detected again)
+scheduled -> starting -> ringing -> dismissed
                             +-> snoozed -> ringing
-                            +-> failed_safe
+                            +-> failed_safe -> dismissed / snoozed / timed_out
+                            +-> timed_out
 ```
 
-`failed_safe` means vision or an auxiliary function failed: the audio signal
-remains active and manual dismissal remains available.
+`failed_safe` records an output failure. A tactile failure leaves the audio signal
+active; exhausted audio retries expose the audible failure. Physical controls
+remain available in either case. No state depends on bed observations.
 
 ## Startup
 
-On `alarm_due`, the session is persisted before the audio command is sent. It
-then requests an initial detector state. If the bed is already vacant, the
-default policy is still to sound and require 30 seconds of vacancy after session
-start. This prevents an obstructed camera from suppressing sound.
+On `alarm_due`, persist the session before sending output commands. Start audio
+without waiting for vibration hardware. If enabled and calibrated, the tactile
+channel follows its own bounded progression from the same monotonic session clock.
+No detector state is requested, and no presence condition can suppress startup.
 
 ## Two-stage audio
 
@@ -39,37 +39,39 @@ Snoozing stops either phase. A snooze restart always begins again with the
 gentle sound and a fresh ramp. Failure to prepare or start the strong sound
 enters `failed_safe`, retains manual controls, and exposes the failure reason.
 
-## Bed exit
+## Vibration and removal of automatic dismissal
 
-A sufficiently confident `vacant` observation opens `exit_candidate`. Its timer
-uses monotonic duration. Any reliable `occupied` observation cancels the
-candidate. On expiry, `bed_exit_confirmed` permits dismissal only if the alarm's
-policy includes `bed_exit`.
+The tactile wake motif is synthesized independently of the chosen audio track.
+Its progression, limiter, calibration and stop rules are defined in
+[bed vibration](../../30/004-bed-vibration/spec.md). Failure, readiness or completion
+of the tactile ramp cannot move the gentle-to-strong audio deadline.
 
-Initial values are: 30-second confirmation, 0.75 minimum confidence, and a
-5-second grace period after session start. Values are configurable within safe
-bounds.
+`exit_candidate` is retired. On recovery, map a legacy active candidate to
+`ringing`, preserving elapsed time, snoozes and the original strong/timeout
+deadlines. Historical terminal reasons remain readable but never drive new
+actions. Ignore obsolete observations and confirmation timers; do not infer
+presence, wakefulness or absence of response from vibration.
 
 ## Snooze and dismissal
 
-Snooze fades out audio, suspends bed-exit interpretation, and schedules a
-monotonic restart. Default maximum: 3 snoozes of 8 minutes each. Once the limit
-is reached, the command is rejected with an explicit response.
+Snooze fades out audio and vibration and schedules a monotonic restart. Default
+maximum: 3 snoozes of 8 minutes each. Once the limit is reached, the command is rejected with an explicit response.
 
 Manual dismissal is idempotent. Holding a physical button for more than 2
 seconds may dismiss; a short press may snooze. Final thresholds require hardware
 validation.
 
-A persistent global setting controls whether a smartphone may dismiss an alarm.
-The default remains enabled for backward compatibility. Its value is captured
-when a wake session starts and cannot be changed until that session ends. When
+The firmware gate controls whether smartphone dismissal may be enabled. The
+current product default is disabled and remote settings remain locked while the
+gate is off, including when a legacy preference was enabled. Any firmware-authorized
+permission is captured when a wake session starts and cannot be changed until that session ends. When
 disabled, Wi-Fi, Bluetooth, web, and MCP dismissal commands are rejected; the
-physical remote button, confirmed bed exit, and safety timeout remain available.
+physical remote button and safety timeout remain available.
 
 ## Safety durations
 
 - default maximum audible duration: 30 minutes;
-- on expiry: reduce volume, mark `timed_out`, and keep a visible alert;
+- on expiry: reduce volume, stop vibration, mark `timed_out`, and keep a visible alert;
 - restore a session across restart while still inside its active window;
 - never reopen a completed session.
 
@@ -77,9 +79,9 @@ physical remote button, confirmed bed exit, and safety timeout remain available.
 
 - `SES-001` — Session creation shall precede audio side effects.
 - `SES-002` — All user commands shall be idempotent.
-- `SES-003` — Missing camera input shall never produce `bed_exit_confirmed`.
-- `SES-004` — Bed exit shall be confirmed only after continuous vacancy.
-- `SES-005` — Returning to bed shall cancel an exit candidate.
+- `SES-003` — Retired: camera-input confirmation constraint.
+- `SES-004` — Retired: continuous-vacancy confirmation.
+- `SES-005` — Retired: return-to-bed cancellation.
 - `SES-006` — The snooze limit shall survive restart.
 - `SES-007` — A session shall have one timestamped terminal reason.
 - `SES-008` — An undismissed gentle phase shall switch exactly once to the
@@ -89,9 +91,16 @@ physical remote button, confirmed bed exit, and safety timeout remain available.
 - `SES-010` — Smartphone dismissal permission shall be immutable for the full
   lifetime of an active wake session and enforced by the device.
 
+- `SES-011` — Only authorized explicit commands or the safety timeout shall end
+  ringing; legacy presence events/timers shall neither dismiss nor delay it.
+- `SES-012` — Snooze, dismissal and timeout shall stop tactile output; resumption
+  shall begin from the calibrated start, never jump to a previous high intensity.
+- `SES-013` — Recovery shall migrate legacy exit candidates without resetting
+  session deadlines or reopening completed sessions.
+
 ## Acceptance criteria
 
-Mandatory Given/When/Then scenarios: normal exit, 10-second false exit, camera
-disconnection, maximum snooze count, simultaneous UI/button dismissal, restart
-while ringing, initially vacant bed, gentle-to-strong escalation, and 30-minute
-timeout.
+Mandatory Given/When/Then scenarios: physical dismissal, rejection of disabled
+remote dismissal, maximum snooze count, repeated commands, restart while ringing,
+legacy candidate recovery, ignored legacy observations/timers, gentle-to-strong
+escalation with tactile output failed, and 30-minute timeout with tactile silence.

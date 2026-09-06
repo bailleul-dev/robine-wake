@@ -1,6 +1,12 @@
 # Requirements Traceability
 
-Audit date: 2026-08-20
+Baseline evidence audit: 2026-08-20. Scope/requirements update: 2026-09-06.
+
+The camera-free and tactile requirements below have not been implemented or
+retested by this documentation update. Unchanged evidence describes the earlier
+audit; it is not a fresh verification of the current working tree. Retired
+requirements no longer count toward delivery gates. Changed requirements must
+be revalidated against their new scope.
 
 This matrix records the evidence available for every numbered requirement in
 the specification set. It deliberately does not treat a successful firmware
@@ -15,18 +21,23 @@ Status meanings:
   yet proved.
 - **Hardware pending**: requires the selected physical assembly.
 - **Deferred**: explicitly outside the current software MVP.
+- **Retired**: removed from the product; ID reserved for historical reports.
+- **Specified**: acceptance requirement documented; implementation/evidence pending.
+- **Not audited**: existing requirement newly inventoried; implementation evidence
+  was not assessed in the earlier matrix or this documentation update.
+- **Revalidation required**: previous evidence does not establish the revised contract.
 
 ## Architecture
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
 | ARCH-001 | Implemented | Scheduler has no network dependency; offline target boot remains `VAL-HW-001`. |
-| ARCH-002 | Verified | Clock, audio, camera, network, and persistence access are isolated in boundary modules; host adapters are exercised by the suite. |
-| ARCH-003 | Verified | `unknown`, stale, malformed, and missing camera observations never dismiss a session. |
-| ARCH-004 | Verified | Wake-session confirmation, snooze, ramp, and audible duration use `Clock.monotonic_ms/0`. |
+| ARCH-002 | Partial | Existing boundaries are exercised; the new tactile adapter remains to be implemented and tested. |
+| ARCH-003 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| ARCH-004 | Partial | Existing session timing uses a monotonic clock; tactile timing and removal of presence timers remain to be verified. |
 | ARCH-005 | Verified | Alarm occurrences and persisted instants use UTC plus an explicit IANA zone. |
 | ARCH-006 | Verified | `EventLog` events include event, session, and alarm identifiers; wake-session tests inspect correlation. |
-| ARCH-007 | Verified | Clock, scheduler, storage, audio, camera, authentication, network, and firmware slot/validation state appear in health. |
+| ARCH-007 | Revalidation required | Camera-free health and the new tactile capability remain to be implemented. |
 
 ## Nerves platform
 
@@ -34,8 +45,8 @@ Status meanings:
 |---|---|---|
 | NRV-001 | Verified | `mix verify` runs on `host` without Raspberry Pi access. |
 | NRV-002 | Verified | Locked dependencies, fixed source epoch, and `MIX_TARGET=rpi3 mix firmware` produce the image without edits. |
-| NRV-003 | Verified | Alarm, detection-profile, auth, and runtime integer inputs are validated before use. |
-| NRV-004 | Implemented | Missing camera/network and exhausted audio retries produce degraded or failed-safe states; physical adapter failures remain to be injected on target. |
+| NRV-003 | Revalidation required | Legacy presence migration and tactile calibration validation are newly specified. |
+| NRV-004 | Revalidation required | Revised 2026-09-06; previous evidence does not cover the new contract. See `docs/specs/10/001-nerves-platform/spec.md`. |
 | NRV-005 | Implemented | Nerves A/B slot status and `StartupGuard` validation/rollback are enabled; a target rollback drill is still required. |
 | NRV-006 | Verified | Target configuration contains no administrator password; exports/events filter sensitive fields. |
 | NRV-007 | Verified | `ClockQuality` is in health and prevents automatic arming until confirmed on target. |
@@ -44,11 +55,11 @@ Status meanings:
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| HW-001 | Hardware pending | Illuminator circuit and power source have not been selected. |
-| HW-002 | Verified | A physical Amp2 was detected by stable HiFiBerry name and selected as `plughw:0`; stereo playback was confirmed on 2026-08-20. |
-| HW-003 | Partial | Amp2/I²S and the Raspberry Pi 3 B+ are verified. APKLVSR V0348/OV5647 over dedicated 15-pin CSI remains the camera candidate; RTC/button decisions, electrical measurements, and the final wiring diagram remain pending. |
-| HW-004 | Hardware pending | Software supports a bounded bed ROI; installed camera framing requires bedroom validation. |
-| HW-005 | Verified | Camera loss leaves audio and authenticated manual dismissal operational. |
+| HW-001 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| HW-002 | Partial | Amp2 bring-up passed in the earlier audit; any additional audio device is optional and needs stable addressing if selected. |
+| HW-003 | Partial | Amp2 is verified; final button/RTC and tactile wiring require conflict review. Camera/IR choices are retired. |
+| HW-004 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| HW-005 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 | HW-006 | Hardware pending | Requires measured peak current and a selected supply. |
 
 ## Alarm scheduling
@@ -68,11 +79,11 @@ Status meanings:
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| SES-001 | Verified | Session persistence completes before `Audio.play/2`. |
-| SES-002 | Verified | Repeated snooze in the same snoozed state and repeated dismissal are successful no-ops. |
-| SES-003 | Verified | Missing/unknown frames cannot create `bed_exit_confirmed`. |
-| SES-004 | Verified | Vacancy requires the startup grace and continuous monotonic confirmation. |
-| SES-005 | Verified | A reliable occupied observation cancels the candidate. |
+| SES-001 | Revalidation required | Existing persistence precedes audio; this must also precede newly specified tactile side effects. |
+| SES-002 | Revalidation required | Explicit controls must also be idempotent for tactile ownership and shutdown. |
+| SES-003 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| SES-004 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| SES-005 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 | SES-006 | Verified | Snooze count and a future snooze UTC deadline survive recovery. |
 | SES-007 | Verified | Completion writes one terminal state, reason, and timestamp. |
 | SES-008 | Verified | Wake-session tests advance the ramp to completion and assert one switch from the gentle sound to the configured strong sound at ceiling gain. |
@@ -97,48 +108,48 @@ Status meanings:
 |---|---|---|
 | APY-001 | Verified | Shairport Sync is embedded and supervised; macOS `dns-sd` discovered `CC1323229925@Robine Wake Bedroom` and TCP 5000 accepted connections on the target. End-to-end source playback remains part of acoustic acceptance. |
 | APY-002 | Verified | Automated tests cover alarm ownership, and a target suspend/resume drill removed the Shairport process completely before returning with a new PID in under 750 ms. |
-| APY-003 | Implemented | The receiver uses the HiFiBerry `plughw:0` output and `Digital` hardware mixer; target AirPlay playback remains to be confirmed. |
+| APY-003 | Partial | Existing direct HiFiBerry path is implemented; the simplified tactile energy-envelope extraction is specified only. |
 | APY-004 | Implemented | Shairport Sync caps hardware gain at -20 dB, resets idle sessions to -30 dB, and treats -24 dB as the high-volume threshold; acoustic calibration remains pending. |
 | APY-005 | Verified | Forcibly terminating target PID 209 produced a healthy replacement at PID 226 after the configured two-second recovery delay without restarting the BEAM. |
 | APY-006 | Verified | Host builds disable the receiver and require no Shairport executable or network service. |
 | APY-007 | Deferred | AirPlay 2 requires the separate Avahi, NQPTP, FFmpeg, resource, and compatibility validation described in `30/002-airplay-receiver`. |
 
-## Infrared camera
+## Infrared camera — retired
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| CAM-001 | Verified | Target adapter returns only 8-bit grayscale luminance. |
-| CAM-002 | Verified | Frames and observations carry a monotonic timestamp. |
-| CAM-003 | Verified | No normal camera code writes pixels; diagnostics reject pixel/image/frame fields. |
-| CAM-004 | Verified | Analysis becomes degraded after 2,000 ms without a fresh frame. |
-| CAM-005 | Implemented | Camera is independently supervised and recovery does not own or restart sessions; target recovery needs soak testing. |
-| CAM-006 | Verified | Resolution, ROI, and bounded thresholds are rejected when incompatible. |
-| CAM-007 | Verified | Capture is serialized, duplicate/stale frames are discarded, and histories are bounded. |
+| CAM-001 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| CAM-002 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| CAM-003 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| CAM-004 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| CAM-005 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| CAM-006 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| CAM-007 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 
-## Bed-exit detection
+## Bed-exit detection — retired
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| VIS-001 | Verified | No identity, face, pose, or biometric code/dependency exists. |
-| VIS-002 | Verified | Unusable/malformed input always yields `unknown`. |
-| VIS-003 | Verified | Detector emits observations only; `WakeSession` owns temporal dismissal. |
-| VIS-004 | Verified | Rectangle and polygon tests prove outside pixels do not affect occupancy. |
-| VIS-005 | Verified | Every observation includes a detection-profile revision. |
-| VIS-006 | Hardware pending | The annotated nighttime dataset and confusion matrix require the selected camera and bedroom scenes. |
-| VIS-007 | Implemented | Stale frames are discarded and capture is serialized; Pi CPU/backpressure metrics need hardware endurance evidence. |
+| VIS-001 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| VIS-002 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| VIS-003 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| VIS-004 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| VIS-005 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| VIS-006 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
+| VIS-007 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 
 ## Local interface
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| UI-001 | Verified | Browser UI creates/edits all essential alarm fields without IEx. |
+| UI-001 | Partial | Earlier editor exists; new tactile configuration and removal of presence controls remain pending. |
 | UI-002 | Verified | CSRF-protected preview returns five local/UTC-aware occurrences without persisting. |
 | UI-003 | Implemented | Health identifies capability and reason; final user-impact wording awaits physical failure review. |
 | UI-004 | Verified | No video or image endpoint exists. |
 | UI-005 | Verified | Patch and delete require the current resource revision. |
 | UI-006 | Implemented | Actions return synchronously and refresh immediately; target p95 must be measured. |
 | UI-007 | Verified | API/exports exclude credentials and camera data. |
-| UI-008 | Verified | The native dialog editor presents schedule, both sound stages, ramp, dismissal, and snooze controls in one responsive, keyboard-operable form. |
+| UI-008 | Revalidation required | Alarm editor must follow manual-only dismissal and include the separately bounded tactile profile. |
 
 ## HTTP Model Context Protocol
 
@@ -157,19 +168,19 @@ Status meanings:
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| DAT-001 | Verified | Camera backgrounds remain in memory only. |
+| DAT-001 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 | DAT-002 | Verified | Session retention runs at Settings boot and every 24 hours; 31-day purge is tested. |
-| DAT-003 | Partial | Version 1 writes are atomic, unknown schemas are rejected, and failed serialization preserves the previous file; no pre-v1 production schema exists, and power-cut fault injection is still required. |
+| DAT-003 | Partial | Existing atomic writes are baseline evidence; camera-free legacy-policy/profile migration still needs implementation. |
 | DAT-004 | Verified | Configuration and diagnostic exports contain no credential, token, or pixels. |
 | DAT-005 | Verified | RingLogger/EventLog are size-bounded and structured events expire after seven days. |
-| DAT-006 | Deferred | Temporary visual diagnostic capture is not exposed in this MVP. |
+| DAT-006 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 | DAT-007 | Verified | Confirmed factory reset clears settings, sessions, profile, telemetry, and stored credential, then returns to setup. |
 
 ## Operations and updates
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| OPS-001 | Verified | Core capabilities and Nerves firmware validation/slot state publish explainable health. |
+| OPS-001 | Revalidation required | Remove camera/detector health and add enabled tactile-failure reporting. |
 | OPS-002 | Verified | Events/logs are bounded and structured events have tested seven-day expiry; target saturation remains an endurance check. |
 | OPS-003 | Verified | Diagnostic export has five virtual files, per-file SHA-256/size manifest, and privacy inspection tests. |
 | OPS-004 | Implemented | SSH requires an authorized key and Fwup requires the embedded Ed25519 public key; a signed archive verifies and the unsigned build is rejected. Hardware installation remains pending. |
@@ -182,23 +193,160 @@ Status meanings:
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
 | TST-001 | Verified | Domain tests use `Clock.Manual`; no scenario sleeps for domain time. |
-| TST-002 | Verified | This matrix links every numbered requirement to evidence/status; `mix verify` is the single host gate. |
-| TST-003 | Partial | Connected LiveView tests inject audio, camera, time, and network conditions through the Hardware Lab; corrupt-schema and failed-write paths are also automated, while disk-full and target power-cut injection remain pending. |
-| TST-004 | Verified | Synthetic detector inputs and fixed ExUnit seeds reproduce vision decisions. |
+| TST-002 | Partial | The matrix inventories requirements; new camera-removal and tactile acceptance tests are not yet linked or run. |
+| TST-003 | Revalidation required | Revised 2026-09-06; previous evidence does not cover the new contract. See `docs/specs/80/001-simulation-validation/spec.md`. |
+| TST-004 | Retired | Removed 2026-09-06; retained ID, no active acceptance work. |
 | TST-005 | Hardware pending | Validation record cannot exist before the selected assembly is available. |
 | TST-006 | Verified | Repository fixtures are synthetic and contain no bedroom imagery. |
 
-## MVP delivery gates
+## Requirements added to the matrix on 2026-09-06
+
+These entries include new requirements and existing requirements omitted from the
+earlier matrix. Their status does not claim completed implementation or testing.
+
+### [001-system-architecture](specs/00/001-system-architecture/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| ARCH-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| ARCH-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [002-gentle-awakening-mechanisms](specs/00/002-gentle-awakening-mechanisms/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| GWA-001 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-002 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-003 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-004 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-005 | Retired | Removed from scope; ID reserved. |
+| GWA-006 | Retired | Removed from scope; ID reserved. |
+| GWA-007 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-008 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-009 | Retired | Removed from scope; ID reserved. |
+| GWA-010 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| GWA-011 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| GWA-012 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [002-hardware-profile](specs/10/002-hardware-profile/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| HW-007 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| HW-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| HW-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [001-alarm-scheduling](specs/20/001-alarm-scheduling/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| ALM-009 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| ALM-010 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| ALM-011 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [002-wake-session](specs/20/002-wake-session/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| SES-009 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| SES-010 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| SES-011 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| SES-012 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| SES-013 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [002-airplay-receiver](specs/30/002-airplay-receiver/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| APY-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [003-guided-breathing](specs/30/003-guided-breathing/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| BRTH-001 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-002 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-003 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-004 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-005 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-006 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-007 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-008 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| BRTH-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| BRTH-010 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [004-bed-vibration](specs/30/004-bed-vibration/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| VIB-001 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-002 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-003 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-004 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-005 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-006 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-007 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-010 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-011 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-012 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-013 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-014 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| VIB-015 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [001-local-interface](specs/50/001-local-interface/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| UI-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| UI-010 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [001-data-privacy](specs/60/001-data-privacy/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| DAT-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| DAT-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| DAT-010 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [001-operations-updates](specs/70/001-operations-updates/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| OPS-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [001-simulation-validation](specs/80/001-simulation-validation/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| TST-007 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| TST-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+### [002-host-hardware-emulator](specs/80/002-host-hardware-emulator/spec.md)
+
+| ID | Status | Evidence or remaining proof |
+|---|---|---|
+| EMU-001 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| EMU-002 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| EMU-003 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| EMU-004 | Retired | Removed from scope; ID reserved. |
+| EMU-005 | Retired | Removed from scope; ID reserved. |
+| EMU-006 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| EMU-007 | Not audited | Existing requirement newly added to this matrix; implementation and evidence need review. |
+| EMU-008 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+| EMU-009 | Specified | Implementation and acceptance evidence pending; see linked specification. |
+
+## Active delivery gates — revised 2026-09-06
 
 | Gate | Current result |
 |---|---|
-| Host P0 suite | Passes through `mix verify`. |
-| State machines and critical errors | Covered by scheduler, wake-session, recovery, audio-failure, clock-quality, and privacy tests. |
-| Duplicate trigger property | 10,000 occurrence sequence plus per-occurrence persistence protection pass. |
-| No pixels persisted in normal mode | Proven by code path and export/event inspection tests; target data-partition inspection remains part of hardware validation. |
-| `VAL-HW-001` through `VAL-HW-006` | Audio bring-up passed on Raspberry Pi 3 B+ and HiFiBerry Amp2; camera, electrical-margin, acoustic-limit, and endurance records remain open. |
-| False-dismissal target evaluated | **Not run: annotated real scenes are not available.** |
-| Manual dismissal with camera/network disconnected | Software simulation passes; physical control/network test remains pending. |
+| Existing host suite/build evidence | Historical audit above; not rerun for this documentation change. |
+| Camera-free startup, health, API/UI and exports | Specified; removal of existing camera/detector integration pending. |
+| Manual-only legacy policy and session recovery | Specified; migration and obsolete-event tests pending. |
+| Offline audio, explicit physical controls and fixed escalation | Existing software evidence must be rechecked after removal/integration. |
+| P0 hardware: `VAL-HW-001`, `VAL-HW-002`, `VAL-HW-006`, `VAL-HW-011`, `VAL-HW-012` | Earlier Pi/Amp2 bring-up is recorded; revised electrical, acoustic, endurance, control and migration gates remain open. |
+| P1 tactile: `VAL-HW-008` through `VAL-HW-010`, plus tactile endurance | Specified; hardware assembly, implementation and measurement pending. |
+| Former camera, optical and false-bed-exit gates | Retired; no dataset or camera purchase required. |
 
-The full product MVP therefore remains open until the hardware delivery gates
-pass. The host software gate and build gate are reproducible today.
+No retired result may be used as verification for a new tactile requirement.
