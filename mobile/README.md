@@ -1,9 +1,8 @@
-# Robine Wake — Expo / ClojureScript
+# Robine Wake — Expo / TypeScript
 
-Réécriture de l’application iOS Robine Wake avec Expo SDK 57, React Native et
-ClojureScript (`shadow-cljs`). Elle conserve les quatre espaces de l’app Swift :
-Matin, Soir, Alarmes et Réveil, ainsi que les transports Wi-Fi et Bluetooth du
-réveil.
+Application universelle Robine Wake écrite en TypeScript avec Expo SDK 57 et
+React Native. Elle conserve les quatre espaces de l’app Swift : Matin, Soir,
+Alarmes et Réveil, ainsi que les transports Wi-Fi et Bluetooth du réveil.
 
 Sur iOS 26, les cartes et la navigation utilisent `expo-glass-effect`, tandis
 que les actions principales sont rendues par de vrais boutons SwiftUI
@@ -27,7 +26,8 @@ make expo-web
 make expo-iphone
 ```
 
-- `expo-test` compile les tests ClojureScript et vérifie la configuration Expo.
+- `expo-test` exécute les tests TypeScript, vérifie les types et contrôle la
+  configuration Expo.
 - `expo-build` produit localement le bundle iOS de production dans
   `mobile/dist/ios`.
 - `expo-web` produit l’application web universelle dans `priv/web`. Le
@@ -48,19 +48,12 @@ IPHONE_ID='00008110-XXXXXXXXXXXX'
 ```sh
 cd mobile
 npm install
-npm run cljs:watch
-```
-
-Dans un second terminal :
-
-```sh
-cd mobile
-npx expo start --dev-client
+npm start
 ```
 
 Le Bluetooth repose sur un module natif. L’app doit donc être ouverte avec le
 development build généré par Expo, pas avec Expo Go.
 
-Les sources métier et UI sont dans `src/robine_wake`. Le JavaScript généré dans
-`app/`, les dossiers natifs `ios/` et `android/`, ainsi que les bundles dans
-`dist/` sont reconstruits localement et ignorés par Git.
+Les sources métier et UI sont dans `src/`. Metro compile directement le point
+d’entrée `index.ts`. Les dossiers natifs `ios/` et `android/`, ainsi que les
+bundles dans `dist/`, sont reconstruits localement et ignorés par Git.

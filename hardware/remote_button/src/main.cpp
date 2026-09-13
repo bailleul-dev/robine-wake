@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 #include <U8g2lib.h>
 #include <WiFi.h>
+#include <mbedtls/md.h>
 #include <time.h>
 
 #include "robine_sprites.h"
@@ -23,6 +25,14 @@
 #define WAKE_HOST "robine-wake.local"
 #endif
 
+#ifndef REMOTE_BUTTON_ID
+#define REMOTE_BUTTON_ID ""
+#endif
+
+#ifndef REMOTE_BUTTON_SECRET_HEX
+#define REMOTE_BUTTON_SECRET_HEX ""
+#endif
+
 #ifndef STOP_BUTTON_PIN
 #define STOP_BUTTON_PIN 0
 #endif
@@ -32,6 +42,8 @@ constexpr uint8_t kOledClock = 15;
 constexpr uint8_t kOledData = 4;
 constexpr uint8_t kOledReset = 16;
 constexpr uint32_t kWakeStateIntervalMs = 2000;
+constexpr uint32_t kWakeConnectTimeoutMs = 1200;
+constexpr uint32_t kWakeRequestTimeoutMs = 2200;
 constexpr uint32_t kWifiRetryIntervalMs = 8000;
 constexpr uint32_t kFeedbackDurationMs = 3000;
 constexpr uint32_t kDebounceMs = 45;
@@ -41,8 +53,17 @@ constexpr uint32_t kStartupBrightDurationMs = 1500;
 constexpr uint32_t kInteractionBrightDurationMs = 5000;
 constexpr uint8_t kIdleContrast = 16;
 constexpr uint8_t kActiveContrast = 255;
+constexpr uint8_t kWakeOfflineFailureThreshold = 3;
+constexpr char kRemoteButtonProtocol[] = "rw-remote-v1";
 
-enum class Feedback { none, dismissed, idle, network_error, server_error };
+enum class Feedback {
+  none,
+  dismissed,
+  idle,
+  network_error,
+  server_error,
+  not_paired
+};
 
 // VCOMH0 gives the SSD1306 its full contrast range. The default constructor
 // keeps the panel bias high enough that contrast 0 and 255 look very similar.
@@ -65,6 +86,9 @@ bool buttonArmed = false;
 bool buttonActionHandled = false;
 bool wifiWasConnected = false;
 uint8_t appliedContrast = 255;
+uint8_t consecutiveWakePollFailures = 0;
+uint64_t dismissCounter = 1;
+Preferences preferences;
 
 bool debugPreviewActive() {
   return static_cast<int32_t>(debugPreviewUntilAt - millis()) > 0;
@@ -237,20 +261,47 @@ void render() {
     case Feedback::server_error:
       drawFeedbackScreen("PAS DE REPONSE", "Reveil hors ligne", "Verifier Raspberry", false);
       break;
+    case Feedback::not_paired:
+      drawFeedbackScreen("BOUTON REFUSE", "Non associe", "Reassocier bouton", false);
+      break;
     case Feedback::none:
       drawMainScreen();
       break;
   }
 }
 
-bool pollWakeState() {
-  if (WiFi.status() != WL_CONNECTED) return false;
+void recordWakePollResult(bool ready, int statusCode) {
+  if (ready) {
+    consecutiveWakePollFailures = 0;
+    wakeReachable = true;
+    Serial.printf("Wake state: ready%s (RSSI %d dBm)\n",
+                  wakeActive ? ", alarm active" : "", WiFi.RSSI());
+  } else {
+    if (consecutiveWakePollFailures < kWakeOfflineFailureThreshold) {
+      ++consecutiveWakePollFailures;
+    }
+    if (consecutiveWakePollFailures >= kWakeOfflineFailureThreshold) {
+      wakeReachable = false;
+    }
+    Serial.printf("Wake state: miss %u/%u (HTTP %d, RSSI %d dBm)%s\n",
+                  consecutiveWakePollFailures, kWakeOfflineFailureThreshold,
+                  statusCode, WiFi.RSSI(),
+                  wakeReachable ? ", keeping ready" : ", offline");
+  }
+  updateDisplayContrast();
+}
+
+void pollWakeState() {
+  if (WiFi.status() != WL_CONNECTED) return;
 
   WiFiClient client;
   HTTPClient request;
-  request.setConnectTimeout(700);
-  request.setTimeout(1500);
-  if (!request.begin(client, "http://" WAKE_HOST ":4000/api/v1/command")) return false;
+  request.setConnectTimeout(kWakeConnectTimeoutMs);
+  request.setTimeout(kWakeRequestTimeoutMs);
+  if (!request.begin(client, "http://" WAKE_HOST ":4000/api/v1/command")) {
+    recordWakePollResult(false, -1);
+    return;
+  }
 
   request.addHeader("Content-Type", "application/json");
   int statusCode = request.POST("{\"v\":1,\"op\":\"session.get\",\"body\":{}}");
@@ -261,22 +312,84 @@ bool pollWakeState() {
   bool ready = statusCode == HTTP_CODE_OK &&
                deserializeJson(result, response) == DeserializationError::Ok &&
                result["status"] == "ok";
-  wakeActive = ready && !result["body"]["active_session"].isNull();
-  Serial.printf("Wake state: %s%s\n", ready ? "ready" : "offline",
-                wakeActive ? ", alarm active" : "");
-  updateDisplayContrast();
-  return ready;
+  if (ready) {
+    wakeActive = !result["body"]["active_session"].isNull();
+  }
+  recordWakePollResult(ready, statusCode);
+}
+
+bool decodeRemoteButtonSecret(uint8_t output[32]) {
+  const char* secret = REMOTE_BUTTON_SECRET_HEX;
+  if (strlen(secret) != 64) return false;
+
+  for (size_t index = 0; index < 32; ++index) {
+    char pair[3] = {secret[index * 2], secret[index * 2 + 1], '\0'};
+    char* end = nullptr;
+    unsigned long value = strtoul(pair, &end, 16);
+    if (end != pair + 2) return false;
+    output[index] = static_cast<uint8_t>(value);
+  }
+  return true;
+}
+
+bool remoteButtonMac(uint64_t counter, String& output) {
+  uint8_t secret[32];
+  if (!decodeRemoteButtonSecret(secret) || strlen(REMOTE_BUTTON_ID) == 0) return false;
+
+  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (info == nullptr) return false;
+
+  mbedtls_md_context_t context;
+  mbedtls_md_init(&context);
+  if (mbedtls_md_setup(&context, info, 1) != 0 ||
+      mbedtls_md_hmac_starts(&context, secret, sizeof(secret)) != 0) {
+    mbedtls_md_free(&context);
+    return false;
+  }
+
+  const uint8_t separator = 0;
+  char counterText[24];
+  snprintf(counterText, sizeof(counterText), "%llu",
+           static_cast<unsigned long long>(counter));
+  const char* parts[] = {kRemoteButtonProtocol, REMOTE_BUTTON_ID, counterText, "dismiss"};
+  for (size_t index = 0; index < 4; ++index) {
+    if (index > 0) mbedtls_md_hmac_update(&context, &separator, 1);
+    mbedtls_md_hmac_update(
+        &context, reinterpret_cast<const unsigned char*>(parts[index]),
+        strlen(parts[index]));
+  }
+
+  uint8_t digest[32];
+  bool ready = mbedtls_md_hmac_finish(&context, digest) == 0;
+  mbedtls_md_free(&context);
+  if (!ready) return false;
+
+  char encoded[65];
+  for (size_t index = 0; index < sizeof(digest); ++index) {
+    snprintf(encoded + index * 2, 3, "%02x", digest[index]);
+  }
+  encoded[64] = '\0';
+  output = encoded;
+  return true;
+}
+
+void advanceDismissCounter() {
+  if (dismissCounter < UINT64_MAX) ++dismissCounter;
+  preferences.putULong64("counter", dismissCounter);
 }
 
 Feedback dismissAlarm() {
   if (WiFi.status() != WL_CONNECTED) return Feedback::network_error;
+
+  String signature;
+  if (!remoteButtonMac(dismissCounter, signature)) return Feedback::not_paired;
 
   WiFiClient client;
   HTTPClient request;
   request.setConnectTimeout(1200);
   request.setTimeout(2500);
   if (!request.begin(client, "http://" WAKE_HOST ":4000/api/v1/command")) {
-    return Feedback::server_error;
+    return Feedback::network_error;
   }
 
   request.addHeader("Content-Type", "application/json");
@@ -285,14 +398,18 @@ Feedback dismissAlarm() {
   JsonDocument command;
   command["v"] = 1;
   command["id"] = requestId;
-  command["op"] = "session.dismiss";
-  command["body"].to<JsonObject>();
+  command["op"] = "remote_button.dismiss";
+  JsonObject body = command["body"].to<JsonObject>();
+  body["button_id"] = REMOTE_BUTTON_ID;
+  body["counter"] = dismissCounter;
+  body["mac"] = signature;
   String payload;
   serializeJson(command, payload);
 
   int statusCode = request.POST(payload);
   String response = statusCode > 0 ? request.getString() : String();
   request.end();
+  if (statusCode <= 0) return Feedback::network_error;
   if (statusCode != HTTP_CODE_OK) return Feedback::server_error;
 
   JsonDocument result;
@@ -300,10 +417,20 @@ Feedback dismissAlarm() {
     return Feedback::server_error;
   }
   if (result["status"] == "ok") {
+    advanceDismissCounter();
     wakeActive = false;
     return Feedback::dismissed;
   }
-  if (result["error"]["code"] == "no_active_session") return Feedback::idle;
+  const char* errorCode = result["error"]["code"] | "unknown";
+  if (strcmp(errorCode, "no_active_session") == 0) {
+    advanceDismissCounter();
+    return Feedback::idle;
+  }
+  if (strcmp(errorCode, "remote_button_not_paired") == 0 ||
+      strcmp(errorCode, "invalid_remote_button_signature") == 0 ||
+      strcmp(errorCode, "remote_button_replay") == 0) {
+    return Feedback::not_paired;
+  }
   return Feedback::server_error;
 }
 
@@ -338,8 +465,7 @@ void handleButton() {
         buttonActionHandled = true;
         feedback = dismissAlarm();
         feedbackStartedAt = millis();
-        wakeReachable = feedback != Feedback::network_error &&
-                        feedback != Feedback::server_error;
+        wakeReachable = feedback != Feedback::network_error;
         Serial.printf("Dismiss result: %u\n", static_cast<unsigned>(feedback));
         render();
       }
@@ -347,8 +473,7 @@ void handleButton() {
       buttonActionHandled = true;
       feedback = dismissAlarm();
       feedbackStartedAt = millis();
-      wakeReachable = feedback != Feedback::network_error &&
-                      feedback != Feedback::server_error;
+      wakeReachable = feedback != Feedback::network_error;
       Serial.printf("Dismiss result: %u\n", static_cast<unsigned>(feedback));
       render();
     }
@@ -369,10 +494,12 @@ void trackWifi() {
   bool connected = WiFi.status() == WL_CONNECTED;
   if (connected && !wifiWasConnected) {
     Serial.printf("Wi-Fi connected: %s\n", WiFi.localIP().toString().c_str());
-    wakeReachable = pollWakeState();
+    consecutiveWakePollFailures = 0;
+    pollWakeState();
   } else if (!connected && wifiWasConnected) {
     Serial.println("Wi-Fi disconnected");
     wakeReachable = false;
+    consecutiveWakePollFailures = 0;
   }
   wifiWasConnected = connected;
 }
@@ -380,6 +507,9 @@ void trackWifi() {
 
 void setup() {
   Serial.begin(115200);
+  preferences.begin("robinewake", false);
+  dismissCounter = preferences.getULong64("counter", 1);
+  if (dismissCounter == 0) dismissCounter = 1;
   pinMode(STOP_BUTTON_PIN, INPUT_PULLUP);
   display.begin();
   brightUntilAt = millis() + kStartupBrightDurationMs;
@@ -404,7 +534,7 @@ void loop() {
   }
   if (millis() - lastWakeStateCheckAt >= kWakeStateIntervalMs) {
     lastWakeStateCheckAt = millis();
-    wakeReachable = pollWakeState();
+    pollWakeState();
   }
   uint32_t frameIntervalMs = shouldShowAlarmScreen() ? 180 : 1000;
   if (millis() - lastFrameAt >= frameIntervalMs) {

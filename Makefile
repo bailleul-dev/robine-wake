@@ -105,14 +105,14 @@ expo-test:
 	@cd "$(MOBILE_DIR)" && npx expo-doctor
 
 expo-build:
-	@cd "$(MOBILE_DIR)" && npm run cljs:release
+	@cd "$(MOBILE_DIR)" && npm run typecheck
 	@cd "$(MOBILE_DIR)" && npx expo export --platform ios --output-dir dist/ios
 
 expo-web:
 	@cd "$(MOBILE_DIR)" && npm run web:export
 
 expo-iphone:
-	@$(WITH_ENV) bash -eu -o pipefail -c ': "$${IPHONE_ID:?Set IPHONE_ID in .env}"; : "$${APPLE_TEAM_ID:?Set APPLE_TEAM_ID in .env}"; cd "$(MOBILE_DIR)"; npm run cljs:release; npx expo prebuild --clean --platform ios; xcodebuild \
+	@$(WITH_ENV) bash -eu -o pipefail -c ': "$${IPHONE_ID:?Set IPHONE_ID in .env}"; : "$${APPLE_TEAM_ID:?Set APPLE_TEAM_ID in .env}"; cd "$(MOBILE_DIR)"; npm run typecheck; npx expo prebuild --clean --platform ios; xcodebuild \
 		-workspace ios/RobineWake.xcworkspace \
 		-scheme RobineWake \
 		-configuration Release \

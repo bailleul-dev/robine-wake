@@ -5,8 +5,8 @@ chevet pour Robine Wake.
 
 - l'écran affiche l'heure, la qualité du Wi-Fi et la disponibilité du réveil ;
 - le bouton `PRG` (`GPIO0`) appelle directement le Raspberry sur le réseau local ;
-- l'action envoie la commande versionnée `session.dismiss` à
-  `http://robine-wake.local:4000/api/v1/command` ;
+- l'action envoie la commande authentifiée `remote_button.dismiss` à l'API locale du réveil ;
+- chaque arrêt est signé en HMAC-SHA256 avec un compteur anti-rejeu persistant ;
 - l'écran distingue un réveil arrêté, l'absence de session active et une panne réseau ;
 - l'OLED utilise la plage de contraste étendue du SSD1306, reste au minimum au repos et passe au
   contraste maximal dès qu'un réveil devient actif, avant même l'appui ;
@@ -19,8 +19,9 @@ chevet pour Robine Wake.
 
 Copier `.env.dist` vers `.env` à la racine du dépôt, puis renseigner
 `ROBINE_WIFI_SSID`, `ROBINE_WIFI_PASSPHRASE` et éventuellement
-`REMOTE_BUTTON_WAKE_HOST`. Le fichier `.env` est ignoré par Git et les valeurs
-sont injectées comme macros uniquement pendant la compilation. L’ancien
+`REMOTE_BUTTON_WAKE_HOST`. Après l'association avec le réveil, renseigner aussi
+`REMOTE_BUTTON_ID` et `REMOTE_BUTTON_SECRET_HEX`. Le fichier `.env` est ignoré par Git et les valeurs
+sont injectées comme macros uniquement pendant la compilation. L'ancien
 `include/local_config.h` reste accepté pour compatibilité, mais n’est plus
 nécessaire.
 
