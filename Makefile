@@ -19,12 +19,16 @@ DSP_SEED ?= 0x524F4249
 DSP_LAYER ?= rain
 DSP_OUTPUT ?=
 DSP_METRICS ?=
+VERSION_CODE ?=
+PLAY_TRACK ?=
+PLAY_ARGS = $(if $(strip $(CHANGELOG)),changelog:"$(CHANGELOG)") $(if $(strip $(VERSION_CODE)),version_code:"$(VERSION_CODE)") $(if $(strip $(PLAY_TRACK)),track:"$(PLAY_TRACK)")
+ANDROID_JAVA_HOME ?= $(shell /usr/libexec/java_home -v 17 2>/dev/null)
 TESTFLIGHT_ARGS = $(if $(strip $(CHANGELOG)),changelog:"$(CHANGELOG)") $(if $(strip $(BUILD_NUMBER)),build_number:"$(BUILD_NUMBER)")
 HOMEBREW_RUBY_PREFIX := $(shell brew --prefix ruby 2>/dev/null)
 BUNDLE ?= $(if $(HOMEBREW_RUBY_PREFIX),$(HOMEBREW_RUBY_PREFIX)/bin/bundle,bundle)
 PLATFORMIO ?= uvx --from platformio platformio
 
-.PHONY: firmware burn-sd verify-firmware iphone testflight dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone
+.PHONY: firmware burn-sd verify-firmware iphone testflight play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone
 
 firmware:
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
@@ -88,6 +92,14 @@ burn-sd: verify-firmware
 testflight:
 	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(IOS_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
 	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(IOS_DIR)" && "$(BUNDLE)" exec fastlane ios beta $(TESTFLIGHT_ARGS)'
+
+play-store:
+	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(MOBILE_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
+	@$(WITH_ENV) bash -eu -o pipefail -c 'export JAVA_HOME="$${JAVA_HOME_ANDROID:-$(ANDROID_JAVA_HOME)}"; cd "$(MOBILE_DIR)" && "$(BUNDLE)" exec fastlane android beta $(PLAY_ARGS)'
+
+android-bundle:
+	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(MOBILE_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
+	@$(WITH_ENV) bash -eu -o pipefail -c 'export JAVA_HOME="$${JAVA_HOME_ANDROID:-$(ANDROID_JAVA_HOME)}"; cd "$(MOBILE_DIR)" && "$(BUNDLE)" exec fastlane android build $(if $(strip $(VERSION_CODE)),version_code:"$(VERSION_CODE)")'
 
 iphone:
 	@$(WITH_ENV) bash -eu -o pipefail -c ': "$${IPHONE_ID:?Set IPHONE_ID in .env}"; : "$${APPLE_TEAM_ID:?Set APPLE_TEAM_ID in .env}"; cd "$(IOS_DIR)"; xcodegen generate; xcodebuild \

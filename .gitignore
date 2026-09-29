@@ -35,3 +35,12 @@ erl_crash.dump
 /ios/RobineWake/*.mobileprovision
 /ios/RobineWake/.bundle/
 /ios/RobineWake/vendor/bundle/
+
+# Android / fastlane
+/build/android/
+/mobile/fastlane/report.xml
+/mobile/fastlane/metadata/
+/mobile/fastlane/*.json
+/mobile/.bundle/
+/mobile/vendor/bundle/
+*.keystore

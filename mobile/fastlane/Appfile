@@ -1,0 +1,2 @@
+json_key_file(ENV["PLAY_JSON_KEY_FILE"]) unless ENV["PLAY_JSON_KEY_FILE"].to_s.empty?
+package_name(ENV.fetch("FASTLANE_ANDROID_PACKAGE", "fr.robine.wake"))
