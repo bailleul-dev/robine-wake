@@ -14,7 +14,7 @@ defmodule RobineWake.MixProject do
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
-      releases: [{@app, release()}],
+      releases: [{@app, release()}, robine_wake_demo: demo_release()],
       aliases: aliases(),
       test_coverage: [tool: ExCoveralls]
     ]
@@ -73,6 +73,17 @@ defmodule RobineWake.MixProject do
       include_erts: &Nerves.Release.erts/0,
       steps: [&Nerves.Release.init/1, :assemble],
       strip_beams: Mix.env() == :prod or [keep: ["Docs"]]
+    ]
+  end
+
+  # Demo deployment on a standard server (host target, `ROBINE_DEMO=1`): a
+  # plain OTP release without the Nerves firmware steps. See the Dockerfile.
+  def demo_release do
+    [
+      include_erts: true,
+      steps: [:assemble],
+      strip_beams: true,
+      applications: [robine_wake: :permanent]
     ]
   end
 

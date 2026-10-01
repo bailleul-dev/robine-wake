@@ -71,6 +71,29 @@ Change its port with `ROBINE_DEV_PORT`. The laboratory is loopback-only and its
 Phoenix/LiveView code is excluded from Raspberry Pi compilation. See the
 [host hardware emulator specification](docs/specs/80/002-host-hardware-emulator/spec.md).
 
+### Demo mode
+
+The same server can run as a public demo on a standard server, with the
+hardware emulated: the product web app and a photoreal 3D bedroom (the sound
+bar, its lights, the bedside remote, the sound) side by side at `/demo`. Every
+action goes through the real server logic, routed to emulated drivers, with an
+accelerated clock to watch a dawn in a few minutes.
+
+```sh
+ROBINE_DEMO=1 ROBINE_DEMO_ACCESS_CODE=change-me mix run --no-halt
+open http://localhost:8080/demo
+```
+
+With Docker (set `ROBINE_DEMO_ACCESS_CODE` in `.env`):
+
+```sh
+docker compose up -d --build
+```
+
+The image uses the committed web build in `priv/web`; run `make expo-web`
+first to refresh it. See the
+[demo deployment section](docs/specs/80/002-host-hardware-emulator/spec.md#demo-deployment).
+
 The Raspberry Pi web interface is intentionally passwordless and intended only
 for the trusted local network. Firmware updates and SSH remain authenticated.
 

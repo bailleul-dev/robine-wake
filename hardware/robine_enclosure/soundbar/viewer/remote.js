@@ -26,6 +26,9 @@ const FONTS = {
 const FEEDBACK = {
   dismissed: ["COMMANDE ENVOYEE", "Reveil arrete", "Bonne journee", true],
   idle: ["TOUT EST CALME", "Aucun reveil", "Rien a arreter", true],
+  network_error: ["HORS CONNEXION", "Wi-Fi absent", "Nouvel essai auto", false],
+  server_error: ["PAS DE REPONSE", "Reveil hors ligne", "Verifier Raspberry", false],
+  not_paired: ["BOUTON REFUSE", "Non associe", "Reassocier bouton", false],
 };
 
 // --- 1-bit frame buffer, drawn with the same primitives as u8g2 -----------
@@ -146,14 +149,14 @@ function drawAlarm(d, now) {
   d.str(Math.round((W - d.width(message, FONTS.small)) / 2), 63, message, FONTS.small);
 }
 
-function drawMain(d, time) {
+function drawMain(d, time, reachable) {
   d.clear();
   d.str(2, 10, "ROBINe WAKE", FONTS.body);
   drawWifiBars(d, 112, 10, 4);
   d.str(2, 40, time, FONTS.clock);
-  d.circle(94, 21, 3, true);
-  d.str(101, 25, "PRET", FONTS.body);
-  d.str(88, 38, "REVEIL", FONTS.body);
+  d.circle(94, 21, 3, reachable);
+  d.str(101, 25, reachable ? "PRET" : "HORS", FONTS.body);
+  d.str(88, 38, reachable ? "REVEIL" : "LIGNE", FONTS.body);
   d.rbox(0, 50, 128, 14, 3);
   d.colour = 0;
   d.str(17, 61, "PRG  ARRETER", FONTS.body);
@@ -168,9 +171,16 @@ function drawCheck(d, x, y) {
   d.line(x - 2, y + 6, x + 7, y - 5);
 }
 
-function drawFeedback(d, [eyebrow, title, detail]) {
+function drawAlert(d, x, y) {
+  d.circle(x, y, 11);
+  d.box(x - 1, y - 6, 2, 8);
+  d.circle(x, y + 6, 1, true);
+}
+
+function drawFeedback(d, [eyebrow, title, detail, success]) {
   d.clear();
-  drawCheck(d, 15, 22);
+  if (success) drawCheck(d, 15, 22);
+  else drawAlert(d, 15, 22);
   d.str(33, 9, eyebrow, FONTS.small);
   d.str(33, 25, title, FONTS.title);
   d.str(33, 39, detail, FONTS.small);
@@ -185,10 +195,16 @@ function drawFeedback(d, [eyebrow, title, detail]) {
 /**
  * Mounts the remote in `host`.
  * - `alarmActive()` tells whether a wake session is ringing;
- * - `press()` is called on a short PRG press and returns "dismissed" or "idle";
- * - `clock()` returns the time to display ("HH:MM").
+ * - `press()` is called on a PRG press and returns (or resolves to) a feedback
+ *   key: "dismissed", "idle", "network_error", "server_error", "not_paired";
+ * - `clock()` returns the time to display ("HH:MM");
+ * - `reachable()` tells whether the alarm clock answers ("PRET" / "HORS LIGNE").
+ *
+ * Like the firmware, a press during an alarm acts at once (never make a sleepy
+ * user wait for long-press detection); at rest it acts on release, so a 3 s
+ * hold can preview the alarm screen instead.
  */
-export function mountRemote(host, { alarmActive, press, clock }) {
+export function mountRemote(host, { alarmActive, press, clock, reachable = () => true }) {
   host.innerHTML = `
     <div class="remote-caption">
       <strong>Bedside remote</strong>
@@ -212,14 +228,24 @@ export function mountRemote(host, { alarmActive, press, clock }) {
   let previewUntil = 0;
   let brightUntil = performance.now() + 1500; // startup brightness
   let holdTimer = null;
-  let held = false;
+  let handled = false;
 
+  async function act() {
+    handled = true;
+    clearTimeout(holdTimer);
+    previewUntil = 0;
+    const result = await press();
+    feedback = { lines: FEEDBACK[result] ?? FEEDBACK.server_error, until: performance.now() + FEEDBACK_MS };
+    brightUntil = performance.now() + INTERACTION_BRIGHT_MS;
+  }
   function onDown(e) {
     e.preventDefault();
     button.classList.add("pressed");
-    held = false;
+    brightUntil = performance.now() + INTERACTION_BRIGHT_MS;
+    handled = false;
+    if (alarmActive()) return void act();
     holdTimer = setTimeout(() => {
-      held = true;
+      handled = true;
       previewUntil = performance.now() + PREVIEW_MS;
     }, HOLD_MS);
   }
@@ -227,11 +253,7 @@ export function mountRemote(host, { alarmActive, press, clock }) {
     if (!button.classList.contains("pressed")) return;
     button.classList.remove("pressed");
     clearTimeout(holdTimer);
-    if (held) return;
-    const result = press();
-    feedback = { lines: FEEDBACK[result] ?? FEEDBACK.idle, until: performance.now() + FEEDBACK_MS };
-    brightUntil = performance.now() + INTERACTION_BRIGHT_MS;
-    previewUntil = 0;
+    if (!handled) act();
   }
   button.addEventListener("pointerdown", onDown);
   button.addEventListener("pointerup", onUp);
@@ -245,7 +267,7 @@ export function mountRemote(host, { alarmActive, press, clock }) {
     const alarmScreen = alarmActive() || now < previewUntil;
     if (feedback) drawFeedback(oled, feedback.lines);
     else if (alarmScreen) drawAlarm(oled, now);
-    else drawMain(oled, clock());
+    else drawMain(oled, clock(), reachable());
     // SSD1306 contrast: dim at rest, full as soon as an alarm rings or after
     // an interaction.
     const bright = alarmScreen || feedback || now < brightUntil;

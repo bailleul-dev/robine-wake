@@ -1,0 +1,17 @@
+# Demo deployment: docker compose up -d, then open http://<host>:8080/demo
+services:
+  robine-wake-demo:
+    build: .
+    image: robine-wake-demo
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ROBINE_DEMO_ACCESS_CODE: ${ROBINE_DEMO_ACCESS_CODE:?set an access code in .env}
+      ROBINE_DEMO_SECRET: ${ROBINE_DEMO_SECRET:-}
+      ROBINE_DEMO_RESET_HOURS: ${ROBINE_DEMO_RESET_HOURS:-6}
+    volumes:
+      - robine-demo-data:/app/data
+
+volumes:
+  robine-demo-data:

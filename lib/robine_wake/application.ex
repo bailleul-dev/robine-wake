@@ -8,7 +8,7 @@ defmodule RobineWake.Application do
     config = Application.get_all_env(:robine_wake)
     _ = RobineWake.SoundLibrary.ensure_default()
 
-    children = [
+    domain = [
       {Registry, keys: :unique, name: RobineWake.Registry},
       {Task.Supervisor, name: RobineWake.TaskSupervisor},
       RobineWake.Auth,
@@ -30,12 +30,16 @@ defmodule RobineWake.Application do
       RobineWakeWeb.CSRF
     ]
 
-    children =
+    domain =
       if config[:camera_enabled] do
-        List.insert_at(children, 14, RobineWake.Camera)
+        List.insert_at(domain, 14, RobineWake.Camera)
       else
-        children
+        domain
       end
+
+    # Host-only hooks: `boot_children` start before the domain (demo clock and
+    # emulated hardware), `demo_children` after it (virtual remote, demo reset).
+    children = dev_pubsub(config) ++ List.wrap(config[:boot_children]) ++ domain
 
     children =
       if config[:bluetooth_enabled] do
@@ -62,11 +66,7 @@ defmodule RobineWake.Application do
 
     children =
       if config[:dev_emulator_enabled] and config[:target] == :host do
-        children ++
-          [
-            {Phoenix.PubSub, name: RobineWakeDev.PubSub},
-            RobineWakeDevWeb.Endpoint
-          ]
+        children ++ List.wrap(config[:demo_children]) ++ [RobineWakeDevWeb.Endpoint]
       else
         children
       end
@@ -79,6 +79,12 @@ defmodule RobineWake.Application do
       other ->
         other
     end
+  end
+
+  defp dev_pubsub(config) do
+    if config[:dev_emulator_enabled] and config[:target] == :host,
+      do: [{Phoenix.PubSub, name: RobineWakeDev.PubSub}],
+      else: []
   end
 
   defp maybe_add_lora(children, config) do

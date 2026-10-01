@@ -1,12 +1,28 @@
 defmodule RobineWake.Clock do
-  @moduledoc "Clock boundary used by domain code and deterministic tests."
+  @moduledoc """
+  Clock boundary used by domain code and deterministic tests.
+
+  Long domain deadlines (the sunrise stages of a wake session) are scheduled
+  through the clock, so an accelerated clock (demo mode) keeps them consistent
+  with the time it reports. Rhythms paced for a human body (the 4/6 breathing,
+  the strong-wake colour alternation) and polling ticks stay on real time.
+  """
 
   @callback utc_now() :: DateTime.t()
   @callback monotonic_ms() :: integer()
+  @doc "Sends `message` to `destination` once `milliseconds` of clock time have passed."
+  @callback send_after(pid() | atom(), term(), non_neg_integer()) :: reference()
+  @callback cancel_timer(reference()) :: non_neg_integer() | false
 
   def adapter, do: Application.fetch_env!(:robine_wake, :clock)
   def utc_now, do: adapter().utc_now()
   def monotonic_ms, do: adapter().monotonic_ms()
+
+  def send_after(destination, message, milliseconds),
+    do: adapter().send_after(destination, message, milliseconds)
+
+  def cancel_timer(nil), do: false
+  def cancel_timer(reference), do: adapter().cancel_timer(reference)
 end
 
 defmodule RobineWake.Clock.System do
@@ -18,11 +34,24 @@ defmodule RobineWake.Clock.System do
 
   @impl true
   def monotonic_ms, do: System.monotonic_time(:millisecond)
+
+  @impl true
+  def send_after(destination, message, milliseconds),
+    do: Process.send_after(destination, message, milliseconds)
+
+  @impl true
+  def cancel_timer(reference), do: Process.cancel_timer(reference)
 end
 
 defmodule RobineWake.Clock.Manual do
-  @moduledoc "Controllable clock for host simulations and deterministic tests."
+  @moduledoc """
+  Controllable clock for host simulations and deterministic tests.
+
+  Time only moves with `advance/1` or `set/2`; timers keep real-time behaviour
+  so existing simulations are unaffected.
+  """
   @behaviour RobineWake.Clock
+
   use Agent
 
   def start_link(opts \\ []) do
@@ -36,6 +65,13 @@ defmodule RobineWake.Clock.Manual do
 
   @impl true
   def monotonic_ms, do: Agent.get(__MODULE__, & &1.monotonic_ms)
+
+  @impl true
+  def send_after(destination, message, milliseconds),
+    do: Process.send_after(destination, message, milliseconds)
+
+  @impl true
+  def cancel_timer(reference), do: Process.cancel_timer(reference)
 
   def advance(milliseconds) when is_integer(milliseconds) do
     Agent.update(__MODULE__, fn state ->

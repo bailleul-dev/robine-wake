@@ -36,3 +36,33 @@ if host_target? do
   config :robine_wake, RobineWakeDevWeb.Endpoint,
     http: [ip: {127, 0, 0, 1}, port: parse_integer.("ROBINE_DEV_PORT", 4111)]
 end
+
+# Demo deployment (host target only): the real server with emulated hardware,
+# an accelerated clock, and one public port serving the app and the 3D room.
+if host_target? and System.get_env("ROBINE_DEMO") in ["1", "true"] do
+  demo_secret =
+    System.get_env("ROBINE_DEMO_SECRET") || Base.encode64(:crypto.strong_rand_bytes(32))
+
+  config :robine_wake,
+    clock: RobineWakeDev.Clock.Scaled,
+    hue_driver: RobineWake.Hue.Driver.Emulated,
+    audio_driver: RobineWake.Audio.Driver.Emulated,
+    initial_time_quality: :trusted,
+    remote_dismiss_enabled: true,
+    web_enabled: false,
+    demo_access_code: System.get_env("ROBINE_DEMO_ACCESS_CODE"),
+    demo_secret: demo_secret,
+    demo_reset_hours: parse_integer.("ROBINE_DEMO_RESET_HOURS", 6),
+    demo_room_dir:
+      System.get_env("ROBINE_ROOM_DIR") || "hardware/robine_enclosure/soundbar/viewer",
+    boot_children: [RobineWakeDev.Clock.Scaled, RobineWakeDev.Hardware],
+    demo_children: [
+      RobineWakeDev.VirtualRemote,
+      RobineWakeDev.Demo,
+      {Bandit,
+       scheme: :http,
+       plug: RobineWakeDemoWeb.Router,
+       ip: {0, 0, 0, 0},
+       port: parse_integer.("PORT", 8080)}
+    ]
+end

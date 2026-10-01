@@ -90,4 +90,12 @@ defmodule RobineWakeDevWeb.EmulatorLiveTest do
     assert response.status == 404
     assert response.resp_body == "Not Found"
   end
+
+  test "renders with the camera disabled" do
+    Application.put_env(:robine_wake, :camera_enabled, false)
+    on_exit(fn -> Application.put_env(:robine_wake, :camera_enabled, true) end)
+
+    {:ok, view, _html} = live(Phoenix.ConnTest.build_conn(), "/")
+    assert view |> element("#camera-health") |> render() =~ "disabled"
+  end
 end

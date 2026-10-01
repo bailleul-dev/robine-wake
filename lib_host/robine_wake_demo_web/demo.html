@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robine Wake Demo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b101b;
+    --panel: #121a2a;
+    --line: #26324a;
+    --text: #e8edf6;
+    --muted: #8d9ab3;
+    --accent: #6f9cf0;
+    --warn: #f0b46f;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .02em; }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  .clock { font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; min-width: 5ch; }
+  .clock small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .group { display: flex; align-items: center; gap: 6px; }
+  .group label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+  button {
+    font: inherit; font-size: 13px; color: var(--text); background: #18223a;
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0b101b; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: progress; }
+  .spacer { flex: 1; }
+  .note { font-size: 12px; color: var(--warn); }
+
+  main {
+    display: grid; grid-template-columns: minmax(340px, 400px) 1fr; gap: 16px;
+    padding: 16px; min-height: 0;
+  }
+  .pane { display: grid; grid-template-rows: auto 1fr; gap: 8px; min-height: 0; }
+  .pane > span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .phone {
+    border: 10px solid #05070c; border-radius: 34px; overflow: hidden; background: #000;
+    box-shadow: 0 0 0 1px var(--line), 0 20px 50px rgba(0, 0, 0, .45); min-height: 0;
+  }
+  .room { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 0; }
+  iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .phone { height: 720px; width: min(400px, 100%); justify-self: center; }
+    .room { height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Robine Wake <span>· live demo, emulated hardware</span></h1>
+  <div class="clock" id="clock">--:--<small>virtual time · Paris</small></div>
+  <div class="group" role="group" aria-label="Clock speed">
+    <label>Speed</label>
+    <button type="button" data-speed="1" aria-pressed="true">×1</button>
+    <button type="button" data-speed="10" aria-pressed="false">×10</button>
+    <button type="button" data-speed="60" aria-pressed="false">×60</button>
+  </div>
+  <button type="button" id="jump">Jump to 5 min before dawn</button>
+  <span class="note" id="note" hidden>Breathing is paced for real time: use ×1 for the evening session.</span>
+  <span class="spacer"></span>
+  <button type="button" id="reset">Reset demo</button>
+</header>
+<main>
+  <section class="pane">
+    <span>Robine Wake app</span>
+    <div class="phone"><iframe src="/?app" title="Robine Wake app"></iframe></div>
+  </section>
+  <section class="pane">
+    <span>Bedroom · the bar above the bed, and the bedside remote</span>
+    <div class="room"><iframe src="/room/index.html?live=1" title="3D bedroom" allow="autoplay"></iframe></div>
+  </section>
+</main>
+<script>
+  const clockEl = document.getElementById("clock");
+  const note = document.getElementById("note");
+  const speedButtons = [...document.querySelectorAll("[data-speed]")];
+  const timeFormat = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
+
+  // Virtual clock extrapolated locally between server events.
+  let clock = null;
+  function applyClock(c) {
+    clock = { utcMs: c.utc_ms ?? Date.parse(c.utc), speed: c.speed, at: performance.now() };
+    speedButtons.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.speed) === c.speed)));
+    note.hidden = c.speed === 1;
+    renderClock();
+  }
+  function renderClock() {
+    if (!clock) return;
+    const now = clock.utcMs + (performance.now() - clock.at) * clock.speed;
+    clockEl.firstChild.textContent = timeFormat.format(now);
+  }
+  setInterval(renderClock, 250);
+
+  const stream = new EventSource("/emulator/stream");
+  stream.addEventListener("snapshot", (e) => applyClock(JSON.parse(e.data).clock));
+  stream.addEventListener("hardware", (e) => {
+    const event = JSON.parse(e.data);
+    if (event.type === "clock") applyClock(event.state);
+    if (event.type === "snapshot") applyClock(event.state.clock);
+  });
+
+  async function post(path, body, button) {
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body ?? {}),
+      });
+      return response.ok;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+  speedButtons.forEach((b) => b.addEventListener("click", () => post("/emulator/clock", { speed: Number(b.dataset.speed) }, b)));
+  document.getElementById("jump").addEventListener("click", (e) => post("/emulator/clock", { jump: "alarm" }, e.currentTarget));
+  document.getElementById("reset").addEventListener("click", async (e) => {
+    if (await post("/emulator/reset", {}, e.currentTarget)) document.querySelector(".phone iframe").src = "/?app";
+  });
+</script>
+</body>
+</html>

@@ -13,7 +13,10 @@ MIX_TARGET=host mix run --no-halt
 open http://127.0.0.1:4111/room
 ```
 
-Or with any static server, without Elixir:
+Or, driven by the real server with emulated hardware, from the demo mode:
+`http://localhost:8080/demo` (see "Live mode" below).
+
+Or with any static server, without Elixir (scripted scenes):
 
 ```sh
 cd hardware/robine_enclosure/soundbar/viewer
@@ -125,8 +128,21 @@ const f0 = robineRoom.frames; await new Promise(r => setTimeout(r, 4000));
 (robineRoom.frames - f0) / 4 // frames per second
 ```
 
-## Next steps
+## Live mode
 
-- Drive the scenes from the emulator state (breathing session, wake session)
-  through the Hardware Lab, instead of the demo buttons.
-- Play the breathing soundscape and the alarm in the page.
+Served by the demo server (`ROBINE_DEMO=1`, see the main README), the page
+switches to live mode by itself (`?live=0` forces the scripted scenes):
+
+- `live.js` follows `/emulator/stream`:
+  - the Hue state set by the real server drives the halo and the lamps
+    (`xy` or mirek, brightness, transitions);
+  - the server's virtual clock drives the window (night, twilight from
+    07:15, day).
+- `audio.js` plays the sounds the server's audio service starts, at the
+  Amp2 level. Press **Enable sound** first (browser autoplay policy).
+- The remote behaves like the firmware:
+  - it polls `session.get` every 2 s (PRET / HORS LIGNE);
+  - PRG presses the server-side virtual remote, which signs the dismiss
+    command;
+  - the screen shows the server's answer.
+- **H** shows the camera views only: the server owns the scene.

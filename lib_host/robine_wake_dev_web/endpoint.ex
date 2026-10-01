@@ -27,7 +27,7 @@ defmodule RobineWakeDevWeb.Endpoint do
   plug Plug.Static,
     at: "/room",
     from: "hardware/robine_enclosure/soundbar/viewer",
-    only: ~w(index.html room.js decor.js remote.js remote_sprites.js assets)
+    only: ~w(index.html room.js decor.js remote.js remote_sprites.js audio.js live.js assets)
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]

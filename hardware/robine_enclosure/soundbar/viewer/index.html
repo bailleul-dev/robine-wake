@@ -43,6 +43,18 @@
         backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       }
       .keyhint kbd { color: var(--text); font: inherit; font-weight: 700; }
+      /* Live mode: what the server commands, and the sound switch. */
+      .live-bar {
+        position: fixed; left: 16px; top: 16px; right: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+        pointer-events: none;
+      }
+      .live-bar > * { pointer-events: auto; }
+      .live-bar .status {
+        padding: 7px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      }
+      .sound-toggle { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+      .sound-toggle.playing { border-color: var(--accent); }
       /* The remote is drawn as a device on a light card, clearly outside the
          3D room. Proportions follow the Heltec enclosure: 60 x 33 mm face,
          OLED window 27.5 x 15 mm right of centre, PRG button upper left. */
@@ -95,6 +107,7 @@
   <body>
     <div class="loading" id="loading">Loading the room…</div>
     <div class="keyhint" id="keyhint">Press <kbd>H</kbd> for the demo controls</div>
+    <div class="live-bar" id="live-bar" hidden><div class="status" id="live-status"></div></div>
     <aside class="remote" id="remote" aria-label="Bedside remote, emulated"></aside>
     <div class="panel" role="region" aria-label="Demo controls" hidden>
       <div class="row" id="scenes">

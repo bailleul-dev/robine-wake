@@ -99,5 +99,49 @@ session. Advancing manual time is limited to 1–1,440 minutes per action.
 - `_build/rpi3_dev/lib/phoenix` and
   `_build/rpi3_dev/lib/phoenix_live_view` do not exist after the target build.
 
+## Demo deployment
+
+`ROBINE_DEMO=1` on the `host` target turns the emulator into a public demo:
+the real server runs unchanged, and only the hardware ports are emulated.
+
+| Port | Demo adapter | Visible as |
+|---|---|---|
+| `RobineWake.Clock` | `RobineWakeDev.Clock.Scaled` (×1, ×10, ×60, jump) | virtual time; sunrise stages follow it |
+| `RobineWake.Hue.Driver` | `RobineWake.Hue.Driver.Emulated`: targets `halo`, `lamps`, `bedroom` | the halo and lamps of the 3D room |
+| `RobineWake.Audio.Driver` | `RobineWake.Audio.Driver.Emulated` | the browser plays the same files, at the Amp2 level (dB) |
+| Remote button (LoRa / HTTP) | `RobineWakeDev.VirtualRemote` | the on-screen ESP32; the server signs `remote_button.dismiss` |
+
+`RobineWakeDev.Hardware` holds the emulated state and publishes it on
+`RobineWakeDev.PubSub`. `RobineWakeDemoWeb.Router` is the single public port
+(`PORT`, default 8080):
+
+- `/demo`: the product app and the 3D room side by side;
+- `/room/`: the viewer in live mode;
+- `/emulator/stream`: SSE, a snapshot first, then the hardware events;
+- `/emulator/state`, `/emulator/audio/*`, `POST /emulator/remote/press`,
+  `/emulator/clock` and `/emulator/reset`;
+- everything else goes to `RobineWakeWeb.Router`.
+
+`RobineWakeDev.Demo` resets the instance at boot, on demand, and every
+`ROBINE_DEMO_RESET_HOURS`. The reset is a factory reset. It then pairs the
+emulated bridge and creates a 07:00 alarm with a 20-minute dawn on `lamps`,
+ending at 25 % (about 100 lm, 300 lux at the eye). It also pairs the virtual
+remote and sets the clock to 22:30 at ×1.
+
+Breathing and strong-wake colours stay on real time: they are paced for a
+human body. The viewer runs Hue transitions of 10 s or less in real time and
+longer ones (sunrise stages) in virtual time.
+
+Security limits of a shared instance:
+
+- one access code (`ROBINE_DEMO_ACCESS_CODE`) gates every route, through an
+  HMAC cookie signed with `ROBINE_DEMO_SECRET`;
+- `/mcp` is closed;
+- the Hardware Lab stays on loopback;
+- every visitor shares the same state, which the periodic reset bounds.
+
+Release `robine_wake_demo` (plain OTP, no Nerves steps); `Dockerfile` and
+`docker-compose.yml` at the repository root.
+
 This emulator accelerates development but does not replace electrical, mechanical,
 thermal, acoustic, power-loss, or overnight hardware acceptance.

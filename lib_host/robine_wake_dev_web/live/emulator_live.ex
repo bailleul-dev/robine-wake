@@ -99,12 +99,12 @@ defmodule RobineWakeDevWeb.EmulatorLive do
         <section class="card">
           <h2>Capabilities</h2>
           <div class="status-grid">
-            <div class="status">Camera<strong id="camera-health" class={status_class(@snapshot.health.camera.driver_health.state)}>{display(@snapshot.health.camera.driver_health.state)}</strong></div>
+            <div class="status">Camera<strong id="camera-health" class={status_class(camera_state(@snapshot))}>{display(camera_state(@snapshot))}</strong></div>
             <div class="status">Audio<strong id="audio-health" class={status_class(@snapshot.health.audio.capabilities.state)}>{display(@snapshot.health.audio.capabilities.state)}</strong></div>
             <div class="status">Network<strong id="network-health" class={status_class(@snapshot.health.network.state)}>{display(@snapshot.health.network.state)}</strong></div>
             <div class="status">Clock<strong id="clock-health" class={status_class(@snapshot.health.clock.quality)}>{display(@snapshot.health.clock.quality)}</strong></div>
           </div>
-          <p class="muted">Camera frames: {@snapshot.health.camera.frames} · dropped: {@snapshot.health.camera.dropped_frames}</p>
+          <p class="muted">Camera frames: {Map.get(@snapshot.health.camera, :frames, 0)} · dropped: {Map.get(@snapshot.health.camera, :dropped_frames, 0)}</p>
         </section>
 
         <section class="card">
@@ -193,6 +193,10 @@ defmodule RobineWakeDevWeb.EmulatorLive do
 
   defp refresh(socket), do: assign(socket, :snapshot, Emulator.snapshot())
   defp schedule_refresh, do: Process.send_after(self(), :refresh, @refresh_ms)
+
+  # A disabled camera reports only `%{state: :disabled}`.
+  defp camera_state(snapshot),
+    do: get_in(snapshot, [:health, :camera, :driver_health, :state]) || snapshot.health.camera.state
 
   defp scene_class(snapshot) do
     cond do

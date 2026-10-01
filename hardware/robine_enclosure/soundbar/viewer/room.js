@@ -19,6 +19,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { addDecor } from "./decor.js";
 import { mountRemote } from "./remote.js";
+import { connectLive } from "./live.js";
 
 const anchors = await (await fetch("./assets/anchors.json")).json();
 
@@ -696,7 +697,7 @@ function setScene(name) {
   if (name === "dawn") state.dawnMinutes = 0;
   state.alarm = "none";
   invalidate();
-  scene.environmentIntensity = SCENES[name].environment;
+  if (SCENES[name].environment !== undefined) scene.environmentIntensity = SCENES[name].environment;
   document.querySelectorAll("[data-scene]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scene === name)));
   document.getElementById("dawn-row").hidden = name !== "dawn";
 }
@@ -723,9 +724,27 @@ dawnPlay.addEventListener("click", () => {
   dawnPlay.setAttribute("aria-pressed", String(state.dawnPlaying));
 });
 
-// The URL can pick a scene and a view, e.g. ?scene=breathing&view=pillow.
+// Live mode when the demo server answers (unless ?live=0): the server drives
+// the lights, the sound and the remote. Otherwise the scripted scenes play,
+// and the URL can pick one and a view, e.g. ?scene=breathing&view=pillow.
 const query = new URLSearchParams(location.search);
-setScene(SCENES[query.get("scene")] ? query.get("scene") : "breathing");
+const live =
+  query.get("live") === "0"
+    ? null
+    : await connectLive({
+        THREE, setLamp, setHalo, setWindow, kelvin, fromXy, invalidate,
+        HALO_MAX_LM, LAMP_LM, LUX_PER_LUMEN_AT_EYE, NIGHT_ADAPTATION_LUX, NIGHT_SKY, MOON,
+      });
+if (live) {
+  SCENES.live = live.scene;
+  setScene("live");
+  // Only the camera views stay in the panel: the server owns the scene.
+  document.getElementById("scenes").hidden = true;
+  document.getElementById("live-bar").hidden = false;
+  document.getElementById("keyhint").innerHTML = "Press <kbd>H</kbd> for the camera views";
+} else {
+  setScene(SCENES[query.get("scene")] ? query.get("scene") : "breathing");
+}
 if (query.has("minutes")) {
   state.dawnMinutes = Number(query.get("minutes"));
   state.dawnPlaying = false;
@@ -738,7 +757,7 @@ setView(VIEWS[query.get("view")] ? query.get("view") : "room");
 // Loop.
 
 const DAWN_SPEED = 30; // the 30-minute dawn plays in one minute
-const statusEl = document.getElementById("status");
+const statusEl = document.getElementById(live ? "live-status" : "status");
 let last = performance.now();
 
 function frame(now) {
@@ -753,7 +772,8 @@ function frame(now) {
   if (state.scene === "dawn" && state.dawnMinutes < 30) state.alarm = "none";
   if (state.scene === "dawn" && document.activeElement !== dawnTime) dawnTime.value = state.dawnMinutes;
   const scene_ = SCENES[state.scene];
-  const { lumens, lux } = scene_.update(t);
+  const { lumens, lux, environment } = scene_.update(t);
+  if (environment !== undefined) scene.environmentIntensity = environment;
   // Eye adaptation: a white surface at the reference illuminance lands in the
   // upper mid-tones. Bounce: light reflected by the walls and bedding.
   renderer.toneMappingExposure = 6 / lux;
@@ -762,7 +782,8 @@ function frame(now) {
   bloom.threshold = 1.6 / renderer.toneMappingExposure;
   glowGain = 1 / renderer.toneMappingExposure;
   bounce.intensity = lumens * 0.025;
-  statusEl.innerHTML = scene_.label + (scene_.status ? ` · ${scene_.status(t)}` : "");
+  const status = [scene_.label, scene_.status?.(t)].filter(Boolean).join(" · ");
+  if (statusEl.innerHTML !== status) statusEl.innerHTML = status;
   controls.update();
   if (dirty || scene_.animated?.()) {
     composer.render();
@@ -780,9 +801,10 @@ window.addEventListener("resize", () => {
   invalidate();
 });
 
-// Bedside remote (emulated ESP32). During the dawn its clock runs from 06:30
-// to the 07:00 alarm; otherwise it shows the real time.
-mountRemote(document.getElementById("remote"), {
+// Bedside remote (emulated ESP32). Live, it talks to the server like the
+// firmware. Scripted, its clock runs from 06:30 to the 07:00 alarm during the
+// dawn, and shows the real time otherwise.
+mountRemote(document.getElementById("remote"), live ? live.remote : {
   alarmActive: () => state.alarm === "active",
   press() {
     if (state.alarm !== "active") return "idle";

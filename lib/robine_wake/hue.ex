@@ -4,7 +4,7 @@ defmodule RobineWake.Hue do
   use GenServer
   require Logger
 
-  alias RobineWake.{Audio, EventLog, EventStream, Id, Settings}
+  alias RobineWake.{Audio, Clock, EventLog, EventStream, Id, Settings}
 
   @breathing_low_brightness 1
   @breathing_high_brightness 30
@@ -465,12 +465,15 @@ defmodule RobineWake.Hue do
     |> elem(0)
   end
 
+  # The sunrise follows the wake session's time, so it goes through the clock
+  # (accelerated in demo mode); breathing and strong-wake colours are paced for
+  # a human body and stay on real time.
   defp schedule_sunrise_stage(session_id, token, duration_ms) do
-    Process.send_after(self(), {:sunrise_stage, session_id, token}, duration_ms)
+    Clock.send_after(self(), {:sunrise_stage, session_id, token}, duration_ms)
   end
 
   defp cancel_sunrise(session) do
-    if session.sunrise_timer, do: Process.cancel_timer(session.sunrise_timer)
+    Clock.cancel_timer(session.sunrise_timer)
     %{session | sunrise_timer: nil, sunrise_token: nil}
   end
 
