@@ -44,3 +44,7 @@ erl_crash.dump
 /mobile/.bundle/
 /mobile/vendor/bundle/
 *.keystore
+
+# FreeCAD / Python artefacts
+__pycache__/
+*.FCBak

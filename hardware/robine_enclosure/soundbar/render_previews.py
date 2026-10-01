@@ -31,7 +31,11 @@ def render() -> None:
 
     from pivy import coin
 
-    centre = coin.SbVec3f(450, 60, 55)
+    bb = App.BoundBox()
+    for obj in doc.Objects:
+        if obj.TypeId == "Part::Feature":
+            bb.add(obj.Shape.BoundBox)
+    centre = coin.SbVec3f(bb.Center.x, bb.Center.y, bb.Center.z)
 
     def shot(name, direction, hide=(), zoom=1.0):
         for obj in doc.Objects:
@@ -50,7 +54,7 @@ def render() -> None:
     shot("iso", (-500, 900, 650), zoom=0.62)
     # Top, front and one end removed to show the bay and chambers.
     shot("open", (-450, 800, 750), ["top", "front", "end_left"], zoom=0.62)
-    # End view without the left cheek: tilted profile and French cleat.
+    # End view without the left cheek: tilted profile and flat back.
     shot("side", (-1500, 0, 0), ["end_left"], zoom=0.2)
     App.closeDocument(doc.Name)
 

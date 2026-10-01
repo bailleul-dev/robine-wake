@@ -1,79 +1,105 @@
-# Barre de son murale Robine Wake
+# Robine Wake wall sound bar
 
-Enceinte principale de Robine Wake : une barre fixée au mur au-dessus de la tête
-de lit, dont les haut-parleurs tirent vers le bas à travers un baffle incliné de
-15° vers l'oreiller. Elle contient le Raspberry Pi 3 B+, la HiFiBerry Amp2 et
-deux ensembles de haut-parleurs (un par canal).
+Robine Wake's main speaker: a bar mounted on the wall above the headboard,
+wired as an ordinary stereo speaker on the HiFiBerry Amp2. Each channel is a
+passive 3-way using the classic compact 3-way sizes: a 5.25" bass-reflex
+woofer, a 3" midrange and a 25 mm tweeter. The drivers fire downward through a
+baffle tilted 18.4° toward the ears. Spatialisation comes first: the
+midrange-tweeter columns frame each sleeper (±450 mm) and are angled 20°
+toward the opposite pillow.
 
-![Vue depuis l'oreiller](generated/preview-below.png)
+The acoustic choices (spatialisation, bass, voice) are explained in
+[ACOUSTICS.md](ACOUSTICS.md).
 
-## Architecture
+![View from the pillow](generated/preview-below.png)
 
-| Zone | Contenu |
+## Layout
+
+From the centre toward each end:
+
+| Zone | Contents |
 |---|---|
-| chambre gauche | haut-parleur large bande 3" + radiateur passif, volume clos ≈ 1,96 L |
-| baie centrale | Pi 3 B+ et Amp2 sur entretoises fixées au panneau arrière, passe-câble d'alimentation |
-| chambre droite | identique à la gauche, en miroir |
+| woofer chamber | 5.25" woofer flush-mounted at ±140 mm, vent mouth, 4.61 L net |
+| midrange compartment | 3" midrange and 25 mm tweeter on 20° wedges, column at ±450 mm, 1.55 L sealed |
+| end compartment | 3-way crossover lying on the floor; on the left, also the Pi 3 B+ and the Amp2 |
 
-- Encombrement : 900 × 120 × 110 mm (longueur × profondeur × hauteur).
-- Caisson en contreplaqué bouleau ou MDF de 12 mm, assemblé collé-vissé.
-- Les deux cloisons isolent les chambres de la baie : les haut-parleurs restent
-  en charge close et l'électronique ne prend pas la pression acoustique.
-- La trappe vissée sous la baie (contreplaqué de 6 mm) donne accès à la microSD
-  et au câblage sans laisser la carte accessible depuis l'extérieur.
-- L'air entre par les fentes de la trappe et sort par celles du dessus. Aucune
-  pièce chaude n'est au contact de la literie.
-- Fixation par tasseau français (biseau à 45°) avec une cale basse de même
-  épaisseur. Le câble d'alimentation sort à l'arrière, dans l'espace libre de
-  18 mm derrière la barre.
+- Overall size: 1400 × 200 × 140 mm (length × depth × height). The cross-section
+  fits the 5.25" woofer despite the tilt, and leaves room to stack the
+  midrange and tweeter with clearance.
+- 12 mm birch plywood or MDF, glued and screwed.
+- Seven airtight partitions: each channel has its own volumes, the midrange is
+  isolated from the woofer, and the electronics are kept out of the acoustic
+  pressure. A single pair of wires per channel runs from the crossover to the
+  Amp2.
+- The vent is an 88 × 22 mm duct along the front panel, under the top, from
+  the woofer chamber through the end cheek: its opening is invisible from the
+  bed.
+- The electronics bay (left end) is closed: the Pi is installed during
+  assembly, and the firmware updates over the network. It vents through slots
+  in the top, wall side, behind the vent duct; the bottom face carries only
+  the drivers. No hot part touches the bedding.
+- The power cable comes out of the wall directly behind the bay, at the left
+  end, and passes through the back panel via a Ø 12 hole: nothing is visible.
+- The back sits flat against the wall, hung on two metal keyhole plates recessed
+  in the back panel. Their pockets are blind (at least 3 mm of wood remains),
+  so the chambers stay airtight.
 
-![Vue ouverte](generated/preview-open.png)
-![Profil](generated/preview-side.png)
+![Open view](generated/preview-open.png)
+![Profile](generated/preview-side.png)
 
-## Génération
+## Generation
 
-Le modèle est entièrement paramétrique : toutes les cotes sont dans
-`SoundbarParameters`, au début de `design_soundbar.py`.
+The model is fully parametric: every dimension lives in `SoundbarParameters`,
+at the top of `design_soundbar.py`.
 
 ```sh
 cd hardware/robine_enclosure/soundbar
 /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd design_soundbar.py
-/Applications/FreeCAD.app/Contents/MacOS/FreeCAD render_previews.py   # aperçus PNG
+python3 acoustics.py                                                 # stereo and bass
+/Applications/FreeCAD.app/Contents/MacOS/FreeCAD render_previews.py   # PNG previews
 ```
 
-Le script écrit dans `generated/` :
+`render_previews.py` closes FreeCAD when it finishes: do not run it in an open
+FreeCAD session (go through the FreeCAD MCP in that case).
 
-- `robine-soundbar.FCStd` : assemblage FreeCAD (groupes Enclosure, WallMount,
-  Reference) ;
-- `robine-soundbar.step` : assemblage complet, y compris les volumes de
-  référence des haut-parleurs et de l'électronique ;
-- `parts/*.step|stl` : chaque pièce à fabriquer, en position montée ;
-- `cut-list.md` : liste de débit, masses, volume des chambres et résultat des
-  vérifications ;
-- `parameters.json` : paramètres utilisés.
+The script writes to `generated/`:
 
-Le script vérifie qu'aucun haut-parleur, ni la pile Pi + Amp2, ne traverse un
-panneau, que les flasques ne se chevauchent pas et qu'ils restent hors de la
-baie. Si une vérification échoue, `freecadcmd` renvoie un code non nul.
+- `robine-soundbar.FCStd`: FreeCAD assembly (Enclosure and Reference groups);
+- `robine-soundbar.step`: full assembly, including the reference volumes of the
+  drivers and electronics;
+- `parts/*.step|stl`: every part to build, in mounted position; the four
+  `spacer_*` wedges are to be 3D-printed;
+- `cut-list.md`: cut list, masses, chamber volumes and check results;
+- `parameters.json`: parameters used, read back by `acoustics.py`.
 
-## Avant la découpe
+The script checks that no driver, nor the Pi + Amp2 stack, crosses a panel, a
+wedge or the vent; that each driver fits in its chamber; that the vent opens
+into the woofer chamber without running over the woofer; and that the keyhole
+pockets do not pierce the back. The vent length is computed from the target
+tuning (`port_tuning_hz`). If a check fails, `freecadcmd` returns a non-zero
+exit code.
 
-Les haut-parleurs ne sont pas encore choisis. Les valeurs par défaut décrivent
-un large bande de 3" générique (découpe Ø 72, flasque Ø 88, profondeur 48 mm)
-et un radiateur passif de même diamètre. Reporter les cotes de la fiche
-technique dans `SoundbarParameters`, puis régénérer. Le volume net par chambre
-doit correspondre à la charge recommandée pour le couple haut-parleur/radiateur.
+## Before cutting
 
-À valider physiquement :
+The drivers are not chosen yet. The defaults describe generic models of the
+chosen sizes (5.25" woofer, 3" midrange, 25 mm dome). Copy the datasheet
+dimensions into `SoundbarParameters` and the Thiele-Small parameters into
+`acoustics.py`, then regenerate (selection criteria and crossover in
+[ACOUSTICS.md](ACOUSTICS.md)).
 
-1. largeur réelle du lit et de la tête de lit, pour ajuster `length` ;
-2. angle du baffle (`baffle_tilt_deg`) selon la hauteur de pose au-dessus de
-   l'oreiller ;
-3. hauteur réelle de la pile Pi + Amp2 avec ses borniers (`pi_stack_depth`) ;
-4. chauffe de l'Amp2 après 30 minutes de musique, trappe fermée (voir
+To validate physically:
+
+1. head-to-wall distance, mounting height above the ears and pillow spacing
+   (`head_from_wall`, `ears_below_baffle`, `pillow_offset`); the baffle tilt
+   is derived from them;
+2. stereo image from each pillow (procedure in [ACOUSTICS.md](ACOUSTICS.md));
+3. actual height of the Pi + Amp2 stack with its terminals (`pi_stack_depth`);
+4. Amp2 temperature after 30 minutes of music, bay closed (see
    [10-002](../../../docs/specs/10/002-hardware-profile/spec.md)).
 
-Points de fabrication : chants du baffle, de la façade et du panneau arrière
-biseautés à 15°, joints des chambres rendus étanches au mastic, laine
-acoustique ou ouate polyester dans les chambres, tissu acoustique tendu sur le
-baffle, passe-fils rebouchés après câblage.
+Build notes: baffle, front and back panel edges bevelled at 18.4°, midrange and
+tweeter holes drilled at 20° (the wedge itself is the jig), woofer rebates,
+vent duct and cheek openings with rounded edges, R9 round-over on the bottom
+edge of the front and cheeks, chamber joints sealed with mastic, ~50 %
+polyester fill in each chamber, acoustic fabric stretched over the baffle,
+wire holes sealed after wiring, 2-3 mm pads between the back and the wall.
