@@ -35,7 +35,9 @@ The URL can pick a scene, a view and a dawn time, for scripted demos:
 | `readingLeft`, `readingRight` | one lamp at full power, warm white; the other pillow stays dark |
 | `day` | daylight through the window |
 
-Views: `room`, `pillow` (looking up from the pillow), `bar` (close-up).
+Views: `room`, `pillow` (looking up from the pillow), `bar` (close-up),
+`decor` (dresser and reading corner). Press **H** to hide the controls for a
+clean recording.
 
 ## How it is built
 
@@ -50,9 +52,15 @@ Views: `room`, `pillow` (looking up from the pillow), `bar` (close-up).
   /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd export_gltf.py
   ```
 
-- **Room**: generated in `room.js` (bed, bedding, nightstands, rug, window,
-  curtains), with procedural canvas textures (plaster, oak, linen weave,
+- **Room**: generated in `room.js` (walls, window, curtains, bed and bedding,
+  nightstands), with procedural canvas textures (plaster, oak, linen weave,
   Tolex levant grain). No image files.
+- **Decor** (`decor.js`): a warm Japandi room echoing the bar's navy and the
+  terracotta throw. Olive tree in a terracotta pot, Berber rug, cushions laid
+  flat (they never hide the lamps' light on the pillows), walnut dresser with
+  stoneware, pampas and an abstract arch print, bouclé reading chair with a
+  side table, floating oak shelf with books, a small crescent-moon frame, and
+  a carafe and bud vase on the nightstands.
 - **Light**: physical units. Spot lights in candela computed from the lamp
   flux and beam (same model as `../lighting.py`), soft shadows, an
   image-based environment for reflections, a bounce light standing in for

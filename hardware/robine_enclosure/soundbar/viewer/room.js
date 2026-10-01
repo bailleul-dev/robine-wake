@@ -15,6 +15,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { addDecor } from "./decor.js";
 
 const anchors = await (await fetch("./assets/anchors.json")).json();
 
@@ -254,12 +255,6 @@ function curtain(z, width) {
 curtain(WINDOW.z0 - 0.1, 0.45);
 curtain(WINDOW.z1 + 0.1, 0.45);
 
-// Rug.
-{
-  const rug = add(new THREE.Mesh(new RoundedBoxGeometry(2.6, 0.012, 3.0, 2, 0.006), M.rug), { cast: false });
-  rug.position.set(0, 0.006, 1.6);
-}
-
 // Bed: frame, mattress, sheet, duvet, pillows, headboard.
 {
   const frame = add(new THREE.Mesh(new RoundedBoxGeometry(1.72, 0.3, 2.12, 4, 0.03), M.walnut));
@@ -323,6 +318,11 @@ for (const x of [-1.22, 1.22]) {
   book.rotation.y = 0.3;
 }
 
+addDecor({
+  add, canvasTexture, noiseField, M,
+  room: ROOM, window: WINDOW, mattressTop: MATTRESS_TOP, pillowX: PILLOW_X, pillowZ: PILLOW_Z,
+});
+
 // ---------------------------------------------------------------------------
 // The sound bar.
 
@@ -340,7 +340,9 @@ bar.add(gltf.scene);
 
 // Emitter discs at the lamp and halo apertures (they bloom when lit).
 function emitter(position, axis, diameter) {
-  const material = new THREE.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
+  // Tone-mapped like the rest of the scene; its brightness is scaled by
+  // glowGain so it stays above the bloom threshold at any exposure.
+  const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
   const disc = new THREE.Mesh(new THREE.CircleGeometry(diameter / 2, 40), material);
   const p = new THREE.Vector3(...position);
   const a = new THREE.Vector3(...axis).normalize();
@@ -449,19 +451,20 @@ const LAMP_LM = anchors.lamps.flux_lm;
 const LUX_PER_LUMEN_AT_EYE = 3.21; // from lighting.py
 
 const state = { scene: "night", dawnMinutes: 0, dawnPlaying: true, started: performance.now() };
+let glowGain = 1; // 1 / exposure of the previous frame
 
 function setLamp(side, lumens, colour) {
   const { light, glow } = lamps[side];
   light.intensity = candela(lumens, anchors.lamps.beam_deg);
   light.color.copy(colour);
-  glow.color.copy(colour).multiplyScalar(Math.min(6, lumens / 40));
+  glow.color.copy(colour).multiplyScalar(Math.min(6, lumens / 40) * glowGain);
   if (lumens > 0) bounce.color.copy(colour);
 }
 
 function setHalo(lumens, colour) {
   halo.light.intensity = candela(lumens, anchors.halo.beam_deg);
   halo.light.color.copy(colour);
-  halo.glow.color.copy(colour).multiplyScalar(Math.min(4, lumens * 2));
+  halo.glow.color.copy(colour).multiplyScalar(Math.min(4, lumens * 2) * glowGain);
   if (lumens > 0) bounce.color.copy(colour);
 }
 
@@ -556,8 +559,8 @@ const SCENES = {
     update() {
       lampsOff();
       setHalo(0, AMBER);
-      setWindow(new THREE.Color(0xcfe3ff), new THREE.Color(0xfff1dc), 900, 18);
-      return { lumens: 1000, lux: 220 };
+      setWindow(new THREE.Color(0xcfe3ff), new THREE.Color(0xfff1dc), 250, 22);
+      return { lumens: 400, lux: 220 };
     },
   },
 };
@@ -566,9 +569,10 @@ const SCENES = {
 // Camera views.
 
 const VIEWS = {
-  room: { position: [1.25, 1.45, 4.25], target: [0, 1.35, 0.7] },
+  room: { position: [1.25, 1.6, 4.1], target: [0, 0.95, 0.75] },
   pillow: { position: [PILLOW_X - 0.05, EAR_HEIGHT + 0.08, PILLOW_Z + 0.35], target: [0.05, CEILING - 0.3, 0.75] },
   bar: { position: [0.55, 0.85, 1.25], target: [0.15, BAR_Y + 0.05, 0.08] },
+  decor: { position: [1.75, 1.55, 4.35], target: [-0.9, 1.05, 1.9] },
 };
 
 function setView(name) {
@@ -588,6 +592,13 @@ function setScene(name) {
   document.getElementById("dawn-row").hidden = name !== "dawn";
 }
 
+// H hides the controls, for clean demos and recordings.
+window.addEventListener("keydown", (e) => {
+  if (e.key === "h" || e.key === "H") {
+    const panel = document.querySelector(".panel");
+    panel.hidden = !panel.hidden;
+  }
+});
 document.getElementById("scenes").addEventListener("click", (e) => e.target.dataset.scene && setScene(e.target.dataset.scene));
 document.getElementById("views").addEventListener("click", (e) => e.target.dataset.view && setView(e.target.dataset.view));
 const dawnTime = document.getElementById("dawn-time");
@@ -630,6 +641,10 @@ function frame(now) {
   // Eye adaptation: a white surface at the reference illuminance lands in the
   // upper mid-tones. Bounce: light reflected by the walls and bedding.
   renderer.toneMappingExposure = 6 / lux;
+  // Bloom works on scene radiance before exposure: only what is several
+  // times brighter than a white wall at the reference light blooms.
+  bloom.threshold = 1.6 / renderer.toneMappingExposure;
+  glowGain = 1 / renderer.toneMappingExposure;
   bounce.intensity = lumens * 0.025;
   statusEl.innerHTML = scene_.label + (scene_.status ? ` · ${scene_.status(t)}` : "");
   controls.update();
