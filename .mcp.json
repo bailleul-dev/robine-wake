@@ -2,7 +2,7 @@
   "mcpServers": {
     "freecad": {
       "command": "uvx",
-      "args": ["~/sources/freecad-mcp"]
+      "args": ["--from", "${HOME}/sources/freecad-mcp", "freecad-mcp"]
     }
   }
 }
