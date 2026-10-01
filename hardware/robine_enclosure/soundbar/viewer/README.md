@@ -84,9 +84,12 @@ firmware sprites change.
   side table, floating oak shelf with books, a small crescent-moon frame, and
   a carafe and bud vase on the nightstands.
 - **Light**: physical units. Spot lights in candela computed from the lamp
-  flux and beam (same model as `../lighting.py`), soft shadows, an
-  image-based environment for reflections, a bounce light standing in for
-  global illumination, ambient occlusion (GTAO), bloom on the emitters, AgX
+  flux and beam (same model as `../lighting.py`), soft shadows. Outdoor light
+  only enters through the window: the moon or sun is a directional light
+  whose shadows cover the whole room (walls and ceiling block it), and the
+  sky is an area light filling the window opening, so daylight comes from
+  the window and fades with distance. A faint image-based environment gives
+  reflections, a bounce light stands in for global illumination, ambient occlusion (GTAO), bloom on the emitters, AgX
   tone mapping. Exposure follows the reference illuminance of each scene,
   like the eye adapting, so a 1-lux halo and a 900-lux reading lamp both
   read correctly.

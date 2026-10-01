@@ -16,6 +16,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { addDecor } from "./decor.js";
 import { mountRemote } from "./remote.js";
 
@@ -226,15 +227,18 @@ function add(mesh, { cast = true, receive = true } = {}) {
   return mesh;
 }
 
-function plane(w, h, material, position, rotation) {
+// Walls and ceiling cast shadows: sunlight and moonlight must only enter
+// through the window opening, never through the envelope of the room.
+function plane(w, h, material, position, rotation, cast = true) {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
   mesh.position.set(...position);
   mesh.rotation.set(...rotation);
-  return add(mesh, { cast: false });
+  mesh.material.shadowSide = THREE.DoubleSide;
+  return add(mesh, { cast });
 }
 
 const width = ROOM.x1 - ROOM.x0;
-plane(width, ROOM.z1, M.floor, [0, 0, ROOM.z1 / 2], [-Math.PI / 2, 0, 0]);
+plane(width, ROOM.z1, M.floor, [0, 0, ROOM.z1 / 2], [-Math.PI / 2, 0, 0], false);
 plane(width, ROOM.z1, M.ceiling, [0, CEILING, ROOM.z1 / 2], [Math.PI / 2, 0, 0]);
 plane(width, CEILING, M.wall, [0, CEILING / 2, 0], [0, 0, 0]);
 plane(width, CEILING, M.wall, [0, CEILING / 2, ROOM.z1], [0, Math.PI, 0]);
@@ -455,16 +459,25 @@ for (const side of ["L", "R"]) {
 }
 
 // Moon / sun through the window, and a sky fill.
+// Direct moon / sun light. Its shadow frustum covers the whole room, so every
+// wall blocks it and it only enters through the window opening.
+const ROOM_CENTRE = new THREE.Vector3(0, CEILING / 2, ROOM.z1 / 2);
 const windowLight = new THREE.DirectionalLight(0xffffff, 0);
-windowLight.position.set(ROOM.x1 + 3, 3.2, (WINDOW.z0 + WINDOW.z1) / 2 - 1.2);
-windowLight.target.position.set(-0.4, 0.4, 1.4);
+windowLight.target.position.copy(ROOM_CENTRE);
+windowLight.position.copy(ROOM_CENTRE).addScaledVector(new THREE.Vector3(5.5, 2.8, 0.4).normalize(), 7);
 windowLight.castShadow = true;
-windowLight.shadow.mapSize.set(2048, 2048);
-Object.assign(windowLight.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 12 });
+windowLight.shadow.mapSize.set(4096, 4096);
+Object.assign(windowLight.shadow.camera, { left: -3.8, right: 3.8, top: 3.8, bottom: -3.8, near: 0.5, far: 15 });
 windowLight.shadow.bias = -0.0003;
-windowLight.shadow.radius = 6;
 scene.add(windowLight, windowLight.target);
-const skyFill = new THREE.HemisphereLight(0xbfd2ff, 0x3a2a20, 0);
+
+// Diffuse sky light: an area light filling the window opening and facing
+// into the room, so the soft daylight comes from the window and fades with
+// distance from it. Its intensity is the sky luminance (cd/m²).
+RectAreaLightUniformsLib.init();
+const skyFill = new THREE.RectAreaLight(0xbfd2ff, 0, WINDOW.z1 - WINDOW.z0, WINDOW.y1 - WINDOW.y0);
+skyFill.position.set(ROOM.x1 - 0.02, (WINDOW.y0 + WINDOW.y1) / 2, (WINDOW.z0 + WINDOW.z1) / 2);
+skyFill.lookAt(ROOM.x0, (WINDOW.y0 + WINDOW.y1) / 2, (WINDOW.z0 + WINDOW.z1) / 2);
 scene.add(skyFill);
 // Stand-in for the light bounced by walls and bedding (no real-time GI).
 const bounce = new THREE.AmbientLight(0xffffff, 0);
@@ -532,12 +545,14 @@ function setHalo(lumens, colour) {
   if (lumens > 0) bounce.color.copy(colour);
 }
 
-function setWindow(skyColour, lightColour, lux, fill) {
+// lux: direct moon / sun light; skyLuminance: the window as a diffuse source.
+function setWindow(skyColour, lightColour, lux, skyLuminance) {
   if (lux > 100) bounce.color.copy(lightColour);
   sky.material.color.copy(skyColour);
   windowLight.color.copy(lightColour);
   windowLight.intensity = lux;
-  skyFill.intensity = fill;
+  skyFill.color.copy(skyColour);
+  skyFill.intensity = skyLuminance;
 }
 
 // Every scene returns the light it emits (lumens, for the bounce light) and a
@@ -545,7 +560,7 @@ function setWindow(skyColour, lightColour, lux, fill) {
 // 1-lux halo and a 900-lux reading lamp both read correctly.
 const NIGHT_SKY = new THREE.Color(0x0b1430);
 const MOON = new THREE.Color(0x9fb6ff);
-const darkWindow = () => setWindow(NIGHT_SKY, MOON, 0.05, 0.004);
+const darkWindow = () => setWindow(NIGHT_SKY, MOON, 0.05, 0.6);
 const lampsOff = () => (setLamp("L", 0, kelvin(2700)), setLamp("R", 0, kelvin(2700)));
 
 const SCENES = {
@@ -588,7 +603,7 @@ const SCENES = {
       setLamp("R", lumens, colour);
       setHalo(0, AMBER);
       const dayK = Math.max(0, (p - 0.75) / 0.25);
-      setWindow(NIGHT_SKY.clone().lerp(new THREE.Color(0x6f86b8), dayK), new THREE.Color(0xb8c8ff), 0.05 + 8 * dayK, 0.004 + 0.4 * dayK);
+      setWindow(NIGHT_SKY.clone().lerp(new THREE.Color(0x6f86b8), dayK), new THREE.Color(0xb8c8ff), 0.05 + 8 * dayK, 0.6 + 120 * dayK);
       return { lumens: lumens * 2, lux: Math.max(NIGHT_ADAPTATION_LUX, lux) };
     },
     status: () => {
@@ -622,11 +637,11 @@ const SCENES = {
   },
   day: {
     label: "Day: daylight through the window.",
-    environment: 0.15,
+    environment: 0.05,
     update() {
       lampsOff();
       setHalo(0, AMBER);
-      setWindow(new THREE.Color(0xcfe3ff), new THREE.Color(0xfff1dc), 250, 22);
+      setWindow(new THREE.Color(0xcfe3ff), new THREE.Color(0xfff1dc), 250, 420);
       return { lumens: 400, lux: 220 };
     },
   },
