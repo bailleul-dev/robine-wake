@@ -40,10 +40,10 @@
   "wire_hole": 8.0,
   "crossover_board": [
     120.0,
-    80.0,
-    30.0
+    35.0,
+    55.0
   ],
-  "crossover_offset_v": 15.0,
+  "crossover_x": 290.0,
   "port_tuning_hz": 55.0,
   "port_width": 88.0,
   "port_slot_height": 22.0,
@@ -60,6 +60,7 @@
   "pi_hole_pitch_z": 49.0,
   "pi_standoff": 6.0,
   "pi_stack_depth": 34.0,
+  "pi_shift": 38.0,
   "keyhole_offset_from_end": 150.0,
   "keyhole_from_top": 40.0,
   "keyhole_plate_w": 25.0,
@@ -68,9 +69,49 @@
   "keyhole_cavity_w": 12.0,
   "keyhole_cavity_h": 40.0,
   "keyhole_cavity_depth": 9.0,
+  "halo_diameter": 30.0,
+  "halo_depth": 45.0,
+  "halo_beam_deg": 10.0,
+  "halo_from_wall": 60.0,
+  "ceiling_above_top": 1200.0,
+  "halo_target_from_wall": 750.0,
+  "halo_pod_wall": 4.0,
+  "lamp_diameter": 50.0,
+  "lamp_depth": 45.0,
+  "lamp_beam_deg": 60.0,
+  "lamp_flux_lm": 400.0,
+  "lamp_offset_v": 0.0,
+  "lamp_shift": -65.0,
+  "book_from_wall": 550.0,
+  "book_below_baffle": 350.0,
+  "light_controller": [
+    20.0,
+    70.0,
+    60.0
+  ],
   "baffle_tilt_deg": 18.43,
+  "halo_position": [
+    700.0,
+    60.0,
+    140.0
+  ],
+  "halo_target": [
+    700.0,
+    750.0,
+    1340.0
+  ],
+  "lamp_left_position": [
+    160.0,
+    100.0,
+    33.333333333333336
+  ],
+  "lamp_left_axis": [
+    0.35521776062357263,
+    0.5608701483530094,
+    -0.7478268644706791
+  ],
   "mid_chamber_litres": 1.546,
-  "woofer_chamber_litres": 4.612,
-  "port_length_mm": 377.2,
+  "woofer_chamber_litres": 4.273,
+  "port_length_mm": 410.1,
   "port_area_cm2": 19.36
 }

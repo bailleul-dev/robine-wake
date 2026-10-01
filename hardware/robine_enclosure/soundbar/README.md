@@ -8,8 +8,11 @@ baffle tilted 18.4° toward the ears. Spatialisation comes first: the
 midrange-tweeter columns frame each sleeper (±450 mm) and are angled 20°
 toward the opposite pillow.
 
+The bar also carries a breathing halo aimed at the ceiling for falling asleep,
+and two dawn / reading lamps, one per sleeper.
+
 The acoustic choices (spatialisation, bass, voice) are explained in
-[ACOUSTICS.md](ACOUSTICS.md).
+[ACOUSTICS.md](ACOUSTICS.md), the lighting in [LIGHTING.md](LIGHTING.md).
 
 ![View from the pillow](generated/preview-below.png)
 
@@ -19,9 +22,10 @@ From the centre toward each end:
 
 | Zone | Contents |
 |---|---|
-| woofer chamber | 5.25" woofer flush-mounted at ±140 mm, vent mouth, 4.61 L net |
+| centre | breathing halo in a sealed printed housing, through the top and the centre partition |
+| woofer chamber | 5.25" woofer flush-mounted at ±140 mm, vent mouth, 3-way crossover on the back panel, 4.27 L net |
 | midrange compartment | 3" midrange and 25 mm tweeter on 20° wedges, column at ±450 mm, 1.55 L sealed |
-| end compartment | 3-way crossover lying on the floor; on the left, also the Pi 3 B+ and the Amp2 |
+| end compartment | dawn / reading lamp in the bottom face; on the left, also the Pi 3 B+ and the Amp2; on the right, also the light controller |
 
 - Overall size: 1400 × 200 × 140 mm (length × depth × height). The cross-section
   fits the 5.25" woofer despite the tilt, and leaves room to stack the
@@ -35,9 +39,10 @@ From the centre toward each end:
   the woofer chamber through the end cheek: its opening is invisible from the
   bed.
 - The electronics bay (left end) is closed: the Pi is installed during
-  assembly, and the firmware updates over the network. It vents through slots
-  in the top, wall side, behind the vent duct; the bottom face carries only
-  the drivers. No hot part touches the bedding.
+  assembly, and the firmware updates over the network. Both end compartments
+  vent through slots in the top, wall side, behind the vent duct. No hot part
+  touches the bedding.
+- The bottom face carries the drivers and, at the very ends, the two lamps.
 - The power cable comes out of the wall directly behind the bay, at the left
   end, and passes through the back panel via a Ø 12 hole: nothing is visible.
 - The back sits flat against the wall, hung on two metal keyhole plates recessed
@@ -56,6 +61,7 @@ at the top of `design_soundbar.py`.
 cd hardware/robine_enclosure/soundbar
 /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd design_soundbar.py
 python3 acoustics.py                                                 # stereo and bass
+python3 lighting.py                                                  # halo and lamps
 /Applications/FreeCAD.app/Contents/MacOS/FreeCAD render_previews.py   # PNG previews
 ```
 
@@ -68,12 +74,13 @@ The script writes to `generated/`:
 - `robine-soundbar.step`: full assembly, including the reference volumes of the
   drivers and electronics;
 - `parts/*.step|stl`: every part to build, in mounted position; the four
-  `spacer_*` wedges are to be 3D-printed;
+  `spacer_*` wedges and the `halo_pod` housing are to be 3D-printed;
 - `cut-list.md`: cut list, masses, chamber volumes and check results;
-- `parameters.json`: parameters used, read back by `acoustics.py`.
+- `parameters.json`: parameters used, read back by `acoustics.py` and
+  `lighting.py`.
 
-The script checks that no driver, nor the Pi + Amp2 stack, crosses a panel, a
-wedge or the vent; that each driver fits in its chamber; that the vent opens
+The script checks that no driver, lamp, halo or board crosses a panel, a wedge,
+the vent or another part; that each driver fits in its chamber; that the vent opens
 into the woofer chamber without running over the woofer; and that the keyhole
 pockets do not pierce the back. The vent length is computed from the target
 tuning (`port_tuning_hz`). If a check fails, `freecadcmd` returns a non-zero
@@ -94,7 +101,9 @@ To validate physically:
    is derived from them;
 2. stereo image from each pillow (procedure in [ACOUSTICS.md](ACOUSTICS.md));
 3. actual height of the Pi + Amp2 stack with its terminals (`pi_stack_depth`);
-4. Amp2 temperature after 30 minutes of music, bay closed (see
+4. ceiling height and halo spot position, lamp aim and glare (procedure in
+   [LIGHTING.md](LIGHTING.md));
+5. Amp2 and lamp temperatures after 30 minutes, compartments closed (see
    [10-002](../../../docs/specs/10/002-hardware-profile/spec.md)).
 
 Build notes: baffle, front and back panel edges bevelled at 18.4°, midrange and

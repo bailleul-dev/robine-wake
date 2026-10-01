@@ -19,9 +19,9 @@ From the centre toward each end:
 
 | Zone | Contents | Position |
 |---|---|---|
-| woofer chamber | flush-mounted 5.25" woofer, vent mouth | woofer at ±140 mm, either side of the centre partition |
+| woofer chamber | flush-mounted 5.25" woofer, vent mouth, crossover | woofer at ±140 mm, either side of the centre partition |
 | midrange compartment | 3" midrange and 25 mm tweeter on 20° wedges | column at ±450 mm, just outside each pillow |
-| end compartment | 3-way crossover; on the left, also the Pi and the Amp2 | from ±522 mm to the cheek |
+| end compartment | lamp; Pi and Amp2 on the left; light controller on the right (see [LIGHTING.md](LIGHTING.md)) | from ±522 mm to the cheek |
 
 The vent is a duct along the front panel, under the top. It starts in the
 woofer chamber, runs over the midrange and end compartments without
@@ -133,13 +133,13 @@ left to the midrange and tweeter, thanks to a low crossover around 250 Hz.
 
 ## Bass
 
-- **4.61 L net woofer chamber per channel**, from the centre partition to the
+- **4.27 L net woofer chamber per channel**, from the centre partition to the
   midrange compartment. It is separate from the midrange and from the other
   channel: no midrange modulation, no crosstalk.
 - **Vent (the "serpentine" of commercial sound bars).** An 88 × 22 mm duct
   along the front panel, under the top, formed by a shelf and a wall. It
   starts in the woofer chamber, crosses the midrange and end compartments
-  without connecting to them, and leaves through the cheek. It is 377 mm
+  without connecting to them, and leaves through the cheek. It is 410 mm
   long for a 55 Hz tuning, in a straight line with no bend. The bottom face
   carries only the three drivers per channel, and the opening is invisible
   from the bed.
@@ -148,7 +148,7 @@ left to the midrange and tweeter, thanks to a low crossover around 250 Hz.
   tuning from the chosen woofer's datasheet (for example in WinISD), then
   check it on the measured impedance curve. Pick a low-Vas woofer: a model
   designed for 15-20 L would be overdamped here.
-- **Pipe resonance** around 415 Hz, well above the woofer/midrange crossover
+- **Pipe resonance** around 385 Hz, well above the woofer/midrange crossover
   (~250 Hz): the crossover attenuates it. A little foam at the duct entrance
   damps it further.
 - **Port noise**: a 19.4 cm² duct is enough at bedside levels. Rounding the
@@ -168,8 +168,8 @@ left to the midrange and tweeter, thanks to a low crossover around 250 Hz.
 
 ## Passive crossover
 
-One 3-way crossover per channel, on a board lying on the floor of the end
-compartment (modelled). Only one pair of wires per channel runs to the Amp2.
+One 3-way crossover per channel, on a board on the back panel of the woofer
+chamber, between the woofer and the vent mouth (modelled). Only one pair of wires per channel runs to the Amp2.
 
 - Starting crossover points: ~250 Hz and ~3 kHz, 4th-order Linkwitz-Riley
   (24 dB/octave) acoustic slopes.

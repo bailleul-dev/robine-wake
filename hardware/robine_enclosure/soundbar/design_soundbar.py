@@ -18,8 +18,12 @@ speaker on the HiFiBerry Amp2: one left and one right set, each a passive
   the front of the top panel, from the woofer chamber over the midrange and
   end compartments to the end cheek, so the bottom face carries only the
   three drivers;
-* beyond the midrange compartment, a closed end compartment holds the
-  crossover; on the left it is also the electronics bay (Pi and Amp2).
+* beyond the midrange compartment, an end compartment holds one dawn /
+  reading lamp aimed at that side's pillow. The left one is also the
+  electronics bay (Pi, Amp2); the right one holds the light controller;
+* at the centre of the top, the breathing halo: a narrow-beam module in a
+  sealed printed housing that crosses the centre partition, aimed at the
+  ceiling above the middle of the bed.
 
 The reasoning and numbers are in ``ACOUSTICS.md`` and ``acoustics.py``.
 
@@ -97,10 +101,10 @@ class SoundbarParameters:
     spacer_min_thickness: float = 3.0
     wire_hole: float = 8.0
 
-    # Passive 3-way crossover board, lying on the baffle in the closed end
-    # compartment, toward the room (x length, width along the slope, height).
-    crossover_board: tuple[float, float, float] = (120.0, 80.0, 30.0)
-    crossover_offset_v: float = 15.0
+    # Passive 3-way crossover board on the back panel of each woofer chamber,
+    # between the woofer and the vent mouth (centre from the bar centre).
+    crossover_board: tuple[float, float, float] = (120.0, 35.0, 55.0)
+    crossover_x: float = 290.0
 
     # Bass-reflex vent: a duct along the front of the top panel (a shelf and
     # a side wall), open into the woofer chamber, crossing the midrange and
@@ -130,6 +134,7 @@ class SoundbarParameters:
     pi_hole_pitch_z: float = 49.0
     pi_standoff: float = 6.0
     pi_stack_depth: float = 34.0
+    pi_shift: float = 38.0  # from the bay centre, positive toward the cheek
 
     # Two recessed keyhole hanger plates on the back panel. The pockets are
     # blind, so the speaker chambers stay airtight.
@@ -141,6 +146,34 @@ class SoundbarParameters:
     keyhole_cavity_w: float = 12.0
     keyhole_cavity_h: float = 40.0
     keyhole_cavity_depth: float = 9.0
+
+    # Breathing halo: narrow-beam amber/pink module at the centre of the top
+    # panel, aimed at the ceiling above the middle of the bed so both
+    # sleepers see it. It sits in a sealed printed housing that crosses the
+    # centre partition, so neither woofer chamber leaks.
+    halo_diameter: float = 30.0
+    halo_depth: float = 45.0
+    halo_beam_deg: float = 10.0
+    halo_from_wall: float = 60.0
+    ceiling_above_top: float = 1200.0
+    halo_target_from_wall: float = 750.0
+    halo_pod_wall: float = 4.0
+
+    # Dawn / reading lamps: one per side in the bottom face of the end
+    # compartments, aimed between the sleeper's face (lying) and book
+    # (sitting up), from above and outside the shoulder.
+    lamp_diameter: float = 50.0
+    lamp_depth: float = 45.0
+    lamp_beam_deg: float = 60.0
+    lamp_flux_lm: float = 400.0
+    lamp_offset_v: float = 0.0
+    lamp_shift: float = -65.0  # from the end compartment centre, positive toward the cheek
+    book_from_wall: float = 550.0
+    book_below_baffle: float = 350.0
+
+    # Light controller (RP2040 and constant-current LED drivers) on the inner
+    # face of the end cheek opposite the bay: thickness, width, height.
+    light_controller: tuple[float, float, float] = (20.0, 70.0, 60.0)
 
     @property
     def tilt(self) -> float:
@@ -183,6 +216,7 @@ PANEL_COLOR = (0.82, 0.68, 0.48)
 SPACER_COLOR = (0.30, 0.30, 0.32)
 DRIVER_COLOR = (0.12, 0.12, 0.13)
 ELECTRONICS_COLOR = (0.10, 0.45, 0.20)
+LIGHT_COLOR = (0.95, 0.75, 0.30)
 
 
 # --------------------------------------------------------------------------
@@ -338,6 +372,67 @@ def axial_cylinder(point, axis, diameter, start, length) -> Part.Shape:
     return Part.makeCylinder(diameter / 2, length, point + axis * start, axis * -1)
 
 
+def end_centre(p: SoundbarParameters, side: int) -> float:
+    e0, e1 = p.chambers(side)["end"]
+    return (e0 + e1) / 2
+
+
+def lamp_mount(p: SoundbarParameters, side: int):
+    """Point on the outer baffle and outward beam axis of one lamp."""
+    point, normal, _ = baffle_frame(p, end_centre(p, side) + side * p.lamp_shift, p.lamp_offset_v)
+    target = V(
+        p.length / 2 + side * p.pillow_offset,
+        (p.head_from_wall + p.book_from_wall) / 2,
+        point.z - (p.ears_below_baffle + p.book_below_baffle) / 2,
+    )
+    axis = target - point
+    axis.normalize()
+    return point, axis, normal
+
+
+def halo_mount(p: SoundbarParameters):
+    """Point on the top panel, beam axis and ceiling target of the halo."""
+    point = V(p.length / 2, p.halo_from_wall, p.height)
+    target = V(p.length / 2, p.halo_target_from_wall, p.height + p.ceiling_above_top)
+    axis = target - point
+    axis.normalize()
+    return point, axis, target
+
+
+def halo_pod(p: SoundbarParameters) -> tuple[Part.Shape, Part.Shape]:
+    """Sealed housing around the halo module: (shell, outer envelope).
+
+    Open to the outside only, glued into the top panel hole and through the
+    centre partition.
+    """
+    point, axis, _ = halo_mount(p)
+    normal = V(0, 0, 1)
+    cos = abs(axis.dot(normal))
+    sin = math.sqrt(max(0.0, 1 - cos * cos))
+    inset = (p.panel + 1 + p.halo_diameter / 2 * sin) / cos
+    length = inset + p.halo_depth + p.halo_pod_wall
+    od = p.halo_diameter + 2 * p.halo_pod_wall
+    above = box(-1e4, 1e4, -1e4, 1e4, p.height, 1e4)
+    outer = axial_cylinder(point, axis, od, 30, length + 30).cut(above)
+    bore = axial_cylinder(point, axis, p.halo_diameter + 1, 30, inset + p.halo_depth + 30)
+    return outer.cut(bore), outer
+
+
+def recessed_module(point, axis, normal, panel, diameter, depth):
+    """Module body just inside a panel, and the hole its beam needs.
+
+    ``normal`` is the panel's outward normal; the hole is oversized so the
+    panel edge does not clip the beam.
+    """
+    cos = abs(axis.dot(normal))
+    sin = math.sqrt(max(0.0, 1 - cos * cos))
+    # Deep enough that the tilted rim of the module clears the panel.
+    inset = (panel + 1 + diameter / 2 * sin) / cos
+    body = axial_cylinder(point, axis, diameter, -inset, depth)
+    hole = axial_cylinder(point, axis, diameter + 10, 5, inset + 10)
+    return body, hole
+
+
 # --------------------------------------------------------------------------
 # Parts
 
@@ -377,7 +472,7 @@ def build_panels(p: SoundbarParameters) -> dict[str, Part.Shape]:
             part = part.cut(box(x0 - 1, x0 + t + 1, py0, py1, vz0, vz1 + 1))
         return part
 
-    partitions["partition_centre"] = wall(mid - t / 2, False)
+    partitions["partition_centre"] = wall(mid - t / 2, False).cut(halo_pod(p)[1])
     for ch, side in SIDES:
         spans = p.chambers(side)
         if side < 0:
@@ -397,10 +492,24 @@ def build_panels(p: SoundbarParameters) -> dict[str, Part.Shape]:
         baffle = baffle.cut(baffle_cylinder(p, x, spec.cutout, 5, t + 30))
         baffle = baffle.cut(baffle_cylinder(p, x, spec.flange + 1, 5, 5 + spec.flange_thickness))
 
-    # Bay: vent slots in the top.
-    bay_mid = sum(p.bay_span()) / 2
-    for i in range(p.vent_slot_count):
-        x = bay_mid + (i - (p.vent_slot_count - 1) / 2) * p.vent_slot_pitch
+    # Lamps: angled holes through the baffle at both ends.
+    for _, side in SIDES:
+        point, axis, normal = lamp_mount(p, side)
+        baffle = baffle.cut(recessed_module(point, axis, normal, t, p.lamp_diameter, p.lamp_depth)[1])
+    # Halo: angled hole through the top panel.
+    hpoint, haxis, _ = halo_mount(p)
+    top = top.cut(recessed_module(hpoint, haxis, V(0, 0, 1), t, p.halo_diameter, p.halo_depth)[1])
+
+    # Vent slots in the top of both end compartments (electronics and lamp
+    # heat), clear of the halo.
+    slot_xs = []
+    for _, side in SIDES:
+        centre_x = end_centre(p, side)
+        for i in range(p.vent_slot_count):
+            x = centre_x + (i - (p.vent_slot_count - 1) / 2) * p.vent_slot_pitch
+            if abs(x - hpoint.x) > p.halo_diameter / 2 + 12:
+                slot_xs.append(x)
+    for x in slot_xs:
         slot_y0 = t + 10
         top = top.cut(
             box(
@@ -488,7 +597,7 @@ def build_speakers(p: SoundbarParameters) -> dict[str, Part.Shape]:
 
 def build_electronics(p: SoundbarParameters) -> dict[str, Part.Shape]:
     t = p.panel
-    mid = sum(p.bay_span()) / 2
+    mid = sum(p.bay_span()) / 2 + p.bay_side * p.pi_shift
     zc = vent_bottom(p) - 4 - p.pi_board_z / 2
     y_board = t + p.pi_standoff
     standoffs = []
@@ -504,12 +613,27 @@ def build_electronics(p: SoundbarParameters) -> dict[str, Part.Shape]:
         zc + p.pi_board_z / 2,
     )
     shapes = {"pi_standoffs": Part.makeCompound(standoffs), "pi3_amp2_stack": stack}
-    # Crossover boards lying on the baffle in the end compartments.
-    bx, bw, bh = p.crossover_board
+    # Crossover boards on the back panel of the woofer chambers.
+    bx, by, bz = p.crossover_board
+    z_top = p.height - t - 4
     for ch, side in SIDES:
-        e0, e1 = p.chambers(side)["end"]
-        board = baffle_slab(p, (e0 + e1) / 2, bx, bw, -p.panel - 2, bh, p.crossover_offset_v)
-        shapes[f"crossover_{ch}"] = board
+        xc = p.length / 2 + side * p.crossover_x
+        shapes[f"crossover_{ch}"] = box(xc - bx / 2, xc + bx / 2, t, t + by, z_top - bz, z_top)
+    # Light controller on the end cheek opposite the bay.
+    cx, cy, cz = p.light_controller
+    x0 = p.length - t - cx if p.bay_side < 0 else t
+    shapes["light_controller"] = box(x0, x0 + cx, t + 4, t + 4 + cy, 55, 55 + cz)
+    return shapes
+
+
+def build_lights(p: SoundbarParameters) -> dict[str, Part.Shape]:
+    """Reference volumes of the lamp heads and the halo module."""
+    shapes = {}
+    for ch, side in SIDES:
+        point, axis, normal = lamp_mount(p, side)
+        shapes[f"lamp_{ch}"] = recessed_module(point, axis, normal, p.panel, p.lamp_diameter, p.lamp_depth)[0]
+    hpoint, haxis, _ = halo_mount(p)
+    shapes["halo"] = recessed_module(hpoint, haxis, V(0, 0, 1), p.panel, p.halo_diameter, p.halo_depth)[0]
     return shapes
 
 
@@ -517,10 +641,16 @@ def build_electronics(p: SoundbarParameters) -> dict[str, Part.Shape]:
 # Checks and reports
 
 
-def run_checks(p, panels, spacers, speakers, electronics) -> list[str]:
+def run_checks(p, panels, spacers, speakers, electronics, lights) -> list[str]:
     errors = []
     solids = {**panels, **spacers}
-    for sname, sshape in {**speakers, **electronics}.items():
+    references = {**speakers, **electronics, **lights}
+    names = list(references)
+    for i, a in enumerate(names):
+        for b in names[i + 1 :]:
+            if references[a].common(references[b]).Volume > 1.0:
+                errors.append(f"{a} intersects {b}")
+    for sname, sshape in references.items():
         for pname, pshape in solids.items():
             if sname.endswith("standoffs") and pname == "back":
                 continue
@@ -585,7 +715,10 @@ def chamber_litres(p: SoundbarParameters, solids: dict[str, Part.Shape]) -> dict
     z0, z1 = port_z(p)
     for room, (x0, x1) in p.chambers(-1).items():
         space = profile_prism(inner_profile(p), x0, x1)
-        displaced = sum(s.common(space).Volume for n, s in solids.items() if n.endswith("_L"))
+        # Centred parts (the halo housing) take half their volume from each side.
+        displaced = sum(
+            s.common(space).Volume for n, s in solids.items() if n.endswith("_L") or n == "halo_pod"
+        )
         if room == "woofer" and "port_duct_L" in solids:
             # Air in the duct belongs to the vent, not to the box.
             duct = solids["port_duct_L"].common(space).BoundBox
@@ -632,7 +765,11 @@ CUT_NOTES = {
         f"Trapezoidal cheek (full profile), R9 round-over on the bottom edge, "
         f"{P.port_width:g}×{P.port_slot_height:g} vent opening at the top, room side (rounded edges)."
     ),
-    "partition_centre": f"Airtight partition between the two woofer chambers, Ø{P.wire_hole:g} wire hole to seal.",
+    "partition_centre": (
+        f"Airtight partition between the two woofer chambers, cut-out for the halo housing at the top, "
+        f"Ø{P.wire_hole:g} wire hole to seal."
+    ),
+    "halo_pod": "3D-printed halo housing (PETG), glued airtight into the top panel and the centre partition.",
 }
 for _ch in ("L", "R"):
     CUT_NOTES[f"port_duct_{_ch}"] = (
@@ -707,16 +844,19 @@ def main() -> int:
 
     panels = build_panels(P)
     spacers = build_spacers(P)
+    spacers["halo_pod"] = halo_pod(P)[0]
     speakers = build_speakers(P)
     electronics = build_electronics(P)
+    lights = build_lights(P)
 
-    gross = chamber_litres(P, {**speakers, **electronics})["woofer"]
+    inside = {**speakers, **electronics, "halo_pod": spacers["halo_pod"]}
+    gross = chamber_litres(P, inside)["woofer"]
     vent = port_length(P, gross)
     shelves = build_vent_shelves(P, vent)
     panels |= shelves
 
-    errors = run_checks(P, panels, spacers, speakers, electronics) + check_vent(P, vent)
-    litres = chamber_litres(P, {**speakers, **electronics, **shelves}) | {"port_mm": vent}
+    errors = run_checks(P, panels, spacers, speakers, electronics, lights) + check_vent(P, vent)
+    litres = chamber_litres(P, {**inside, **shelves}) | {"port_mm": vent}
     rows = panel_rows(P, {**panels, **spacers})
 
     doc = App.newDocument("RobineSoundbar")
@@ -731,6 +871,8 @@ def main() -> int:
         add(doc, g_ref, name, shape, DRIVER_COLOR)
     for name, shape in electronics.items():
         add(doc, g_ref, name, shape, ELECTRONICS_COLOR)
+    for name, shape in lights.items():
+        add(doc, g_ref, name, shape, LIGHT_COLOR)
     doc.recompute()
 
     fcstd = out_dir / "robine-soundbar.FCStd"
@@ -746,6 +888,10 @@ def main() -> int:
     write_cut_list(out_dir / "cut-list.md", P, rows, litres, errors)
     params = asdict(P) | {
         "baffle_tilt_deg": round(P.baffle_tilt_deg, 2),
+        "halo_position": list(halo_mount(P)[0]),
+        "halo_target": list(halo_mount(P)[2]),
+        "lamp_left_position": list(lamp_mount(P, -1)[0]),
+        "lamp_left_axis": list(lamp_mount(P, -1)[1]),
         "mid_chamber_litres": round(litres["mid"], 3),
         "woofer_chamber_litres": round(litres["woofer"], 3),
         "port_length_mm": round(vent, 1),
