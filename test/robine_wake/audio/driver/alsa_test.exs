@@ -19,6 +19,11 @@ defmodule RobineWake.Audio.Driver.AlsaTest do
     assert ["-D", _device, "--", "sset", "Digital", "-39.5dB"] = Alsa.amixer_args(15)
   end
 
+  test "sets the music level in dB and never above the music maximum" do
+    assert ["-D", _device, "--", "sset", "Digital", "-6.0dB"] = Alsa.music_level_args(-6)
+    assert ["-D", _device, "--", "sset", "Digital", "-3.0dB"] = Alsa.music_level_args(3.0)
+  end
+
   test "configures the procedural stereo meditation stream" do
     assert [
              "--quiet",

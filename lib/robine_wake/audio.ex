@@ -4,6 +4,9 @@ defmodule RobineWake.Audio do
 
   require Logger
 
+  @music_level_retry_ms 1_000
+  @music_level_attempts 120
+
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   def play(session_id, sound_id), do: GenServer.call(__MODULE__, {:play, session_id, sound_id})
   def set_gain(session_id, gain), do: GenServer.call(__MODULE__, {:set_gain, session_id, gain})
@@ -13,6 +16,7 @@ defmodule RobineWake.Audio do
   @impl true
   def init(_opts) do
     driver = Application.fetch_env!(:robine_wake, :audio_driver)
+    send(self(), {:restore_music_level, 0})
 
     {:ok,
      %{
@@ -70,7 +74,7 @@ defmodule RobineWake.Audio do
 
       {:error, reason} ->
         Logger.error("Audio playback failed: #{inspect(reason)}")
-        resume_music_receivers()
+        resume_music_receivers(state.driver)
 
         {:reply, {:error, reason},
          %{record(state, {:play_failed, session_id, reason}) | last_error: reason}}
@@ -98,7 +102,7 @@ defmodule RobineWake.Audio do
     _ = state.driver.set_gain(0)
     _ = state.driver.stop(state.handle)
     clear_monitor(state.monitor)
-    resume_music_receivers()
+    resume_music_receivers(state.driver)
 
     next =
       record(
@@ -126,7 +130,7 @@ defmodule RobineWake.Audio do
   @impl true
   def handle_info({:DOWN, reference, :process, _pid, reason}, %{monitor: reference} = state) do
     RobineWake.WakeSession.audio_failed(reason)
-    resume_music_receivers()
+    resume_music_receivers(state.driver)
 
     {:noreply,
      %{
@@ -137,6 +141,28 @@ defmodule RobineWake.Audio do
          gain: 0,
          last_error: {:player_exited, reason}
      }}
+  end
+
+  # The sound card may still be probing when the application boots, so the
+  # music level is retried until the mixer accepts it. Wake audio owns the
+  # mixer while it plays and supersedes any pending retry.
+  def handle_info({:restore_music_level, _attempt}, %{active_session: session} = state)
+      when not is_nil(session),
+      do: {:noreply, state}
+
+  def handle_info({:restore_music_level, attempt}, state) do
+    case restore_music_level(state.driver) do
+      :ok ->
+        :ok
+
+      :error when attempt < @music_level_attempts ->
+        Process.send_after(self(), {:restore_music_level, attempt + 1}, @music_level_retry_ms)
+
+      :error ->
+        Logger.error("Music level still not applied after #{attempt + 1} attempts")
+    end
+
+    {:noreply, state}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
@@ -168,7 +194,39 @@ defmodule RobineWake.Audio do
   # Music receivers (AirPlay, Bluetooth) release ALSA before wake audio opens
   # it. A failing receiver is logged and skipped: it must never stop the alarm.
   defp suspend_music_receivers, do: Enum.each(music_receivers(), &call_receiver(&1, :suspend))
-  defp resume_music_receivers, do: Enum.each(music_receivers(), &call_receiver(&1, :resume))
+
+  defp resume_music_receivers(driver) do
+    if restore_music_level(driver) == :error,
+      do: Process.send_after(self(), {:restore_music_level, 1}, @music_level_retry_ms)
+
+    Enum.each(music_receivers(), &call_receiver(&1, :resume))
+  end
+
+  # The hardware mixer belongs to this process: wake audio ramps it, and in
+  # between it stays at the music ceiling while receivers (AirPlay, Bluetooth)
+  # attenuate in software. Receivers never write it.
+  defp restore_music_level(driver) do
+    Code.ensure_loaded(driver)
+
+    if function_exported?(driver, :set_music_level, 1) do
+      decibels = Application.fetch_env!(:robine_wake, :music_mixer_db)
+
+      case driver.set_music_level(decibels) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning("Music level not applied: #{inspect(reason)}")
+          :error
+      end
+    else
+      :ok
+    end
+  catch
+    kind, reason ->
+      Logger.error("Music level not applied: #{inspect({kind, reason})}")
+      :error
+  end
 
   defp call_receiver(receiver, action) do
     case apply(receiver, action, []) do

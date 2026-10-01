@@ -99,11 +99,11 @@ it until it goes idle.
 
 ## Volume and bedroom safety
 
-Phone volume is applied in software by BlueALSA below a fixed hardware level,
-set on the Amp2 `Digital` mixer when the player starts and after each alarm.
-That level, `-6.0 dB` by default (`bluetooth_audio_mixer_db`), matches the AirPlay
-`volume_max_db` and is the receiver's hard ceiling. Like the AirPlay value, it
-must be replaced by the measured bedroom limit.
+Phone volume is applied in software by BlueALSA; the receiver never writes the
+Amp2 `Digital` mixer. That hardware level belongs to `RobineWake.Audio`, which
+keeps it at the shared music ceiling (`music_mixer_db`, `-3.0 dB`) between
+alarms; see [audio output](../001-audio-output/spec.md#music-level). It must be
+replaced by the measured bedroom limit.
 
 ## Requirements
 

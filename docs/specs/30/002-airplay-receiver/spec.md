@@ -29,7 +29,7 @@ configuration file is reported through health and retried without preventing
 the alarm application from booting.
 
 Shairport Sync performs Bonjour/mDNS advertisement and network protocol
-handling. It opens `plughw:0`, with `hw:0` / `Digital` as the hardware mixer.
+handling. It opens `plughw:0` in 32-bit and has no hardware mixer: see volume below.
 This selection matches the hardware-validated HiFiBerry card for the current
 single-board product profile and must be revisited if another ALSA card is
 added.
@@ -71,8 +71,11 @@ delay, replace, attenuate, or suppress an alarm.
 
 ## Volume and bedroom safety
 
-Shairport Sync uses the Amp2 `Digital` mixer and enforces an initial maximum of
-`-6.0 dB`. The suggested volume after reset is `-30.0 dB`; volume at or above
+Shairport Sync attenuates in software, in 32-bit, and never writes the Amp2
+`Digital` mixer. That hardware level belongs to `RobineWake.Audio`, which keeps
+it at the music ceiling (`music_mixer_db`, `-3.0 dB`) between alarms; see
+[audio output](../001-audio-output/spec.md#music-level). A source at full volume
+therefore plays at that ceiling. The suggested volume after reset is `-30.0 dB`; volume at or above
 `-24.0 dB` is considered high and returns to the suggested value after 60 idle
 minutes. These are conservative bring-up values, not a substitute for acoustic
 calibration. The final maximum must be measured at the sleeping position and

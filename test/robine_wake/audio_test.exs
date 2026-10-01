@@ -24,6 +24,17 @@ defmodule RobineWake.Audio.FlakyDriver do
   def set_gain(_gain), do: :ok
 
   @impl true
+  def set_music_level(decibels) do
+    Agent.get_and_update(__MODULE__, fn
+      %{music_level_failures: failures} = state when failures > 0 ->
+        {{:error, :card_not_ready}, %{state | music_level_failures: failures - 1}}
+
+      state ->
+        {:ok, %{state | music_levels: [decibels | state.music_levels]}}
+    end)
+  end
+
+  @impl true
   def stop(_handle), do: :ok
 
   @impl true
@@ -60,7 +71,10 @@ defmodule RobineWake.AudioTest do
     original_receivers = Application.fetch_env!(:robine_wake, :music_receivers)
 
     {:ok, agent} =
-      Agent.start_link(fn -> %{remaining_failures: 0, attempts: 0} end,
+      Agent.start_link(
+        fn ->
+          %{remaining_failures: 0, attempts: 0, music_levels: [], music_level_failures: 0}
+        end,
         name: FlakyDriver
       )
 
@@ -115,6 +129,23 @@ defmodule RobineWake.AudioTest do
     assert :ok = Audio.stop("session-current")
   end
 
+  test "restores the music level at startup and whenever wake audio releases ALSA" do
+    assert Agent.get(FlakyDriver, & &1.music_levels) == [-3.0]
+
+    assert :ok = Audio.play("session-d", "default")
+    assert Agent.get(FlakyDriver, & &1.music_levels) == [-3.0]
+
+    assert :ok = Audio.stop("session-d")
+    assert Agent.get(FlakyDriver, & &1.music_levels) == [-3.0, -3.0]
+  end
+
+  test "retries the music level until the sound card is ready" do
+    Agent.update(FlakyDriver, &%{&1 | music_levels: [], music_level_failures: 2})
+    restart_audio()
+
+    assert_eventually(fn -> Agent.get(FlakyDriver, & &1.music_levels) == [-3.0] end)
+  end
+
   test "a failing music receiver never prevents wake audio" do
     Application.put_env(:robine_wake, :music_receivers, [
       RobineWake.Audio.BrokenReceiver,
@@ -126,6 +157,19 @@ defmodule RobineWake.AudioTest do
     assert :ok = Audio.stop("session-c")
     assert AirPlayRecorder.commands() == [:suspend, :resume]
   end
+
+  defp assert_eventually(assertion, attempts \\ 40)
+
+  defp assert_eventually(assertion, attempts) when attempts > 0 do
+    if assertion.() do
+      assert true
+    else
+      Process.sleep(100)
+      assert_eventually(assertion, attempts - 1)
+    end
+  end
+
+  defp assert_eventually(_assertion, 0), do: flunk("condition was not met before timeout")
 
   defp restart_audio do
     :ok = Supervisor.terminate_child(RobineWake.Supervisor, RobineWake.Audio)

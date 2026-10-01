@@ -63,16 +63,13 @@ defmodule RobineWake.BluetoothAudioTest do
     assert %{codecs: ["sbc", "aac", "aptx", "aptx-hd"]} = BluetoothAudio.status()
   end
 
-  test "plays through software volume under a fixed hardware ceiling" do
+  test "plays through software volume and never drives the hardware mixer" do
     assert BluetoothAudio.player_args("plughw:0") == [
              "--pcm=plughw:0",
              "--volume=software",
              "--single-audio",
              "--loglevel=info"
            ]
-
-    assert BluetoothAudio.mixer_args("hw:0", "Digital", -20) ==
-             ["-D", "hw:0", "--", "sset", "Digital", "-20.0dB"]
   end
 
   defp restart(enabled: enabled) do

@@ -58,12 +58,6 @@ defmodule RobineWake.BluetoothAudio do
     ["--pcm=" <> device, "--volume=software", "--single-audio", "--loglevel=info"]
   end
 
-  @doc false
-  def mixer_args(mixer_device, control, decibels) do
-    level = :erlang.float_to_binary(decibels / 1, decimals: 1) <> "dB"
-    ["-D", mixer_device, "--", "sset", control, level]
-  end
-
   @impl true
   def init(_opts) do
     enabled = Application.get_env(:robine_wake, :bluetooth_audio_enabled, false)
@@ -76,7 +70,6 @@ defmodule RobineWake.BluetoothAudio do
       daemons: %{},
       agent: nil,
       player: nil,
-      apply_mixer: true,
       restart_timer: nil,
       reason: nil
     }
@@ -99,7 +92,7 @@ defmodule RobineWake.BluetoothAudio do
   def handle_call(:resume, _from, %{enabled: false} = state), do: {:reply, :ok, state}
 
   def handle_call(:resume, _from, %{suspended: true} = state) do
-    next = maybe_start_player(%{state | suspended: false, apply_mixer: true})
+    next = maybe_start_player(%{state | suspended: false})
     {:reply, :ok, next}
   end
 
@@ -272,8 +265,6 @@ defmodule RobineWake.BluetoothAudio do
   end
 
   defp maybe_start_player(%{stage: :running, suspended: false, player: nil} = state) do
-    if state.apply_mixer, do: apply_mixer()
-
     device = Alsa.output_device()
 
     case MuonTrap.Daemon.start_link(executable(:player), player_args(device),
@@ -283,7 +274,7 @@ defmodule RobineWake.BluetoothAudio do
            delay_to_sigkill: 500
          ) do
       {:ok, player} ->
-        %{state | player: player, apply_mixer: false}
+        %{state | player: player}
 
       {:error, reason} ->
         Logger.error("Unable to start Bluetooth audio player: #{inspect(reason)}")
@@ -298,27 +289,6 @@ defmodule RobineWake.BluetoothAudio do
   end
 
   defp maybe_start_player(state), do: state
-
-  # The phone volume is applied in software below this fixed hardware level,
-  # which is therefore the receiver's hard ceiling. It is reapplied after each
-  # alarm because wake audio leaves the shared mixer at its own level.
-  defp apply_mixer do
-    decibels = Application.fetch_env!(:robine_wake, :bluetooth_audio_mixer_db)
-    control = Application.get_env(:robine_wake, :alsa_mixer_control, "Digital")
-
-    case System.find_executable("amixer") do
-      nil ->
-        Logger.warning("Bluetooth audio level not applied: amixer was not found")
-
-      amixer ->
-        args = mixer_args(Alsa.mixer_device(), control, decibels)
-
-        case System.cmd(amixer, args, stderr_to_stdout: true) do
-          {_output, 0} -> :ok
-          {output, status} -> Logger.warning("amixer exited #{status}: #{String.trim(output)}")
-        end
-    end
-  end
 
   defp fail_stack(state, reason) do
     Logger.error("Bluetooth audio receiver stopped: #{inspect(reason)}")
@@ -338,8 +308,7 @@ defmodule RobineWake.BluetoothAudio do
       | stage: :idle,
         generation: state.generation + 1,
         daemons: %{},
-        agent: nil,
-        apply_mixer: true
+        agent: nil
     }
   end
 

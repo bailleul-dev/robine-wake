@@ -4,6 +4,9 @@ defmodule RobineWake.Audio.Driver.Alsa do
 
   @minimum_audible_db -45.0
   @maximum_safe_db -6.0
+  # Music receivers attenuate in software below this hardware level; it is
+  # separate from (and may exceed) the wake-audio ceiling above.
+  @maximum_music_db -3.0
   alias RobineWake.Audio.MeditationDSP
 
   @breathing_sound_id "breathing_meditation_ambience"
@@ -88,6 +91,20 @@ defmodule RobineWake.Audio.Driver.Alsa do
   end
 
   @impl true
+  def set_music_level(decibels) do
+    case System.find_executable("amixer") do
+      nil ->
+        {:error, :amixer_not_found}
+
+      amixer ->
+        {_output, status} =
+          System.cmd(amixer, music_level_args(decibels), stderr_to_stdout: true)
+
+        if status == 0, do: :ok, else: {:error, {:amixer_exit, status}}
+    end
+  end
+
+  @impl true
   def stop(player) when is_pid(player) do
     send(player, :stop)
     :ok
@@ -112,6 +129,12 @@ defmodule RobineWake.Audio.Driver.Alsa do
   @doc false
   def amixer_args(gain) when gain in 0..100 do
     ["-D", mixer_device(), "--", "sset", mixer_control(), amixer_gain(gain)]
+  end
+
+  @doc false
+  def music_level_args(decibels) do
+    level = :erlang.float_to_binary(min(decibels / 1, @maximum_music_db), decimals: 1) <> "dB"
+    ["-D", mixer_device(), "--", "sset", mixer_control(), level]
   end
 
   @doc false
