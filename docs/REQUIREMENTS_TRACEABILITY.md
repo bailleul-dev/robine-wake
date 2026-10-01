@@ -125,6 +125,7 @@ Status meanings:
 | BTA-005 | Implemented | `bluealsa` runs with `--profile=a2dp-sink` and AAC, aptX and aptX HD codecs built from FDK AAC and libopenaptx; target codec negotiation is pending. |
 | BTA-006 | Implemented | Stack exits restart the whole stack and player exits restart the player after the configured delay; host tests cover missing executables. Target kill drill is pending. |
 | BTA-007 | Implemented | The onboard controller moves to the PL011 UART under `hci_uart`; BlueHeron is disabled and built with `runtime: false`. Target Bluetooth/Wi-Fi coexistence check is pending. |
+| BTA-009 | Implemented | BlueALSA 5.0.0 (`package/bluez-alsa5`) reports codec, processing and player delay to BlueZ, which forwards it to the phone. Phone-side lip-sync check is pending. |
 | BTA-008 | Verified | Host builds disable the receiver; an enabled receiver without its executables keeps retrying without crashing (`bluetooth_audio_test.exs`). |
 
 ## Infrared camera — retired

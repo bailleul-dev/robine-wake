@@ -28,7 +28,7 @@ traffic; streaming stability must be measured with Wi-Fi active.
 
 1. `dbus-daemon --system`;
 2. `bluetoothd`, configured by `/etc/bluetooth/main.conf`;
-3. `bluealsa` as an A2DP sink only;
+3. `bluealsad` (BlueALSA 5) as an A2DP sink only;
 4. `bluetoothctl --agent auto`, the pairing agent;
 5. `bluealsa-aplay`, the only process that opens the HiFiBerry.
 
@@ -57,6 +57,19 @@ licenses must be reviewed before distributing firmware beyond personal use.
 
 Only the A2DP sink profile is registered: the receiver never appears as a
 hands-free device, so phone calls stay on the phone.
+
+## Audio/video synchronisation
+
+The receiver reports its playback delay to the phone through A2DP delay
+reporting, so a video player can delay the picture to match the sound, as it
+does with AirPlay. BlueALSA 5 measures the player's real buffering (BlueALSA
+FIFO, read buffer and ALSA device) and adds the codec delay; BlueZ forwards the
+total to the phone and updates it when it drifts by more than 10 ms. Buildroot
+only ships BlueALSA 4.3.1, which advertises the capability but always reports
+zero, so the system builds release 5 from `package/bluez-alsa5`.
+
+Whether the picture is actually delayed depends on the phone honouring the
+report.
 
 ## Pairing
 
@@ -108,6 +121,8 @@ must be replaced by the measured bedroom limit.
   shall trigger bounded automatic recovery without restarting the BEAM.
 - `BTA-007` — Only BlueZ shall drive the onboard controller; the BlueHeron
   transport shall not be started on the target.
+- `BTA-009` — The receiver shall report its measured playback delay to the
+  phone through A2DP delay reporting.
 - `BTA-008` — Bluetooth audio shall be disabled on the host build and remain
   optional to every P0 alarm function, including without an adapter.
 
@@ -123,4 +138,5 @@ must be replaced by the measured bedroom limit.
 - Killing `bluetoothd` or `bluealsa-aplay`, a controller that fails to
   initialise, and rebooting do not restart or block the alarm application;
   pairings survive a reboot.
+- A YouTube video with a visible speaker stays lip-synced on Bluetooth.
 - Phone volume at 100 % never exceeds the measured bedroom acoustic limit.

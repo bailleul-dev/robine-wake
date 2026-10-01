@@ -47,7 +47,7 @@ config :robine_wake,
     dbus_daemon: "/usr/bin/dbus-daemon",
     dbus_uuidgen: "/usr/bin/dbus-uuidgen",
     bluetoothd: "/usr/libexec/bluetooth/bluetoothd",
-    bluealsa: "/usr/bin/bluealsa",
+    bluealsa: "/usr/bin/bluealsad",
     player: "/usr/bin/bluealsa-aplay",
     bluetoothctl: "/usr/bin/bluetoothctl"
   },
