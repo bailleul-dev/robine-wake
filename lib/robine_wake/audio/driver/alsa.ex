@@ -138,7 +138,11 @@ defmodule RobineWake.Audio.Driver.Alsa do
     end
   end
 
-  defp mixer_device do
+  @doc false
+  def output_device, do: device()
+
+  @doc false
+  def mixer_device do
     case device() do
       "plughw:" <> card -> "hw:" <> card
       other -> other

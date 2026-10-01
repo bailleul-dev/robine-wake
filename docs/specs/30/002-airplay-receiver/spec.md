@@ -61,6 +61,10 @@ AirPlay:
 4. After a normal stop or terminal playback failure, the receiver restarts and
    advertises itself again.
 
+The same rules apply to the [Bluetooth receiver](../005-bluetooth-audio-receiver/spec.md):
+`RobineWake.Audio` suspends and resumes every music receiver, and a receiver
+that fails to answer is logged and skipped rather than delaying the alarm.
+
 An active phone stream may therefore disconnect when an alarm begins. This is
 intentional. A network client, malformed stream, or crashed receiver must never
 delay, replace, attenuate, or suppress an alarm.
@@ -68,7 +72,7 @@ delay, replace, attenuate, or suppress an alarm.
 ## Volume and bedroom safety
 
 Shairport Sync uses the Amp2 `Digital` mixer and enforces an initial maximum of
-`-20.0 dB`. The suggested volume after reset is `-30.0 dB`; volume at or above
+`-6.0 dB`. The suggested volume after reset is `-30.0 dB`; volume at or above
 `-24.0 dB` is considered high and returns to the suggested value after 60 idle
 minutes. These are conservative bring-up values, not a substitute for acoustic
 calibration. The final maximum must be measured at the sleeping position and

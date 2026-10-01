@@ -71,13 +71,13 @@ config :mdns_lite,
     %{protocol: "ssh", transport: "tcp", port: 22}
   ]
 
-config :blue_heron,
-  transport: [device: "/dev/ttyS0", speed: 115_200, flow_control: :hardware]
-
 config :robine_wake,
   audio_driver: RobineWake.Audio.Driver.Alsa,
   airplay_enabled: true,
-  bluetooth_enabled: true,
+  bluetooth_audio_enabled: true,
+  # The onboard controller now belongs to BlueZ (Bluetooth audio receiver);
+  # the BlueHeron BLE control service is disabled and not started.
+  bluetooth_enabled: false,
   bluetooth_driver: RobineWake.Bluetooth.Driver.BlueHeron,
   lora_enabled: true,
   lora_driver: RobineWake.LoRa.Driver.SX1276,

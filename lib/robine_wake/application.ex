@@ -23,6 +23,7 @@ defmodule RobineWake.Application do
       RobineWake.Network,
       RobineWake.Hue,
       RobineWake.AirPlay,
+      RobineWake.BluetoothAudio,
       RobineWake.Audio,
       {DynamicSupervisor, strategy: :one_for_one, name: RobineWake.SessionSupervisor},
       RobineWake.SessionRecovery,

@@ -5,6 +5,7 @@ defmodule RobineWake.Health do
     AirPlay,
     Audio,
     Auth,
+    BluetoothAudio,
     Camera,
     Clock,
     ClockQuality,
@@ -20,6 +21,7 @@ defmodule RobineWake.Health do
   def snapshot do
     audio = safe(&Audio.status/0, :audio)
     airplay = safe(&AirPlay.status/0, :airplay)
+    bluetooth_audio = safe(&BluetoothAudio.status/0, :bluetooth_audio)
     authentication = safe(&Auth.status/0, :authentication)
 
     camera =
@@ -52,6 +54,7 @@ defmodule RobineWake.Health do
       scheduler: json_safe(scheduler),
       audio: json_safe(audio),
       airplay: json_safe(airplay),
+      bluetooth_audio: json_safe(bluetooth_audio),
       camera: json_safe(camera),
       storage: %{state: if(settings[:degraded], do: :degraded, else: :available)},
       active_session: WakeSession.active()

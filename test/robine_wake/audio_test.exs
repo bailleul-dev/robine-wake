@@ -42,6 +42,11 @@ defmodule RobineWake.Audio.AirPlayRecorder do
   end
 end
 
+defmodule RobineWake.Audio.BrokenReceiver do
+  def suspend, do: exit(:timeout)
+  def resume, do: raise("receiver crashed")
+end
+
 defmodule RobineWake.AudioTest do
   use ExUnit.Case, async: false
 
@@ -52,7 +57,7 @@ defmodule RobineWake.AudioTest do
   setup do
     original_driver = Application.fetch_env!(:robine_wake, :audio_driver)
     original_delays = Application.fetch_env!(:robine_wake, :audio_retry_delays_ms)
-    original_airplay = Application.fetch_env!(:robine_wake, :airplay_controller)
+    original_receivers = Application.fetch_env!(:robine_wake, :music_receivers)
 
     {:ok, agent} =
       Agent.start_link(fn -> %{remaining_failures: 0, attempts: 0} end,
@@ -64,13 +69,13 @@ defmodule RobineWake.AudioTest do
 
     Application.put_env(:robine_wake, :audio_driver, FlakyDriver)
     Application.put_env(:robine_wake, :audio_retry_delays_ms, [0, 0, 0, 0])
-    Application.put_env(:robine_wake, :airplay_controller, AirPlayRecorder)
+    Application.put_env(:robine_wake, :music_receivers, [AirPlayRecorder])
     restart_audio()
 
     on_exit(fn ->
       Application.put_env(:robine_wake, :audio_driver, original_driver)
       Application.put_env(:robine_wake, :audio_retry_delays_ms, original_delays)
-      Application.put_env(:robine_wake, :airplay_controller, original_airplay)
+      Application.put_env(:robine_wake, :music_receivers, original_receivers)
       restart_audio()
       if Process.alive?(agent), do: Agent.stop(agent)
       if Process.alive?(airplay_agent), do: Agent.stop(airplay_agent)
@@ -108,6 +113,18 @@ defmodule RobineWake.AudioTest do
     assert :ok = Audio.stop("session-old")
     assert %{active_session: "session-current"} = Audio.status()
     assert :ok = Audio.stop("session-current")
+  end
+
+  test "a failing music receiver never prevents wake audio" do
+    Application.put_env(:robine_wake, :music_receivers, [
+      RobineWake.Audio.BrokenReceiver,
+      AirPlayRecorder
+    ])
+
+    assert :ok = Audio.play("session-c", "default")
+    assert AirPlayRecorder.commands() == [:suspend]
+    assert :ok = Audio.stop("session-c")
+    assert AirPlayRecorder.commands() == [:suspend, :resume]
   end
 
   defp restart_audio do

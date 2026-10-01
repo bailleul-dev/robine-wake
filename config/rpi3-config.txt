@@ -22,6 +22,9 @@ camera_auto_detect=0
 dtoverlay=rpi-ft5406
 dtoverlay=rpi-backlight
 dtoverlay=ramoops
+# The onboard Bluetooth controller keeps the full-speed PL011 UART and is
+# driven by the kernel (hci_uart, BlueZ) for the A2DP music receiver; the
+# serial console stays on the mini UART.
 enable_uart=1
-dtoverlay=miniuart-bt
+dtparam=krnbt=on
 core_freq=250

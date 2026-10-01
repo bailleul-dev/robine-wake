@@ -54,6 +54,7 @@ code, tests, or tickets.
 - [AirPlay receiver](30/002-airplay-receiver/spec.md)
 - [Respiration guidée Hue et ambiance sonore](30/003-guided-breathing/spec.md)
 - [Vibration DIY du lit](30/004-bed-vibration/spec.md)
+- [Bluetooth audio receiver](30/005-bluetooth-audio-receiver/spec.md)
 - [Local interface](50/001-local-interface/spec.md)
 - [HTTP Model Context Protocol](50/002-http-mcp/spec.md)
 - [Data and privacy](60/001-data-privacy/spec.md)

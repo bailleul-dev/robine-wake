@@ -39,7 +39,7 @@ defmodule RobineWake.Audio do
 
   def handle_call({:play, session_id, sound_id}, _from, state) do
     state = stop_current(state)
-    :ok = airplay_controller().suspend()
+    suspend_music_receivers()
 
     retry_delays = Application.fetch_env!(:robine_wake, :audio_retry_delays_ms)
 
@@ -70,7 +70,7 @@ defmodule RobineWake.Audio do
 
       {:error, reason} ->
         Logger.error("Audio playback failed: #{inspect(reason)}")
-        :ok = airplay_controller().resume()
+        resume_music_receivers()
 
         {:reply, {:error, reason},
          %{record(state, {:play_failed, session_id, reason}) | last_error: reason}}
@@ -98,7 +98,7 @@ defmodule RobineWake.Audio do
     _ = state.driver.set_gain(0)
     _ = state.driver.stop(state.handle)
     clear_monitor(state.monitor)
-    :ok = airplay_controller().resume()
+    resume_music_receivers()
 
     next =
       record(
@@ -126,7 +126,7 @@ defmodule RobineWake.Audio do
   @impl true
   def handle_info({:DOWN, reference, :process, _pid, reason}, %{monitor: reference} = state) do
     RobineWake.WakeSession.audio_failed(reason)
-    :ok = airplay_controller().resume()
+    resume_music_receivers()
 
     {:noreply,
      %{
@@ -165,6 +165,25 @@ defmodule RobineWake.Audio do
   defp clear_monitor(nil), do: :ok
   defp clear_monitor(reference), do: Process.demonitor(reference, [:flush])
 
-  defp airplay_controller,
-    do: Application.get_env(:robine_wake, :airplay_controller, RobineWake.AirPlay)
+  # Music receivers (AirPlay, Bluetooth) release ALSA before wake audio opens
+  # it. A failing receiver is logged and skipped: it must never stop the alarm.
+  defp suspend_music_receivers, do: Enum.each(music_receivers(), &call_receiver(&1, :suspend))
+  defp resume_music_receivers, do: Enum.each(music_receivers(), &call_receiver(&1, :resume))
+
+  defp call_receiver(receiver, action) do
+    case apply(receiver, action, []) do
+      :ok -> :ok
+      other -> Logger.warning("#{inspect(receiver)}.#{action}/0 returned #{inspect(other)}")
+    end
+  catch
+    kind, reason ->
+      Logger.error("#{inspect(receiver)}.#{action}/0 failed: #{inspect({kind, reason})}")
+  end
+
+  defp music_receivers,
+    do:
+      Application.get_env(:robine_wake, :music_receivers, [
+        RobineWake.AirPlay,
+        RobineWake.BluetoothAudio
+      ])
 end

@@ -99,6 +99,10 @@ for the trusted local network. Firmware updates and SSH remain authenticated.
 
 ## Run the iOS Bluetooth prototype
 
+> The BLE control service is disabled on the Raspberry Pi firmware: the onboard
+> controller now serves the [Bluetooth audio receiver](docs/specs/30/005-bluetooth-audio-receiver/spec.md).
+> On the device, the app only reaches the clock over Wi-Fi.
+
 The SwiftUI application is generated with XcodeGen. Its prototype local-control
 protocol is intentionally unauthenticated and should only be used for feature
 testing.
