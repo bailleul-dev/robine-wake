@@ -13,5 +13,6 @@ defmodule RobineWakeDevWeb.Router do
   scope "/", RobineWakeDevWeb do
     pipe_through :browser
     live "/", EmulatorLive, :index
+    get "/room", RoomRedirect, []
   end
 end

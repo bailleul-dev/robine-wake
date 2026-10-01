@@ -22,6 +22,13 @@ defmodule RobineWakeDevWeb.Endpoint do
     from: {:phoenix_live_view, "priv/static"},
     only: ["phoenix_live_view.min.js"]
 
+  # Demo room: the WebGL viewer of the sound bar (hardware/robine_enclosure/
+  # soundbar/viewer), served from the source tree on the host only.
+  plug Plug.Static,
+    at: "/room",
+    from: "hardware/robine_enclosure/soundbar/viewer",
+    only: ~w(index.html room.js assets)
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
   plug Plug.Parsers, parsers: [:urlencoded, :multipart, :json], json_decoder: Jason

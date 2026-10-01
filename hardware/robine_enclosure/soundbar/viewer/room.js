@@ -57,7 +57,8 @@ const ao = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight);
 ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1.0, scale: 1.0 });
 ao.blendIntensity = 0.85;
 composer.addPass(ao);
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.6, 0.85);
+// Bloom only on the emitters (unclipped, above 1.0).
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.5, 1.0);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -436,7 +437,14 @@ const DUSK = fromXy(0.5, 0.3);
 // ---------------------------------------------------------------------------
 // Scenes. Each one sets the light outputs (lumens) every frame.
 
-const HALO_MAX_LM = 12;
+// Halo: a few lumens is plenty in a dark room; at the 30 % peak of the
+// breath it puts ~16 lux on the ceiling.
+const HALO_MAX_LM = 3;
+const READING_LUX = 900; // on the book at full power (lighting.py)
+// One adaptation for every night scene (night, breathing, start of the
+// dawn): the room keeps the same overall darkness and only the halo or the
+// lamps make the difference.
+const NIGHT_ADAPTATION_LUX = 10;
 const LAMP_LM = anchors.lamps.flux_lm;
 const LUX_PER_LUMEN_AT_EYE = 3.21; // from lighting.py
 
@@ -447,55 +455,60 @@ function setLamp(side, lumens, colour) {
   light.intensity = candela(lumens, anchors.lamps.beam_deg);
   light.color.copy(colour);
   glow.color.copy(colour).multiplyScalar(Math.min(6, lumens / 40));
+  if (lumens > 0) bounce.color.copy(colour);
 }
 
 function setHalo(lumens, colour) {
   halo.light.intensity = candela(lumens, anchors.halo.beam_deg);
   halo.light.color.copy(colour);
-  halo.glow.color.copy(colour).multiplyScalar(Math.min(4, lumens / 2));
+  halo.glow.color.copy(colour).multiplyScalar(Math.min(4, lumens * 2));
+  if (lumens > 0) bounce.color.copy(colour);
 }
 
 function setWindow(skyColour, lightColour, lux, fill) {
+  if (lux > 100) bounce.color.copy(lightColour);
   sky.material.color.copy(skyColour);
   windowLight.color.copy(lightColour);
   windowLight.intensity = lux;
   skyFill.intensity = fill;
 }
 
+// Every scene returns the light it emits (lumens, for the bounce light) and a
+// reference illuminance (lux) the eye adapts to: exposure follows it, so a
+// 1-lux halo and a 900-lux reading lamp both read correctly.
+const NIGHT_SKY = new THREE.Color(0x0b1430);
+const MOON = new THREE.Color(0x9fb6ff);
+const darkWindow = () => setWindow(NIGHT_SKY, MOON, 0.05, 0.004);
+const lampsOff = () => (setLamp("L", 0, kelvin(2700)), setLamp("R", 0, kelvin(2700)));
+
 const SCENES = {
   night: {
     label: "Night: the room is dark, moonlight through the window.",
-    exposure: 2.4,
     environment: 0.01,
     update() {
       setHalo(0, AMBER);
-      setLamp("L", 0, kelvin(2700));
-      setLamp("R", 0, kelvin(2700));
-      setWindow(new THREE.Color(0x0b1430), new THREE.Color(0x9fb6ff), 0.05, 0.004);
-      return 0;
+      lampsOff();
+      darkWindow();
+      return { lumens: 0, lux: NIGHT_ADAPTATION_LUX };
     },
   },
   breathing: {
     label: "Breathing: 4 s in, 6 s out, the halo glows on the ceiling (spec 30-003).",
-    exposure: 2.4,
     environment: 0.01,
     update(t) {
       const cycle = t % 10;
-      const inhale = cycle < 4;
-      const k = inhale ? cycle / 4 : 1 - (cycle - 4) / 6;
+      const k = cycle < 4 ? cycle / 4 : 1 - (cycle - 4) / 6;
       const s = k * k * (3 - 2 * k);
       const level = 0.02 + (0.3 - 0.02) * s;
-      setHalo(HALO_MAX_LM * level * 3.3, DUSK.clone().lerp(AMBER, s));
-      setLamp("L", 0, kelvin(2700));
-      setLamp("R", 0, kelvin(2700));
-      setWindow(new THREE.Color(0x0b1430), new THREE.Color(0x9fb6ff), 0.05, 0.004);
-      return HALO_MAX_LM * level;
+      setHalo(HALO_MAX_LM * level, DUSK.clone().lerp(AMBER, s));
+      lampsOff();
+      darkWindow();
+      return { lumens: HALO_MAX_LM * level, lux: NIGHT_ADAPTATION_LUX };
     },
     status: (t) => ((t % 10) < 4 ? "<strong>Inhale</strong>" : "<strong>Exhale</strong>"),
   },
   dawn: {
     label: "Dawn: 30 minutes before the alarm, rising to 300 lux at the eye (spec 00-002).",
-    exposure: 1.6,
     environment: 0.01,
     update() {
       const p = state.dawnMinutes / 30;
@@ -506,8 +519,8 @@ const SCENES = {
       setLamp("R", lumens, colour);
       setHalo(0, AMBER);
       const dayK = Math.max(0, (p - 0.75) / 0.25);
-      setWindow(new THREE.Color(0x0b1430).lerp(new THREE.Color(0x6f86b8), dayK), new THREE.Color(0xb8c8ff), 0.05 + 3 * dayK, 0.004 + 0.15 * dayK);
-      return lumens * 2;
+      setWindow(NIGHT_SKY.clone().lerp(new THREE.Color(0x6f86b8), dayK), new THREE.Color(0xb8c8ff), 0.05 + 8 * dayK, 0.004 + 0.4 * dayK);
+      return { lumens: lumens * 2, lux: Math.max(NIGHT_ADAPTATION_LUX, lux) };
     },
     status: () => {
       const p = state.dawnMinutes / 30;
@@ -517,38 +530,34 @@ const SCENES = {
   },
   readingLeft: {
     label: "Reading, left side: warm white at full power, the other pillow stays dark.",
-    exposure: 1.0,
     environment: 0.02,
     update() {
       setLamp("L", LAMP_LM, kelvin(2700));
       setLamp("R", 0, kelvin(2700));
       setHalo(0, AMBER);
-      setWindow(new THREE.Color(0x0b1430), new THREE.Color(0x9fb6ff), 0.05, 0.004);
-      return LAMP_LM;
+      darkWindow();
+      return { lumens: LAMP_LM, lux: READING_LUX };
     },
   },
   readingRight: {
     label: "Reading, right side.",
-    exposure: 1.0,
     environment: 0.02,
     update() {
       setLamp("L", 0, kelvin(2700));
       setLamp("R", LAMP_LM, kelvin(2700));
       setHalo(0, AMBER);
-      setWindow(new THREE.Color(0x0b1430), new THREE.Color(0x9fb6ff), 0.05, 0.004);
-      return LAMP_LM;
+      darkWindow();
+      return { lumens: LAMP_LM, lux: READING_LUX };
     },
   },
   day: {
     label: "Day: daylight through the window.",
-    exposure: 0.55,
-    environment: 0.35,
+    environment: 0.15,
     update() {
-      setLamp("L", 0, kelvin(2700));
-      setLamp("R", 0, kelvin(2700));
+      lampsOff();
       setHalo(0, AMBER);
-      setWindow(new THREE.Color(0xcfe3ff), new THREE.Color(0xfff1dc), 18, 1.4);
-      return 0;
+      setWindow(new THREE.Color(0xcfe3ff), new THREE.Color(0xfff1dc), 900, 18);
+      return { lumens: 1000, lux: 220 };
     },
   },
 };
@@ -574,7 +583,6 @@ function setScene(name) {
   state.scene = name;
   state.started = performance.now();
   if (name === "dawn") state.dawnMinutes = 0;
-  renderer.toneMappingExposure = SCENES[name].exposure;
   scene.environmentIntensity = SCENES[name].environment;
   document.querySelectorAll("[data-scene]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scene === name)));
   document.getElementById("dawn-row").hidden = name !== "dawn";
@@ -615,11 +623,14 @@ function frame(now) {
   const t = (now - state.started) / 1000;
   if (state.scene === "dawn" && state.dawnPlaying) {
     state.dawnMinutes = Math.min(30, state.dawnMinutes + (dt * DAWN_SPEED) / 60);
-    dawnTime.value = state.dawnMinutes;
   }
+  if (state.scene === "dawn" && document.activeElement !== dawnTime) dawnTime.value = state.dawnMinutes;
   const scene_ = SCENES[state.scene];
-  const lumens = scene_.update(t);
-  bounce.intensity = Math.min(0.6, lumens * 0.004);
+  const { lumens, lux } = scene_.update(t);
+  // Eye adaptation: a white surface at the reference illuminance lands in the
+  // upper mid-tones. Bounce: light reflected by the walls and bedding.
+  renderer.toneMappingExposure = 6 / lux;
+  bounce.intensity = lumens * 0.025;
   statusEl.innerHTML = scene_.label + (scene_.status ? ` · ${scene_.status(t)}` : "");
   controls.update();
   composer.render();

@@ -70,6 +70,7 @@ defmodule RobineWakeDevWeb.EmulatorLive do
           <div class="eyebrow">Host-only development environment</div>
           <h1>Robine Wake Hardware Lab</h1>
           <p class="muted">Drive the real scheduler, wake-session state machine, detector, and health model without a Raspberry Pi.</p>
+          <p><a href="/room">Open the demo room ↗</a></p>
         </div>
         <div class={"status #{status_class(@snapshot.health.state)}"}>
           System health<strong id="system-health">{display(@snapshot.health.state)}</strong>
