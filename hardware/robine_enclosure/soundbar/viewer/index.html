@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Robine Wake · Room</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: dark;
+        --glass: rgba(10, 12, 24, 0.62);
+        --line: rgba(220, 225, 255, 0.16);
+        --text: #f5f3ff;
+        --muted: #a9adc7;
+        --accent: #f5cf87;
+        font-family: Inter, ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #05060c; color: var(--text); }
+      canvas { display: block; }
+      .panel {
+        position: fixed; left: 16px; bottom: 16px; max-width: min(560px, calc(100vw - 32px));
+        padding: 14px; border: 1px solid var(--line); border-radius: 18px;
+        background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .row + .row { margin-top: 10px; }
+      .label { color: var(--muted); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; min-width: 64px; }
+      button {
+        min-height: 36px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.06); color: var(--text); font: inherit; font-size: 14px; cursor: pointer;
+      }
+      button:hover { background: rgba(255, 255, 255, 0.12); }
+      button[aria-pressed="true"] { background: var(--accent); color: #17182a; border-color: var(--accent); }
+      input[type="range"] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+      .status { font-size: 13px; color: var(--muted); min-height: 18px; }
+      .status strong { color: var(--text); font-weight: 650; }
+      .loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+      @media (max-width: 600px) { .panel { left: 8px; right: 8px; bottom: 8px; } .label { min-width: 100%; } }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="loading" id="loading">Loading the room…</div>
+    <div class="panel" role="region" aria-label="Demo controls">
+      <div class="row" id="scenes">
+        <span class="label">Scene</span>
+        <button data-scene="night">Night</button>
+        <button data-scene="breathing">Breathing</button>
+        <button data-scene="dawn">Dawn</button>
+        <button data-scene="readingLeft">Read left</button>
+        <button data-scene="readingRight">Read right</button>
+        <button data-scene="day">Day</button>
+      </div>
+      <div class="row" id="dawn-row" hidden>
+        <span class="label">Dawn</span>
+        <input id="dawn-time" type="range" min="0" max="30" step="0.1" value="0" aria-label="Minutes into the dawn" />
+        <button id="dawn-play" aria-pressed="true">Pause</button>
+      </div>
+      <div class="row" id="views">
+        <span class="label">View</span>
+        <button data-view="room">Room</button>
+        <button data-view="pillow">From the pillow</button>
+        <button data-view="bar">Bar</button>
+      </div>
+      <div class="row"><div class="status" id="status"></div></div>
+    </div>
+    <script type="module" src="./room.js"></script>
+  </body>
+</html>
