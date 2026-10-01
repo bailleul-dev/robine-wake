@@ -10,9 +10,11 @@ speaker on the HiFiBerry Amp2: one left and one right set, each a passive
 3-way. The bottom baffle is tilted toward the sleepers' ears. Per channel:
 
 * tweeter and midrange stacked along the slope (wall to room) in a sealed
-  compartment at ±450 mm, just outside each pillow, angled toward the
-  opposite pillow (crossfire) on printed wedge spacers. Each sleeper sits
-  inside a wide stereo stage (spatialisation first, see ``ACOUSTICS.md``);
+  compartment at ±450 mm, just outside each pillow, flush-mounted on an
+  oblique facet of the casing angled toward the opposite pillow (crossfire).
+  The facet and a steep return panel form a recess across the bottom, so
+  nothing protrudes. Each sleeper sits inside a wide stereo stage
+  (spatialisation first, see ``ACOUSTICS.md``);
 * woofer, flush-mounted near the centre in a vented chamber that runs from
   the centre partition to the midrange compartment. The vent is a duct along
   the front of the top panel, from the woofer chamber over the midrange and
@@ -62,7 +64,7 @@ class SoundbarParameters:
     # Overall envelope.
     length: float = 1400.0
     depth: float = 200.0
-    height: float = 140.0
+    height: float = 150.0
 
     # Birch plywood or MDF panels.
     panel: float = 12.0
@@ -80,8 +82,8 @@ class SoundbarParameters:
     # the room (offsets from the baffle centreline).
     column_half_spacing: float = 450.0
     crossfire_deg: float = 20.0
-    mid_offset_v: float = -39.0
-    tweeter_offset_v: float = 53.0
+    mid_offset_v: float = -35.0
+    tweeter_offset_v: float = 55.0
     # Woofer centre from the bar centre.
     woofer_x: float = 140.0
 
@@ -96,9 +98,11 @@ class SoundbarParameters:
     midrange: Driver = Driver(72.0, 88.0, 4.0, 70.0, 48.0)  # 3" midrange
     tweeter: Driver = Driver(50.0, 60.0, 4.0, 48.0, 30.0)  # 25 mm dome
 
-    # Printed wedge spacers giving the crossfire angle.
-    spacer_margin: float = 3.0
-    spacer_min_thickness: float = 3.0
+    # Oblique facet carrying the midrange and tweeter, recessed into the
+    # bottom: its width along X, and the angle of the return panel that
+    # brings the surface back to the baffle plane.
+    facet_width: float = 110.0
+    facet_return_deg: float = 60.0
     wire_hole: float = 8.0
 
     # Passive 3-way crossover board on the back panel of each woofer chamber,
@@ -184,8 +188,9 @@ class SoundbarParameters:
     def baffle_tilt_deg(self) -> float:
         return math.degrees(self.tilt)
 
-    def spacer_od(self, driver: Driver) -> float:
-        return driver.flange + 2 * self.spacer_margin
+    def footprint(self, driver: Driver) -> float:
+        """Diameter a driver needs on its panel, flange plus a margin."""
+        return driver.flange + 6
 
     def bay_span(self) -> tuple[float, float]:
         return self.chambers(self.bay_side)["end"]
@@ -213,7 +218,7 @@ class SoundbarParameters:
 P = SoundbarParameters()
 
 PANEL_COLOR = (0.82, 0.68, 0.48)
-SPACER_COLOR = (0.30, 0.30, 0.32)
+PRINTED_COLOR = (0.30, 0.30, 0.32)
 DRIVER_COLOR = (0.12, 0.12, 0.13)
 ELECTRONICS_COLOR = (0.10, 0.45, 0.20)
 LIGHT_COLOR = (0.95, 0.75, 0.30)
@@ -287,7 +292,7 @@ SIDES = (("L", -1), ("R", +1))  # sleepers' left is toward X = 0
 
 
 def angled_drivers(p: SoundbarParameters):
-    """(name, spec, x, v, aim): tweeter and midrange on wedges.
+    """(name, spec, x, v, aim): tweeter and midrange on the oblique facets.
 
     ``aim`` = +1 when the driver points toward +X (the opposite pillow).
     """
@@ -354,17 +359,84 @@ def port_length(p: SoundbarParameters, gross_litres: float) -> float:
     return length * 1000
 
 
-def driver_mount(p: SoundbarParameters, spec: Driver, x: float, v: float, aim: int):
-    """Mounting point (driver flange face) and axis of an angled driver.
+def facet_edges(p: SoundbarParameters, side: int):
+    """Flush, deep and return edges (X), depth and aim of one column facet.
 
-    The axis is the baffle normal turned by ``crossfire_deg`` toward the
-    side given by ``aim``; the wedge is thinnest on that side.
+    The facet turns the baffle by ``crossfire_deg`` toward the opposite
+    pillow (``aim``). It is flush on the outer side and deepest on the
+    side facing the bar centre, where the return panel climbs back.
     """
-    centre, normal, _ = baffle_frame(p, x, v)
+    aim = -side
+    col = p.length / 2 + side * p.column_half_spacing
     a = math.radians(p.crossfire_deg)
+    flush = col - aim * p.facet_width / 2
+    deep = col + aim * p.facet_width / 2
+    depth = p.facet_width * math.tan(a)
+    ret = deep + aim * depth / math.tan(math.radians(p.facet_return_deg))
+    return flush, deep, ret, depth, aim
+
+
+def facet_point(p: SoundbarParameters, u: float, w: float, s: float = 0.0):
+    """3D point at X = ``u``, ``w`` mm into the box from the baffle plane,
+    ``s`` mm along the slope from the baffle centreline."""
+    centre, normal, slope = baffle_frame(p, 0.0)
+    return V(u, centre.y, centre.z) - normal * w + slope * s
+
+
+def _offset_line(a, b, t):
+    """Line through 2D points a, b shifted by t toward larger w (into the box)."""
+    du, dw = b[0] - a[0], b[1] - a[1]
+    n = math.hypot(du, dw)
+    nu, nw = -dw / n, du / n
+    if nw < 0:
+        nu, nw = -nu, -nw
+    return (a[0] + nu * t, a[1] + nw * t), (b[0] + nu * t, b[1] + nw * t)
+
+
+def _intersect(l1, l2):
+    (x1, y1), (x2, y2) = l1
+    (x3, y3), (x4, y4) = l2
+    d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / d
+    py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / d
+    return px, py
+
+
+def facet_profiles(p: SoundbarParameters, side: int):
+    """2D (u, w) polygons of the recess cut, the facet plate and the return plate."""
+    t = p.panel
+    flush, deep, ret, depth, _ = facet_edges(p, side)
+    a0, a1, a2 = (flush, 0.0), (deep, depth), (ret, 0.0)
+    face = _offset_line(a0, a1, t)
+    back = _offset_line(a1, a2, t)
+    inner = ((0.0, t), (1.0, t))
+    e0, e1, e2 = _intersect(face, inner), _intersect(face, back), _intersect(back, inner)
+    cut = [(flush, -5.0), a0, e0, e1, e2, a2, (ret, -5.0)]
+    return cut, [a0, a1, e1, e0], [a1, a2, e2, e1]
+
+
+def facet_prism(p: SoundbarParameters, polygon) -> Part.Shape:
+    """Extrude a (u, w) polygon across the whole bottom along the slope."""
+    span = p.depth / math.cos(p.tilt) + 60
+    pts = [facet_point(p, u, w, -span / 2) for u, w in polygon]
+    face = Part.Face(Part.makePolygon(pts + [pts[0]]))
+    _, _, slope = baffle_frame(p, 0.0)
+    return face.extrude(slope * span)
+
+
+def driver_mount(p: SoundbarParameters, spec: Driver, x: float, v: float, aim: int):
+    """Mounting point (driver flange face, flush on the facet) and axis.
+
+    The axis is the facet normal: the baffle normal turned by
+    ``crossfire_deg`` toward the side given by ``aim``.
+    """
+    side = -aim
+    flush, *_ = facet_edges(p, side)
+    a = math.radians(p.crossfire_deg)
+    _, normal, _ = baffle_frame(p, x, v)
     axis = normal * math.cos(a) + V(aim, 0, 0) * math.sin(a)
-    rise = p.spacer_min_thickness + (p.spacer_od(spec) / 2) * math.tan(a)
-    return centre + normal * rise, axis
+    point = baffle_frame(p, x, v)[0] - normal * (abs(x - flush) * math.tan(a))
+    return point, axis
 
 
 def axial_cylinder(point, axis, diameter, start, length) -> Part.Shape:
@@ -482,11 +554,25 @@ def build_panels(p: SoundbarParameters) -> dict[str, Part.Shape]:
         for key, x0 in walls.items():
             partitions[f"partition_{key}_{ch}"] = wall(x0, True)
 
-    # Angled drivers: hole along the axis, slightly oversized so the wedge,
-    # not the baffle edge, frames the cone.
-    for _, spec, x, v, aim in angled_drivers(p):
-        point, axis = driver_mount(p, spec, x, v, aim)
-        baffle = baffle.cut(axial_cylinder(point, axis, spec.cutout + 2, 5, 120))
+    # Column facets: a recess across the bottom, closed by an oblique plate
+    # carrying the flush midrange and tweeter, and a steep return plate.
+    envelope = profile_prism(outer, 0, p.length)
+    facets = {}
+    for ch, side in SIDES:
+        cut, face_poly, back_poly = facet_profiles(p, side)
+        recess = facet_prism(p, cut)
+        baffle, back, front = (shape.cut(recess) for shape in (baffle, back, front))
+        for key in ("mid_in", "mid_out"):
+            partitions[f"partition_{key}_{ch}"] = partitions[f"partition_{key}_{ch}"].cut(recess)
+        plate = facet_prism(p, face_poly).common(envelope)
+        for _, spec, x, v, aim in angled_drivers(p):
+            if -aim != side:
+                continue
+            point, axis = driver_mount(p, spec, x, v, aim)
+            plate = plate.cut(axial_cylinder(point, axis, spec.cutout, 5, 60))
+            plate = plate.cut(axial_cylinder(point, axis, spec.flange + 1, 5, 5 + spec.flange_thickness))
+        facets[f"facet_{ch}"] = plate
+        facets[f"facet_return_{ch}"] = facet_prism(p, back_poly).common(envelope)
     # Woofers: flush in a flange rebate.
     for _, spec, x in flush_drivers(p):
         baffle = baffle.cut(baffle_cylinder(p, x, spec.cutout, 5, t + 30))
@@ -547,6 +633,7 @@ def build_panels(p: SoundbarParameters) -> dict[str, Part.Shape]:
         "end_left": end_l,
         "end_right": end_r,
         **partitions,
+        **facets,
     }
 
 
@@ -568,23 +655,12 @@ def build_vent_shelves(p: SoundbarParameters, length: float) -> dict[str, Part.S
     return out
 
 
-def build_spacers(p: SoundbarParameters) -> dict[str, Part.Shape]:
-    """Printed wedge rings: flat on the baffle, angled face for the driver."""
-    spacers = {}
-    for name, spec, x, v, aim in angled_drivers(p):
-        point, axis = driver_mount(p, spec, x, v, aim)
-        ring = axial_cylinder(point, axis, p.spacer_od(spec), 0, 120)
-        ring = ring.cut(baffle_slab(p, x, 400, 400, 0, 300, v))  # keep only outside the baffle
-        ring = ring.cut(axial_cylinder(point, axis, spec.cutout, 5, 130))
-        spacers[f"spacer_{name}"] = ring
-    return spacers
-
-
 def build_speakers(p: SoundbarParameters) -> dict[str, Part.Shape]:
     shapes = {}
     for name, spec, x, v, aim in angled_drivers(p):
         point, axis = driver_mount(p, spec, x, v, aim)
-        ring = axial_cylinder(point, axis, spec.flange, spec.flange_thickness, spec.flange_thickness)
+        # Flush: the flange face lies in the facet's outer plane.
+        ring = axial_cylinder(point, axis, spec.flange, 0, spec.flange_thickness)
         body = axial_cylinder(point, axis, spec.body_diameter, 0, spec.mount_depth)
         shapes[name] = ring.fuse(body).removeSplitter()
     for name, spec, x in flush_drivers(p):
@@ -641,9 +717,9 @@ def build_lights(p: SoundbarParameters) -> dict[str, Part.Shape]:
 # Checks and reports
 
 
-def run_checks(p, panels, spacers, speakers, electronics, lights) -> list[str]:
+def run_checks(p, panels, printed, speakers, electronics, lights) -> list[str]:
     errors = []
-    solids = {**panels, **spacers}
+    solids = {**panels, **printed}
     references = {**speakers, **electronics, **lights}
     names = list(references)
     for i, a in enumerate(names):
@@ -658,7 +734,7 @@ def run_checks(p, panels, spacers, speakers, electronics, lights) -> list[str]:
             if common.Volume > 1.0:
                 errors.append(f"{sname} intersects {pname} ({common.Volume:.0f} mm3)")
     # Footprints on the baffle (x, v, radius) must not overlap.
-    prints = [(n, x, v, p.spacer_od(spec) / 2) for n, spec, x, v, _ in angled_drivers(p)]
+    prints = [(n, x, v, p.footprint(spec) / 2) for n, spec, x, v, _ in angled_drivers(p)]
     prints += [(n, x, 0.0, spec.flange / 2 + 1) for n, spec, x in flush_drivers(p)]
     for i, (na, xa, va, ra) in enumerate(prints):
         for nb, xb, vb, rb in prints[i + 1 :]:
@@ -671,7 +747,7 @@ def run_checks(p, panels, spacers, speakers, electronics, lights) -> list[str]:
             if not name.endswith(ch):
                 continue
             room = "mid" if name.startswith(("midrange", "tweeter")) else "woofer"
-            r = (p.spacer_od(spec) if room == "mid" else spec.flange) / 2
+            r = (p.footprint(spec) if room == "mid" else spec.flange) / 2
             x0, x1 = spans[room]
             if not (x0 + r <= x <= x1 - r):
                 errors.append(f"{name} at x={x:.0f} does not fit in its {room} chamber {x0:.0f}-{x1:.0f}")
@@ -753,9 +829,8 @@ CUT_NOTES = {
     ),
     "front": f"Bottom edge bevelled at {P.baffle_tilt_deg:.1f}°, R9 round-over on the outer edge.",
     "baffle": (
-        f"Tilted baffle, edges bevelled at {P.baffle_tilt_deg:.1f}°. Midrange Ø{P.midrange.cutout + 2:g} and "
-        f"tweeter Ø{P.tweeter.cutout + 2:g} holes drilled at {P.crossfire_deg:g}°. Woofers "
-        f"Ø{P.woofer.cutout:g} with a Ø{P.woofer.flange + 1:g} rebate."
+        f"Tilted baffle, edges bevelled at {P.baffle_tilt_deg:.1f}°, in three pieces between the facet "
+        f"recesses. Woofers Ø{P.woofer.cutout:g} with a Ø{P.woofer.flange + 1:g} rebate; lamp holes."
     ),
     "end_left": (
         f"Trapezoidal cheek (full profile), R9 round-over on the bottom edge, "
@@ -783,12 +858,18 @@ for _ch in ("L", "R"):
         f"Airtight midrange / end compartment partition, vent duct passage at the top, "
         f"Ø{P.wire_hole:g} wire hole."
     )
-    for _d in ("midrange", "tweeter"):
-        CUT_NOTES[f"spacer_{_d}_{_ch}"] = f"3D-printed wedge spacer (PETG), {P.crossfire_deg:g}°, glued and screwed."
+    CUT_NOTES[f"facet_{_ch}"] = (
+        f"Oblique facet plate ({P.crossfire_deg:g}° to the baffle) carrying the flush midrange "
+        f"Ø{P.midrange.cutout:g} and tweeter Ø{P.tweeter.cutout:g} with flange rebates; edges bevelled to the "
+        "baffle and the return plate."
+    )
+    CUT_NOTES[f"facet_return_{_ch}"] = (
+        f"Return plate of the facet recess ({P.facet_return_deg:g}° to the baffle), edges bevelled."
+    )
 
 
 def write_cut_list(path: Path, p, rows, litres, errors) -> None:
-    total = sum(r["mass_g"] for r in rows if not r["part"].startswith("spacer"))
+    total = sum(r["mass_g"] for r in rows if r["part"] != "halo_pod")
     lines = [
         "# Cut list — Robine Wake sound bar",
         "",
@@ -843,21 +924,21 @@ def main() -> int:
     parts_dir.mkdir(parents=True, exist_ok=True)
 
     panels = build_panels(P)
-    spacers = build_spacers(P)
-    spacers["halo_pod"] = halo_pod(P)[0]
+    printed = {"halo_pod": halo_pod(P)[0]}  # 3D-printed parts
     speakers = build_speakers(P)
     electronics = build_electronics(P)
     lights = build_lights(P)
 
-    inside = {**speakers, **electronics, "halo_pod": spacers["halo_pod"]}
+    facets = {n: s for n, s in panels.items() if n.startswith("facet")}
+    inside = {**speakers, **electronics, **facets, "halo_pod": printed["halo_pod"]}
     gross = chamber_litres(P, inside)["woofer"]
     vent = port_length(P, gross)
     shelves = build_vent_shelves(P, vent)
     panels |= shelves
 
-    errors = run_checks(P, panels, spacers, speakers, electronics, lights) + check_vent(P, vent)
+    errors = run_checks(P, panels, printed, speakers, electronics, lights) + check_vent(P, vent)
     litres = chamber_litres(P, {**inside, **shelves}) | {"port_mm": vent}
-    rows = panel_rows(P, {**panels, **spacers})
+    rows = panel_rows(P, {**panels, **printed})
 
     doc = App.newDocument("RobineSoundbar")
     g_body = doc.addObject("App::DocumentObjectGroup", "Enclosure")
@@ -865,8 +946,8 @@ def main() -> int:
     fabricated = []
     for name, shape in panels.items():
         fabricated.append(add(doc, g_body, name, shape, PANEL_COLOR))
-    for name, shape in spacers.items():
-        fabricated.append(add(doc, g_body, name, shape, SPACER_COLOR))
+    for name, shape in printed.items():
+        fabricated.append(add(doc, g_body, name, shape, PRINTED_COLOR))
     for name, shape in speakers.items():
         add(doc, g_ref, name, shape, DRIVER_COLOR)
     for name, shape in electronics.items():

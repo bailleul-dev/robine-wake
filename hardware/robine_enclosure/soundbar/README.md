@@ -23,13 +23,17 @@ From the centre toward each end:
 | Zone | Contents |
 |---|---|
 | centre | breathing halo in a sealed printed housing, through the top and the centre partition |
-| woofer chamber | 5.25" woofer flush-mounted at ±140 mm, vent mouth, 3-way crossover on the back panel, 4.27 L net |
-| midrange compartment | 3" midrange and 25 mm tweeter on 20° wedges, column at ±450 mm, 1.55 L sealed |
+| woofer chamber | 5.25" woofer flush-mounted at ±140 mm, vent mouth, 3-way crossover on the back panel, 5.12 L net |
+| midrange compartment | 3" midrange and 25 mm tweeter flush on a 20° oblique facet of the casing, column at ±450 mm, 1.41 L sealed |
 | end compartment | dawn / reading lamp in the bottom face; on the left, also the Pi 3 B+ and the Amp2; on the right, also the light controller |
 
-- Overall size: 1400 × 200 × 140 mm (length × depth × height). The cross-section
+- Overall size: 1400 × 200 × 150 mm (length × depth × height). The cross-section
   fits the 5.25" woofer despite the tilt, and leaves room to stack the
   midrange and tweeter with clearance.
+- Nothing protrudes: under each column, the bottom forms a recess across the
+  whole depth, made of an oblique facet (20°, toward the opposite pillow)
+  carrying the flush midrange and tweeter, and a steep return panel (60°)
+  back to the bottom face.
 - 12 mm birch plywood or MDF, glued and screwed.
 - Seven airtight partitions: each channel has its own volumes, the midrange is
   isolated from the woofer, and the electronics are kept out of the acoustic
@@ -74,12 +78,12 @@ The script writes to `generated/`:
 - `robine-soundbar.step`: full assembly, including the reference volumes of the
   drivers and electronics;
 - `parts/*.step|stl`: every part to build, in mounted position; the four
-  `spacer_*` wedges and the `halo_pod` housing are to be 3D-printed;
+  `halo_pod` housing is to be 3D-printed;
 - `cut-list.md`: cut list, masses, chamber volumes and check results;
 - `parameters.json`: parameters used, read back by `acoustics.py` and
   `lighting.py`.
 
-The script checks that no driver, lamp, halo or board crosses a panel, a wedge,
+The script checks that no driver, lamp, halo or board crosses a panel, a facet,
 the vent or another part; that each driver fits in its chamber; that the vent opens
 into the woofer chamber without running over the woofer; and that the keyhole
 pockets do not pierce the back. The vent length is computed from the target
@@ -107,7 +111,8 @@ To validate physically:
    [10-002](../../../docs/specs/10/002-hardware-profile/spec.md)).
 
 Build notes: baffle, front and back panel edges bevelled at 18.4°, midrange and
-tweeter holes drilled at 20° (the wedge itself is the jig), woofer rebates,
+tweeter flush in rebates on the facet plates, facet and return plates bevelled
+to the baffle, back and front panels notched for the recesses, woofer rebates,
 vent duct and cheek openings with rounded edges, R9 round-over on the bottom
 edge of the front and cheeks, chamber joints sealed with mastic, ~50 %
 polyester fill in each chamber, acoustic fabric stretched over the baffle,

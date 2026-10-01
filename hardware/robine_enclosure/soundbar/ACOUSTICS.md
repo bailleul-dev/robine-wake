@@ -20,7 +20,7 @@ From the centre toward each end:
 | Zone | Contents | Position |
 |---|---|---|
 | woofer chamber | flush-mounted 5.25" woofer, vent mouth, crossover | woofer at ±140 mm, either side of the centre partition |
-| midrange compartment | 3" midrange and 25 mm tweeter on 20° wedges | column at ±450 mm, just outside each pillow |
+| midrange compartment | 3" midrange and 25 mm tweeter flush on a 20° oblique facet | column at ±450 mm, just outside each pillow |
 | end compartment | lamp; Pi and Amp2 on the left; light controller on the right (see [LIGHTING.md](LIGHTING.md)) | from ±522 mm to the cheek |
 
 The vent is a duct along the front panel, under the top. It starts in the
@@ -47,14 +47,14 @@ proven rules:
   before handing over to the tweeter. It reaches low enough for a crossover
   around 250 Hz, which a 2.5" does less well.
 - **5.25" woofer**: the largest that fits the tilted baffle (the enclosure has
-  a 200 × 140 mm cross-section for it and for the midrange). It has ~70 % more
+  a 200 × 150 mm cross-section for it and for the recessed midrange). It has ~70 % more
   cone area than a 4", so deeper bass and less excursion at the same level.
 
 ### Midrange and tweeter stacked
 
 The midrange and tweeter are stacked along the slope (midrange on the wall
-side, tweeter on the room side), 92 mm centre to centre, with 12 mm between
-their wedges and 19 mm of margin to the baffle edges. That is less than a
+side, tweeter on the room side), 90 mm centre to centre, with 10 mm between
+their flanges' margins and 18 mm of margin to the facet edges. That is less than a
 wavelength at 3 kHz (114 mm), so they blend cleanly. Their interference
 (lobing) stays in the wall-to-room plane. Side by side along the bar, it would
 fall across the width of the bed.
@@ -110,18 +110,32 @@ directly. Level compensates part of the time lead.
 
 At ±450 mm, on the left pillow:
 
-| Crossfire | L−R 2 kHz | L−R 12 kHz | Max midrange wedge thickness |
+| Crossfire | L−R 2 kHz | L−R 12 kHz | Recess depth (110 mm facet) |
 |---|---|---|---|
-| **20° (chosen)** | +6.2 dB | +9.3 dB | 37 mm |
-| 30° | +5.9 dB | +7.0 dB | 57 mm |
-| 40° | +5.5 dB | +4.6 dB | 82 mm |
+| **20° (chosen)** | +6.2 dB | +9.3 dB | 40 mm |
+| 30° | +5.9 dB | +7.0 dB | 64 mm |
+| 40° | +5.5 dB | +4.6 dB | 92 mm |
 
-Beyond 20°, the treble gain is real, but the wedges protrude a lot under the
-bar. 20° remains the compromise. To validate by ear: if the near column's
-treble dominates too much, raise `crossfire_deg` to 30°.
+Beyond 20°, the treble gain is real, but the recess becomes very deep and
+eats into the compartments. 20° remains the compromise. To validate by ear:
+if the near column's treble dominates too much, raise `crossfire_deg` to 30°
+(the script checks that the drivers still fit).
 
-The wedges are 3D-printed (PETG), one per driver (Ø 94 and 66 mm), with the
-thick side toward the end of the bar. They fit the Ultimaker 2 Go.
+### Flush oblique facets
+
+The angle is given by the casing itself, so nothing protrudes. Under each
+column, the bottom forms a recess across the whole depth of the bar:
+
+- an **oblique facet**, 110 mm wide, turned 20° toward the opposite pillow.
+  It is flush with the bottom on the outer side and 40 mm deep on the side
+  facing the bar centre. The midrange and tweeter sit flush in rebates on
+  it;
+- a **return panel** at 60°, from the deep edge back to the bottom face.
+
+Both are 12 mm plates, bevelled where they meet the baffle and each other.
+The recess also notches the front and back panels, which shows as a V in the
+lower edge of the front face. The drivers sit ~20 mm deeper than on the flat
+baffle, which is why the bar is 150 mm tall.
 
 ### Bass near the centre, low crossover
 
@@ -133,13 +147,13 @@ left to the midrange and tweeter, thanks to a low crossover around 250 Hz.
 
 ## Bass
 
-- **4.27 L net woofer chamber per channel**, from the centre partition to the
+- **5.12 L net woofer chamber per channel**, from the centre partition to the
   midrange compartment. It is separate from the midrange and from the other
   channel: no midrange modulation, no crosstalk.
 - **Vent (the "serpentine" of commercial sound bars).** An 88 × 22 mm duct
   along the front panel, under the top, formed by a shelf and a wall. It
   starts in the woofer chamber, crosses the midrange and end compartments
-  without connecting to them, and leaves through the cheek. It is 410 mm
+  without connecting to them, and leaves through the cheek. It is 336 mm
   long for a 55 Hz tuning, in a straight line with no bend. The bottom face
   carries only the three drivers per channel, and the opening is invisible
   from the bed.
@@ -148,7 +162,7 @@ left to the midrange and tweeter, thanks to a low crossover around 250 Hz.
   tuning from the chosen woofer's datasheet (for example in WinISD), then
   check it on the measured impedance curve. Pick a low-Vas woofer: a model
   designed for 15-20 L would be overdamped here.
-- **Pipe resonance** around 385 Hz, well above the woofer/midrange crossover
+- **Pipe resonance** around 460 Hz, well above the woofer/midrange crossover
   (~250 Hz): the crossover attenuates it. A little foam at the duct entrance
   damps it further.
 - **Port noise**: a 19.4 cm² duct is enough at bedside levels. Rounding the
@@ -160,7 +174,7 @@ left to the midrange and tweeter, thanks to a low crossover around 250 Hz.
 
 ## Midrange
 
-- **1.55 L sealed compartment**, isolated from the woofer by a partition.
+- **1.41 L sealed compartment**, isolated from the woofer by a partition.
   Without it, the woofer's pressure would move the midrange cone. A typical
   3" rolls off around 121 Hz in it, an octave below the crossover (~250 Hz).
 - Fill the compartment with polyester or wool: it is small, and internal
@@ -187,9 +201,9 @@ chamber, between the woofer and the vent mouth (modelled). Only one pair of wire
 - **Damping**: ~50 % polyester fill or acoustic wool in the woofer chamber,
   against its length and cross-section modes. Keep the back of the woofer and
   the vent entrance clear.
-- **Flush-mounted woofers** in a rebate (modelled). Chamfer or round over the
-  outer edge of the wedges (not modelled): no sharp step to diffract the
-  treble.
+- **Every driver flush-mounted** in a rebate (modelled), on the baffle or the
+  facets: no step to diffract the treble. Round over the edges of the facet
+  recesses slightly.
 - **Edges**: R9 round-over on the bottom edge of the front and cheeks.
 - **Grille**: stretched acoustic fabric, without a thick frame in front of the
   drivers.

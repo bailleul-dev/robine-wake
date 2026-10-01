@@ -1,7 +1,7 @@
 {
   "length": 1400.0,
   "depth": 200.0,
-  "height": 140.0,
+  "height": 150.0,
   "panel": 12.0,
   "density_g_cm3": 0.68,
   "head_from_wall": 250.0,
@@ -9,8 +9,8 @@
   "pillow_offset": 350.0,
   "column_half_spacing": 450.0,
   "crossfire_deg": 20.0,
-  "mid_offset_v": -39.0,
-  "tweeter_offset_v": 53.0,
+  "mid_offset_v": -35.0,
+  "tweeter_offset_v": 55.0,
   "woofer_x": 140.0,
   "mid_chamber_length": 120.0,
   "bay_side": -1,
@@ -35,8 +35,8 @@
     "body_diameter": 48.0,
     "mount_depth": 30.0
   },
-  "spacer_margin": 3.0,
-  "spacer_min_thickness": 3.0,
+  "facet_width": 110.0,
+  "facet_return_deg": 60.0,
   "wire_hole": 8.0,
   "crossover_board": [
     120.0,
@@ -93,12 +93,12 @@
   "halo_position": [
     700.0,
     60.0,
-    140.0
+    150.0
   ],
   "halo_target": [
     700.0,
     750.0,
-    1340.0
+    1350.0
   ],
   "lamp_left_position": [
     160.0,
@@ -110,8 +110,8 @@
     0.5608701483530094,
     -0.7478268644706791
   ],
-  "mid_chamber_litres": 1.546,
-  "woofer_chamber_litres": 4.273,
-  "port_length_mm": 410.1,
+  "mid_chamber_litres": 1.407,
+  "woofer_chamber_litres": 5.123,
+  "port_length_mm": 336.0,
   "port_area_cm2": 19.36
 }
