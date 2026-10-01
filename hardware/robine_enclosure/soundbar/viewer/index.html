@@ -37,7 +37,51 @@
       .status { font-size: 13px; color: var(--muted); min-height: 18px; }
       .status strong { color: var(--text); font-weight: 650; }
       .loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
-      @media (max-width: 600px) { .panel { left: 8px; right: 8px; bottom: 8px; } .label { min-width: 100%; } }
+      .keyhint {
+        position: fixed; left: 16px; bottom: 16px; padding: 6px 10px; border-radius: 999px;
+        border: 1px solid var(--line); background: var(--glass); color: var(--muted); font-size: 12px;
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      }
+      .keyhint kbd { color: var(--text); font: inherit; font-weight: 700; }
+      /* The remote is drawn as a device on a light card, clearly outside the
+         3D room. Proportions follow the Heltec enclosure: 60 x 33 mm face,
+         OLED window 27.5 x 15 mm right of centre, PRG button upper left. */
+      .remote {
+        position: fixed; right: 16px; bottom: 16px; width: 348px; padding: 14px 14px 12px;
+        border-radius: 20px; background: rgba(238, 234, 226, 0.94); color: #1c1d24;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45); font-size: 13px;
+      }
+      .remote-caption { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+      .remote-caption span { color: #6c6a73; font-size: 11px; letter-spacing: 0.04em; }
+      .remote-device {
+        position: relative; width: 320px; height: 176px; margin: 12px auto 10px; border-radius: 17px;
+        background: linear-gradient(160deg, #343a4a, #1d212b 70%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 6px rgba(0, 0, 0, 0.4), 0 10px 22px rgba(0, 0, 0, 0.35);
+      }
+      .remote-window {
+        position: absolute; left: 143px; top: 28px; width: 147px; height: 80px; border-radius: 4px;
+        background: #030407; display: grid; place-items: center;
+        box-shadow: inset 0 0 0 2px #111520, inset 0 2px 6px rgba(0, 0, 0, 0.8);
+      }
+      .remote-oled { width: 140px; height: 70px; image-rendering: pixelated; filter: brightness(0.38); transition: filter 0.25s; }
+      .remote.bright .remote-oled { filter: brightness(1.1) drop-shadow(0 0 3px rgba(190, 225, 255, 0.45)); }
+      .remote-prg {
+        position: absolute; left: 47px; top: 38px; width: 28px; height: 28px; min-height: 0; padding: 0;
+        border-radius: 50%; border: 1px solid #0d0f14; cursor: pointer;
+        background: radial-gradient(circle at 40% 35%, #f2efe8, #bdb7aa 70%);
+        box-shadow: 0 3px 0 #6f6a60, 0 5px 8px rgba(0, 0, 0, 0.45);
+        transition: transform 0.05s, box-shadow 0.05s;
+      }
+      .remote-prg:hover { background: radial-gradient(circle at 40% 35%, #fffdf7, #c9c3b6 70%); }
+      .remote-prg.pressed { transform: translateY(3px); box-shadow: 0 0 0 #6f6a60, 0 1px 3px rgba(0, 0, 0, 0.5); }
+      .remote-prg:focus-visible { outline: 3px solid rgba(245, 207, 135, 0.8); outline-offset: 3px; }
+      .remote-prg-label { position: absolute; left: 49px; top: 74px; width: 24px; text-align: center; color: #9aa0b0; font-size: 9px; letter-spacing: 0.12em; }
+      .remote-usb { position: absolute; left: -3px; top: 76px; width: 6px; height: 24px; border-radius: 2px; background: #0c0e13; }
+      .remote-hint { color: #6c6a73; font-size: 11px; text-align: center; }
+      @media (max-width: 600px) {
+        .panel { left: 8px; right: 8px; bottom: 8px; } .label { min-width: 100%; }
+        .remote { right: 8px; bottom: 8px; transform: scale(0.72); transform-origin: bottom right; }
+      }
     </style>
     <script type="importmap">
       {
@@ -50,7 +94,9 @@
   </head>
   <body>
     <div class="loading" id="loading">Loading the room…</div>
-    <div class="panel" role="region" aria-label="Demo controls">
+    <div class="keyhint" id="keyhint">Press <kbd>H</kbd> for the demo controls</div>
+    <aside class="remote" id="remote" aria-label="Bedside remote, emulated"></aside>
+    <div class="panel" role="region" aria-label="Demo controls" hidden>
       <div class="row" id="scenes">
         <span class="label">Scene</span>
         <button data-scene="night">Night</button>

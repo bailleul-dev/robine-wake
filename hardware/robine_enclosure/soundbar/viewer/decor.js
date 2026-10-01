@@ -30,7 +30,9 @@ export function addDecor({ add, canvasTexture, noiseField, M, room, window: win,
     pampas: new THREE.MeshPhysicalMaterial({ color: 0xe6d7b8, roughness: 1, sheen: 1, sheenColor: 0xfff6e0 }),
     stem: new THREE.MeshStandardMaterial({ color: 0xb59c74, roughness: 0.9 }),
     oak: new THREE.MeshPhysicalMaterial({ color: 0xc49a6c, roughness: 0.55, clearcoat: 0.2 }),
-    glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, transmission: 1, thickness: 0.004, ior: 1.5 }),
+    // Thin glass as a transparent, glossy surface: transmission would add a
+    // full extra render of the room per frame for two small objects.
+    glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, transparent: true, opacity: 0.18, clearcoat: 1, ior: 1.5 }),
     paper: new THREE.MeshStandardMaterial({ color: 0xf2ece1, roughness: 0.9 }),
   };
 

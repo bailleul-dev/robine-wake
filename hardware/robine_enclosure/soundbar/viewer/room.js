@@ -15,7 +15,9 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { addDecor } from "./decor.js";
+import { mountRemote } from "./remote.js";
 
 const anchors = await (await fetch("./assets/anchors.json")).json();
 
@@ -33,13 +35,17 @@ const PILLOW_Z = anchors.listening.head_from_wall + 0.05;
 // ---------------------------------------------------------------------------
 // Renderer, camera, post-processing.
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+// Anti-aliasing happens on the composer's render target (MSAA below): the
+// canvas only receives the final full-screen pass.
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Nothing in the room moves: shadow maps are rendered once (see below).
+renderer.shadowMap.autoUpdate = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -52,11 +58,19 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.maxDistance = 6;
 
-const composer = new EffectComposer(renderer);
+const composer = new EffectComposer(
+  renderer,
+  new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, { type: THREE.HalfFloatType, samples: 4 })
+);
 composer.addPass(new RenderPass(scene, camera));
 const ao = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight);
 ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1.0, scale: 1.0 });
 ao.blendIntensity = 0.85;
+// Ambient occlusion is soft and low-frequency: computed at half resolution
+// and upsampled when blended, it looks the same for a quarter of the cost.
+const aoSetSize = ao.setSize.bind(ao);
+ao.setSize = (w, h) => aoSetSize(Math.ceil(w / 2), Math.ceil(h / 2));
+ao.setSize(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio());
 composer.addPass(ao);
 // Bloom only on the emitters (unclipped, above 1.0).
 const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.5, 1.0);
@@ -101,11 +115,11 @@ function heightToNormal(ctx, size, height, strength) {
     for (let x = 0; x < size; x++) {
       const dx = (height(x + 1, y) - height(x - 1, y)) * strength;
       const dy = (height(x, y + 1) - height(x, y - 1)) * strength;
-      const n = new THREE.Vector3(-dx, -dy, 1).normalize();
+      const inv = 1 / Math.sqrt(dx * dx + dy * dy + 1);
       const k = (y * size + x) * 4;
-      img.data[k] = (n.x * 0.5 + 0.5) * 255;
-      img.data[k + 1] = (n.y * 0.5 + 0.5) * 255;
-      img.data[k + 2] = (n.z * 0.5 + 0.5) * 255;
+      img.data[k] = (-dx * inv * 0.5 + 0.5) * 255;
+      img.data[k + 1] = (-dy * inv * 0.5 + 0.5) * 255;
+      img.data[k + 2] = (inv * 0.5 + 0.5) * 255;
       img.data[k + 3] = 255;
     }
   }
@@ -135,16 +149,21 @@ const textures = {
     (ctx, size) => {
       const grain = noiseField(size, 64, 5);
       const planks = 6;
-      for (let p = 0; p < planks; p++) {
-        const tone = 0.85 + ((p * 37) % 11) / 60;
-        for (let y = 0; y < size; y++) {
-          for (let x = (p * size) / planks; x < ((p + 1) * size) / planks; x++) {
-            const g = grain(x * 0.15, y * 3);
-            const r = (172 + 40 * g) * tone, gg = (128 + 30 * g) * tone, bb = (86 + 18 * g) * tone;
-            ctx.fillStyle = `rgb(${r | 0},${gg | 0},${bb | 0})`;
-            ctx.fillRect(x, y, 1, 1);
-          }
+      const img = ctx.createImageData(size, size);
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const p = Math.floor((x * planks) / size);
+          const tone = 0.85 + ((p * 37) % 11) / 60;
+          const g = grain(x * 0.15, y * 3);
+          const k = (y * size + x) * 4;
+          img.data[k] = (172 + 40 * g) * tone;
+          img.data[k + 1] = (128 + 30 * g) * tone;
+          img.data[k + 2] = (86 + 18 * g) * tone;
+          img.data[k + 3] = 255;
         }
+      }
+      ctx.putImageData(img, 0, 0);
+      for (let p = 0; p < planks; p++) {
         ctx.fillStyle = "rgba(40,25,15,0.55)";
         ctx.fillRect(((p + 1) * size) / planks - 2, 0, 2, size);
         ctx.fillRect((p * size) / planks, ((p * 397) % size), size / planks, 2);
@@ -156,13 +175,18 @@ const textures = {
     512,
     (ctx, size) => {
       const grain = noiseField(size, 32, 9);
+      const img = ctx.createImageData(size, size);
       for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
           const g = grain(x * 0.2, y * 4);
-          ctx.fillStyle = `rgb(${(78 + 40 * g) | 0},${(50 + 26 * g) | 0},${(32 + 14 * g) | 0})`;
-          ctx.fillRect(x, y, 1, 1);
+          const k = (y * size + x) * 4;
+          img.data[k] = 78 + 40 * g;
+          img.data[k + 1] = 50 + 26 * g;
+          img.data[k + 2] = 32 + 14 * g;
+          img.data[k + 3] = 255;
         }
       }
+      ctx.putImageData(img, 0, 0);
     },
     { repeat: [1, 1] }
   ),
@@ -187,7 +211,8 @@ const M = {
   headboard: new THREE.MeshPhysicalMaterial({ color: 0xb3a592, roughness: 1, sheen: 0.9, sheenColor: 0xe8dccb }),
   walnut: new THREE.MeshPhysicalMaterial({ map: textures.walnut, roughness: 0.42, clearcoat: 0.3 }),
   rug: new THREE.MeshPhysicalMaterial({ color: 0xd9d0c1, roughness: 1, sheen: 1, sheenColor: 0xffffff }),
-  curtain: new THREE.MeshPhysicalMaterial({ color: 0xe5dccd, roughness: 1, sheen: 0.6, side: THREE.DoubleSide, transmission: 0.25, thickness: 0.01 }),
+  // No transmission: it would add a full extra render of the room per frame.
+  curtain: new THREE.MeshPhysicalMaterial({ color: 0xe5dccd, roughness: 1, sheen: 0.6, side: THREE.DoubleSide }),
   frame: new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.5 }),
 };
 
@@ -353,6 +378,43 @@ function emitter(position, axis, diameter) {
 }
 
 // ---------------------------------------------------------------------------
+// Static batching: every mesh sharing a material (and shadow flags) becomes a
+// single draw call. Materials are kept, so lights and emitters still drive
+// them. Instanced meshes (olive leaves) are already one draw call.
+
+function mergeStatic(root) {
+  root.updateMatrixWorld(true);
+  const groups = new Map();
+  root.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh) return;
+    const key = `${o.material.uuid}|${o.castShadow}|${o.receiveShadow}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  });
+  for (const meshes of groups.values()) {
+    if (meshes.length < 2) continue;
+    const geometries = meshes.map((mesh) => {
+      const g = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+      for (const name of Object.keys(g.attributes)) {
+        if (!["position", "normal", "uv"].includes(name)) g.deleteAttribute(name);
+      }
+      if (!g.attributes.uv) g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      g.applyMatrix4(mesh.matrixWorld);
+      return g;
+    });
+    const merged = new THREE.Mesh(mergeGeometries(geometries), meshes[0].material);
+    merged.castShadow = meshes[0].castShadow;
+    merged.receiveShadow = meshes[0].receiveShadow;
+    for (const mesh of meshes) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+    }
+    scene.add(merged);
+  }
+}
+mergeStatic(scene);
+
+// ---------------------------------------------------------------------------
 // Lights.
 
 const SOLID = (beamDeg) => 2 * Math.PI * (1 - Math.cos(THREE.MathUtils.degToRad(beamDeg / 2)));
@@ -450,7 +512,9 @@ const NIGHT_ADAPTATION_LUX = 10;
 const LAMP_LM = anchors.lamps.flux_lm;
 const LUX_PER_LUMEN_AT_EYE = 3.21; // from lighting.py
 
-const state = { scene: "night", dawnMinutes: 0, dawnPlaying: true, started: performance.now() };
+// alarm: "none" | "active" (the dawn reached the wake time) | "dismissed"
+// (stopped from the remote).
+const state = { scene: "night", dawnMinutes: 0, dawnPlaying: true, started: performance.now(), alarm: "none" };
 let glowGain = 1; // 1 / exposure of the previous frame
 
 function setLamp(side, lumens, colour) {
@@ -497,6 +561,7 @@ const SCENES = {
   },
   breathing: {
     label: "Breathing: 4 s in, 6 s out, the halo glows on the ceiling (spec 30-003).",
+    animated: () => true,
     environment: 0.01,
     update(t) {
       const cycle = t % 10;
@@ -512,6 +577,7 @@ const SCENES = {
   },
   dawn: {
     label: "Dawn: 30 minutes before the alarm, rising to 300 lux at the eye (spec 00-002).",
+    animated: () => state.dawnPlaying && state.dawnMinutes < 30,
     environment: 0.01,
     update() {
       const p = state.dawnMinutes / 30;
@@ -528,7 +594,8 @@ const SCENES = {
     status: () => {
       const p = state.dawnMinutes / 30;
       const lux = 300 * Math.pow(p, 2.2);
-      return `<strong>${state.dawnMinutes.toFixed(1)} min</strong> · ${lux.toFixed(0)} lux at the eye · ${Math.round(1800 + 2200 * Math.pow(p, 0.8))} K${p >= 1 ? " · <strong>alarm</strong>" : ""}`;
+      const alarm = { active: " · <strong>alarm ringing</strong>", dismissed: " · alarm stopped from the remote" }[state.alarm] ?? "";
+      return `<strong>${state.dawnMinutes.toFixed(1)} min</strong> · ${lux.toFixed(0)} lux at the eye · ${Math.round(1800 + 2200 * Math.pow(p, 0.8))} K${alarm}`;
     },
   },
   readingLeft: {
@@ -575,11 +642,36 @@ const VIEWS = {
   decor: { position: [1.75, 1.55, 4.35], target: [-0.9, 1.05, 1.9] },
 };
 
+// Render on demand: static scenes are drawn again only when something changes
+// (camera, scene, size). The camera moves at a lower resolution and snaps
+// back to full resolution as soon as it stops.
+let dirty = true;
+const invalidate = () => (dirty = true);
+controls.addEventListener("change", invalidate);
+const FULL_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2);
+function setPixelRatio(ratio) {
+  if (renderer.getPixelRatio() === ratio) return;
+  renderer.setPixelRatio(ratio);
+  composer.setPixelRatio(ratio);
+}
+let idle;
+controls.addEventListener("start", () => {
+  clearTimeout(idle);
+  setPixelRatio(1);
+});
+controls.addEventListener("end", () => {
+  idle = setTimeout(() => {
+    setPixelRatio(FULL_PIXEL_RATIO);
+    invalidate();
+  }, 300);
+});
+
 function setView(name) {
   const view = VIEWS[name];
   camera.position.set(...view.position);
   controls.target.set(...view.target);
   controls.update();
+  invalidate();
   document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === name)));
 }
 
@@ -587,6 +679,8 @@ function setScene(name) {
   state.scene = name;
   state.started = performance.now();
   if (name === "dawn") state.dawnMinutes = 0;
+  state.alarm = "none";
+  invalidate();
   scene.environmentIntensity = SCENES[name].environment;
   document.querySelectorAll("[data-scene]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scene === name)));
   document.getElementById("dawn-row").hidden = name !== "dawn";
@@ -597,12 +691,16 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "h" || e.key === "H") {
     const panel = document.querySelector(".panel");
     panel.hidden = !panel.hidden;
+    document.getElementById("keyhint").hidden = !panel.hidden;
   }
 });
 document.getElementById("scenes").addEventListener("click", (e) => e.target.dataset.scene && setScene(e.target.dataset.scene));
 document.getElementById("views").addEventListener("click", (e) => e.target.dataset.view && setView(e.target.dataset.view));
 const dawnTime = document.getElementById("dawn-time");
-dawnTime.addEventListener("input", () => (state.dawnMinutes = Number(dawnTime.value)));
+dawnTime.addEventListener("input", () => {
+  state.dawnMinutes = Number(dawnTime.value);
+  invalidate();
+});
 const dawnPlay = document.getElementById("dawn-play");
 dawnPlay.addEventListener("click", () => {
   state.dawnPlaying = !state.dawnPlaying;
@@ -635,6 +733,9 @@ function frame(now) {
   if (state.scene === "dawn" && state.dawnPlaying) {
     state.dawnMinutes = Math.min(30, state.dawnMinutes + (dt * DAWN_SPEED) / 60);
   }
+  // The wake time is the end of the 30-minute dawn.
+  if (state.scene === "dawn" && state.dawnMinutes >= 30 && state.alarm === "none") state.alarm = "active";
+  if (state.scene === "dawn" && state.dawnMinutes < 30) state.alarm = "none";
   if (state.scene === "dawn" && document.activeElement !== dawnTime) dawnTime.value = state.dawnMinutes;
   const scene_ = SCENES[state.scene];
   const { lumens, lux } = scene_.update(t);
@@ -648,7 +749,11 @@ function frame(now) {
   bounce.intensity = lumens * 0.025;
   statusEl.innerHTML = scene_.label + (scene_.status ? ` · ${scene_.status(t)}` : "");
   controls.update();
-  composer.render();
+  if (dirty || scene_.animated?.()) {
+    composer.render();
+    dirty = false;
+    if (window.robineRoom) window.robineRoom.frames++;
+  }
   requestAnimationFrame(frame);
 }
 
@@ -657,7 +762,28 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  invalidate();
 });
 
+// Bedside remote (emulated ESP32). During the dawn its clock runs from 06:30
+// to the 07:00 alarm; otherwise it shows the real time.
+mountRemote(document.getElementById("remote"), {
+  alarmActive: () => state.alarm === "active",
+  press() {
+    if (state.alarm !== "active") return "idle";
+    state.alarm = "dismissed";
+    invalidate();
+    return "dismissed";
+  },
+  clock() {
+    const now = new Date();
+    const minutes = state.scene === "dawn" ? 6 * 60 + 30 + Math.floor(state.dawnMinutes) : now.getHours() * 60 + now.getMinutes();
+    return `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  },
+});
+
+renderer.shadowMap.needsUpdate = true; // the one and only shadow pass
 document.getElementById("loading").remove();
+// Console access for debugging and performance checks.
+window.robineRoom = { renderer, scene, camera, readyMs: performance.now(), frames: 0 };
 requestAnimationFrame(frame);

@@ -36,8 +36,30 @@ The URL can pick a scene, a view and a dawn time, for scripted demos:
 | `day` | daylight through the window |
 
 Views: `room`, `pillow` (looking up from the pillow), `bar` (close-up),
-`decor` (dresser and reading corner). Press **H** to hide the controls for a
-clean recording.
+`decor` (dresser and reading corner). The demo controls are hidden by
+default: press **H** to show or hide them.
+
+## Bedside remote
+
+The card at the bottom right emulates the bedside remote (Heltec WiFi Kit 32
+V1: ESP32 and 128×64 OLED). It is drawn as a device on a separate card, not
+in the 3D room: in real life it sits in the hand or on the nightstand.
+
+`remote.js` reproduces `hardware/remote_button/src/main.cpp`:
+
+- idle screen: "ROBINe WAKE", Wi-Fi bars, the time, "PRET REVEIL", the
+  "PRG ARRETER" banner, dim (SSD1306 low contrast);
+- alarm screen, at full contrast: Robine running with hearts, "JE T'AIME,
+  TU ME PROMÈNES", an arrow pointing at the button;
+- a short PRG press stops the alarm ("Reveil arrete") or reports that there
+  is nothing to stop ("Aucun reveil"); feedback for 3 s, screen bright 5 s;
+- holding PRG for 3 s previews the alarm screen for 15 s.
+
+The alarm rings when the dawn reaches the wake time (30 minutes); during
+the dawn the remote's clock runs from 06:30 to 07:00. The Robine frames in
+`remote_sprites.js` are generated from
+`hardware/remote_button/include/robine_sprites.h`; regenerate them if the
+firmware sprites change.
 
 ## How it is built
 
@@ -70,6 +92,35 @@ clean recording.
   read correctly.
 - **Materials**: navy blue Tolex for the casing, satin black drivers, plaster
   walls, varnished oak floor, linen bedding with sheen, walnut furniture.
+
+## Performance
+
+The image at rest is unchanged by these; they remove work, not quality:
+
+- **Render on demand**: static scenes (night, reading, day) draw a frame
+  only when the camera, the scene or the window changes; breathing and a
+  playing dawn animate continuously.
+- **Shadows computed once**: nothing in the room moves, so the shadow maps
+  are rendered a single time.
+- **Static batching**: meshes sharing a material are merged into one draw
+  call (141 meshes → 61); the olive leaves are one instanced mesh.
+- **No transmission**: curtains and glassware use plain transparency, which
+  avoids a full extra render of the room each frame.
+- **MSAA on the post-processing target**, not on the canvas, where it was
+  paid for without effect.
+- **Ambient occlusion at half resolution**, upsampled when blended (it is
+  soft and low-frequency).
+- **Lower resolution while the camera moves**, back to full as soon as it
+  stops.
+- **Procedural textures written directly into pixel buffers**: loading went
+  from ~8 s to ~0.5 s.
+
+To measure in the console (the tab must be visible):
+
+```js
+const f0 = robineRoom.frames; await new Promise(r => setTimeout(r, 4000));
+(robineRoom.frames - f0) / 4 // frames per second
+```
 
 ## Next steps
 
