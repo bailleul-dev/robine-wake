@@ -24,8 +24,13 @@ IOS_BETA_ARGS = $(if $(strip $(CHANGELOG)),changelog:"$(CHANGELOG)") $(if $(stri
 HOMEBREW_RUBY_PREFIX := $(shell brew --prefix ruby 2>/dev/null)
 BUNDLE ?= $(if $(HOMEBREW_RUBY_PREFIX),$(HOMEBREW_RUBY_PREFIX)/bin/bundle,bundle)
 PLATFORMIO ?= uvx --from platformio platformio
+# Demo image (Dockerfile at the root), pushed to the cluster registry and
+# deployed by ../silo01 (`make robine-wake-demo` there).
+DEMO_REGISTRY ?= registry.bailleul.dev/robine-wake-demo
+DEMO_PLATFORM ?= linux/amd64
+VERSION ?= $(shell git rev-parse --short=12 HEAD)
 
-.PHONY: firmware burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone
+.PHONY: firmware burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
 
 firmware:
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
@@ -125,6 +130,18 @@ expo-iphone:
 		--device "$${IPHONE_ID}" \
 		--timeout 300 \
 		fr.robine.wake'
+
+# Builds the demo image for the cluster and pushes it, tagged with the commit:
+# what runs must be a commit, so uncommitted changes are refused.
+docker-build-and-push:
+	@test -z "$$(git status --porcelain)" || \
+		{ echo "Uncommitted changes: commit first, the image must match a commit." >&2; exit 1; }
+	docker buildx build --platform $(DEMO_PLATFORM) -t $(DEMO_REGISTRY):$(VERSION) --push .
+	@echo "Pushed $(DEMO_REGISTRY):$(VERSION)"
+
+# The tag docker-build-and-push uses (for ../silo01's make robine-wake-demo).
+version:
+	@echo $(VERSION)
 
 button-build:
 	$(WITH_ENV) $(PLATFORMIO) run --project-dir hardware/remote_button

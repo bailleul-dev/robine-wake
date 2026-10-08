@@ -94,6 +94,12 @@ The image uses the committed web build in `priv/web`; run `make expo-web`
 first to refresh it. See the
 [demo deployment section](docs/specs/80/002-host-hardware-emulator/spec.md#demo-deployment).
 
+The public instance runs in the k3s cluster managed by `../silo01`, like the
+other apps there. `make docker-build-and-push` builds the image for the
+cluster, tagged with the current commit (uncommitted changes are refused), and
+pushes it to the registry; `make robine-wake-demo` in `../silo01` runs it and
+then rolls the image out to <https://robine-wake-demo.bailleul.dev/demo>.
+
 The Raspberry Pi web interface is intentionally passwordless and intended only
 for the trusted local network. Firmware updates and SSH remain authenticated.
 

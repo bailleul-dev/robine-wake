@@ -112,7 +112,7 @@ Status meanings:
 | APY-004 | Implemented | Shairport Sync attenuates in software under the 0 dB hardware music level kept by `RobineWake.Audio`, resets idle sessions to -7.5 dB (75 %), and treats -3 dB as the high-volume threshold; acoustic calibration remains pending. |
 | APY-005 | Verified | Forcibly terminating target PID 209 produced a healthy replacement at PID 226 after the configured two-second recovery delay without restarting the BEAM. |
 | APY-006 | Verified | Host builds disable the receiver and require no Shairport executable or network service. |
-| APY-007 | Partial | AirPlay 2 is enabled (Shairport Sync with Avahi and NQPTP, supervised by `RobineWake.AirPlay`) and advertised on the network; resource, compatibility, and overnight timing evidence is pending. |
+| APY-007 | Partial | AirPlay 2 is enabled with Shairport Sync 5.5.2 (`package/shairport-sync5`, Avahi, NQPTP, supervised by `RobineWake.AirPlay`); iPhone (iOS 26) and Mac playback verified on 2026-10-09; resource and overnight timing evidence is pending. |
 
 ## Bluetooth audio receiver
 
