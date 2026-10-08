@@ -83,6 +83,8 @@ export function alarmToDraft(alarm: Alarm | null, sounds: Sound[]): AlarmDraft {
       alarm?.strong_sound_id ?? defaultSound(sounds, "strong", "default"),
     startVolume: alarm?.volume_profile?.start ?? 15,
     ceilingVolume: alarm?.volume_profile?.ceiling ?? 85,
+    strongVolume:
+      alarm?.volume_profile?.strong ?? alarm?.volume_profile?.ceiling ?? 85,
     prewakeMinutes: Math.max(
       1,
       Math.trunc(
@@ -129,6 +131,7 @@ export function draftToPayload(draft: AlarmDraft): Record<string, unknown> {
     volume_profile: {
       start: draft.startVolume,
       ceiling: draft.ceilingVolume,
+      strong: draft.strongVolume,
       ramp_seconds: 60 * draft.prewakeMinutes,
     },
     light_profile: {

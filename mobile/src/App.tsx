@@ -90,11 +90,9 @@ function TabBar(): React.JSX.Element {
         right: 10,
         bottom: 8,
         height: 82,
-        paddingTop: 8,
-        paddingBottom: 18,
-        paddingHorizontal: 5,
+        padding: 6,
         flexDirection: "row",
-        borderRadius: 29,
+        borderRadius: 41,
         borderWidth: 1,
         borderColor: "rgba(255,231,183,0.16)",
         shadowColor: "#000",
@@ -115,7 +113,7 @@ function TabBar(): React.JSX.Element {
               alignItems: "center",
               justifyContent: "center",
               gap: 3,
-              borderRadius: 20,
+              borderRadius: 999,
               backgroundColor: active ? "rgba(245,207,135,0.13)" : undefined,
             })}
           >

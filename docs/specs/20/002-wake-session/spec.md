@@ -31,8 +31,8 @@ Every scheduled ringing period begins in the `gentle` audio phase at the alarm's
 configurable pre-wake offset. Gain rises from the configured start level to its
 ceiling exactly at the target wake time. It remains at that ceiling for five
 minutes; if the session has not been dismissed or snoozed, playback then switches
-to `strong_sound_id`, the phase becomes `strong`, and gain remains at the alarm
-ceiling. The transition is recorded as `gentle_wake_escalated` so diagnostics can
+to `strong_sound_id`, the phase becomes `strong`, and gain moves to the alarm's
+strong level (`volume_profile.strong`, which defaults to the ceiling). The transition is recorded as `gentle_wake_escalated` so diagnostics can
 distinguish a normal escalation from an audio failure.
 
 Snoozing stops either phase. A snooze restart always begins again with the

@@ -26,7 +26,7 @@ defmodule RobineWake.Alarm do
     sound_id: "default",
     strong_sound_id: "default",
     prewake_seconds: 1_200,
-    volume_profile: %{start: 15, ceiling: 85, ramp_seconds: 1_200},
+    volume_profile: %{start: 15, ceiling: 85, strong: 85, ramp_seconds: 1_200},
     light_profile: %{
       enabled: false,
       target_id: nil,
@@ -267,14 +267,19 @@ defmodule RobineWake.Alarm do
   defp parse_volume(value) when is_map(value) do
     safety_ceiling = Application.get_env(:robine_wake, :audio_safety_ceiling, 100)
 
+    ceiling = integer(get(value, :ceiling, 85), 85)
+
+    # Alarms saved before the strong level existed keep ringing at the ceiling.
     profile = %{
       start: integer(get(value, :start, 15), 15),
-      ceiling: integer(get(value, :ceiling, 85), 85),
+      ceiling: ceiling,
+      strong: integer(get(value, :strong, ceiling), ceiling),
       ramp_seconds: integer(get(value, :ramp_seconds, 1_200), 1_200)
     }
 
     if profile.start in 0..safety_ceiling and
          profile.ceiling in profile.start..safety_ceiling and
+         profile.strong in 0..safety_ceiling and
          profile.ramp_seconds in 0..3600,
        do: {:ok, profile},
        else: {:error, %{volume_profile: "contains values outside safe bounds"}}

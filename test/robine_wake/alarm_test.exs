@@ -41,8 +41,22 @@ defmodule RobineWake.AlarmTest do
     assert {:error, %{volume_profile: _}} =
              Alarm.new(%{volume_profile: %{start: 15, ceiling: 101, ramp_seconds: 10}})
 
+    assert {:error, %{volume_profile: _}} =
+             Alarm.new(%{volume_profile: %{start: 15, ceiling: 60, strong: 101}})
+
     assert {:error, %{light_profile: _}} =
              Alarm.new(%{light_profile: %{enabled: true, target_id: nil}})
+  end
+
+  test "the strong-phase volume defaults to the ceiling and can differ from it" do
+    assert {:ok, %{volume_profile: %{ceiling: 60, strong: 60}}} =
+             Alarm.new(%{volume_profile: %{start: 15, ceiling: 60}})
+
+    assert {:ok, %{volume_profile: %{ceiling: 60, strong: 90}}} =
+             Alarm.new(%{volume_profile: %{start: 15, ceiling: 60, strong: 90}})
+
+    assert {:ok, %{volume_profile: %{ceiling: 60, strong: 40}}} =
+             Alarm.new(%{"volume_profile" => %{"start" => 15, "ceiling" => 60, "strong" => 40}})
   end
 
   test "normalizes a Philips Hue wake-light profile" do

@@ -32,6 +32,17 @@ test("alarm payload round-trip", () => {
   assert.equal(payload.revision, 4);
   assert.deepEqual(payload.days_of_week, [1, 2, 3, 4, 5]);
   assert.deepEqual(payload.snooze, { enabled: false });
+  assert.deepEqual(payload.volume_profile, {
+    start: 1,
+    ceiling: 80,
+    strong: 80,
+    ramp_seconds: 1200,
+  });
+  const louder = draftToPayload({ ...draft, strongVolume: 95 });
+  assert.equal(
+    (louder.volume_profile as { strong: number }).strong,
+    95,
+  );
   assert.equal(draftValid(draft), true);
 });
 

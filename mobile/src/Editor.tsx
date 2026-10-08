@@ -626,6 +626,16 @@ function RampCard({
           suffix=" min avant"
           color="lavender"
         />
+        <ValueSlider
+          draft={draft}
+          setDraft={setDraft}
+          field="strongVolume"
+          title="Volume du son de renfort"
+          minimum={0}
+          maximum={100}
+          suffix="%"
+          color="rose"
+        />
         <Text
           style={theme.style({
             fontSize: 12,
@@ -634,7 +644,7 @@ function RampCard({
           })}
         >
           Le volume reste au plafond pendant 5 minutes à l’heure choisie, puis
-          le son de renfort prend le relais.
+          le son de renfort prend le relais à son propre volume.
         </Text>
         <View
           style={theme.style({

@@ -28,6 +28,7 @@ export interface Alarm {
   volume_profile?: {
     start?: number;
     ceiling?: number;
+    strong?: number;
     ramp_seconds?: number;
   };
   light_profile?: {
@@ -53,6 +54,7 @@ export interface AlarmDraft {
   strongSoundId: string;
   startVolume: number;
   ceilingVolume: number;
+  strongVolume: number;
   prewakeMinutes: number;
   revision?: number;
   lightEnabled: boolean;

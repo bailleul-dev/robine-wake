@@ -379,7 +379,7 @@ defmodule RobineWake.WakeSession do
     strong? = state.requested_phase == :strong
 
     start_gain =
-      if strong?, do: state.alarm.volume_profile.ceiling, else: state.alarm.volume_profile.start
+      if strong?, do: strong_gain(state.alarm), else: state.alarm.volume_profile.start
 
     sound_id = if strong?, do: state.alarm.strong_sound_id, else: state.alarm.sound_id
     now = Clock.monotonic_ms()
@@ -497,7 +497,11 @@ defmodule RobineWake.WakeSession do
 
     strong_at_ms = ramp_ms + Application.fetch_env!(:robine_wake, :gentle_plateau_ms)
     state = if elapsed_ms >= strong_at_ms, do: escalate_audio(state), else: state
-    gain = round(start + (ceiling - start) * progress)
+
+    gain =
+      if state.audio_phase == :strong,
+        do: strong_gain(state.alarm),
+        else: round(start + (ceiling - start) * progress)
 
     if state.state in [:ringing, :exit_candidate] and gain != state.current_gain do
       case Audio.set_gain(state.id, gain) do
@@ -508,6 +512,8 @@ defmodule RobineWake.WakeSession do
       state
     end
   end
+
+  defp strong_gain(%{volume_profile: profile}), do: Map.get(profile, :strong, profile.ceiling)
 
   defp escalate_audio(%{audio_phase: :strong} = state), do: state
 

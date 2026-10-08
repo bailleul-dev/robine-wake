@@ -19,7 +19,7 @@ zone.
 | `sound_id` | identifier | progressive-wake sound; must be available |
 | `strong_sound_id` | identifier | fallback sound after the gentle ramp; must be available |
 | `prewake_seconds` | integer, 0–3600 | how long before `local_time` the gentle phase starts |
-| `volume_profile` | structure | start, ceiling, ramp duration |
+| `volume_profile` | structure | start, ceiling, strong-phase level, ramp duration |
 | `dismiss_policy` | enum | `manual` only; migrate legacy `bed_exit` and `either` to `manual` |
 | `vibration_profile` | structure | enabled, calibrated start/ceiling, progression duration; disabled until configured |
 | `snooze` | structure | enabled, duration, maximum count |

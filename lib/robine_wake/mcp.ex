@@ -64,6 +64,11 @@ defmodule RobineWake.MCP do
         "properties" => %{
           "start" => %{"type" => "integer", "minimum" => 0},
           "ceiling" => %{"type" => "integer", "minimum" => 0},
+          "strong" => %{
+            "type" => "integer",
+            "minimum" => 0,
+            "description" => "Strong-phase volume; defaults to the ceiling"
+          },
           "ramp_seconds" => %{"type" => "integer", "minimum" => 0, "maximum" => 3600}
         },
         "additionalProperties" => false

@@ -103,6 +103,26 @@ defmodule RobineWake.WakeSessionTest do
            } = Audio.status()
   end
 
+  test "plays the strong sound at its own configured volume", %{alarm: alarm} do
+    {:ok, alarm} =
+      Settings.update_alarm(alarm.id, %{
+        "revision" => alarm.revision,
+        "volume_profile" => %{start: 10, ceiling: 20, strong: 60, ramp_seconds: 10}
+      })
+
+    assert {:ok, _pid} = WakeSession.start(alarm)
+
+    Clock.Manual.advance(10_001)
+    assert {:ok, %{audio_phase: :gentle, current_gain: 20}} = WakeSession.tick_sync()
+
+    Clock.Manual.advance(5_000)
+    assert {:ok, %{audio_phase: :strong, current_gain: 60}} = WakeSession.tick_sync()
+    assert {:ok, %{state: :dismissed}} = WakeSession.dismiss(:test)
+
+    assert {:ok, _pid} = WakeSession.start_strong_test(alarm, Clock.utc_now())
+    assert %{audio_phase: :strong, current_gain: 60} = WakeSession.active()
+  end
+
   test "starts a direct strong-phase test at the configured ceiling", %{alarm: alarm} do
     assert {:ok, _pid} = WakeSession.start_strong_test(alarm, Clock.utc_now())
 
