@@ -34,7 +34,7 @@ defmodule RobineWake.NapTest do
   test "rings at the end of the nap, then a new nap replaces the spent one" do
     assert {:ok, _nap} = Nap.start(10)
 
-    Clock.Manual.advance(4 * 60_000)
+    Clock.Manual.advance(7 * 60_000)
     Scheduler.tick()
     refute WakeSession.active()
 
