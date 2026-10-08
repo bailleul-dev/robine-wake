@@ -3,13 +3,13 @@ defmodule RobineWake.Nap do
   A nap is a single one-shot alarm ringing a chosen number of minutes from now.
 
   It reuses the sounds, volume, and light of the user's regular alarm, but its
-  gentle ramp is short: at most five minutes, and never longer than the nap.
+  gentle ramp is short: at most two minutes, and never longer than the nap.
   """
 
   alias RobineWake.{Alarm, Clock, Settings}
 
   @alarm_id "nap"
-  @maximum_ramp_seconds 300
+  @maximum_ramp_seconds 120
   @maximum_minutes 180
 
   def alarm_id, do: @alarm_id

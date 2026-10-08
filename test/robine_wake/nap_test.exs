@@ -4,19 +4,19 @@ defmodule RobineWake.NapTest do
   alias RobineWake.Bluetooth.Command
   alias RobineWake.Nap
 
-  test "schedules a one-shot alarm with a five-minute ramp" do
+  test "schedules a one-shot alarm with a two-minute ramp" do
     assert {:ok, nap} = Nap.start(20)
 
-    assert %{id: "nap", label: "Sieste", enabled: true, prewake_seconds: 300} = nap
+    assert %{id: "nap", label: "Sieste", enabled: true, prewake_seconds: 120} = nap
     assert nap.one_shot_date == ~D[2026-01-15]
     assert nap.local_time == ~T[07:20:00]
-    assert nap.volume_profile.ramp_seconds == 300
+    assert nap.volume_profile.ramp_seconds == 120
     refute nap.snooze.enabled
     assert Scheduler.status().next["nap"] == "2026-01-15T07:20:00+01:00"
   end
 
   test "never ramps longer than the nap itself" do
-    assert {:ok, %{prewake_seconds: 180}} = Nap.start(3)
+    assert {:ok, %{prewake_seconds: 60}} = Nap.start(1)
   end
 
   test "reuses the sounds and volume of the regular alarm" do
@@ -28,7 +28,7 @@ defmodule RobineWake.NapTest do
       })
 
     assert {:ok, nap} = Nap.start(30)
-    assert %{start: 10, ceiling: 60, ramp_seconds: 300} = nap.volume_profile
+    assert %{start: 10, ceiling: 60, ramp_seconds: 120} = nap.volume_profile
   end
 
   test "rings at the end of the nap, then a new nap replaces the spent one" do
@@ -63,7 +63,7 @@ defmodule RobineWake.NapTest do
   end
 
   test "is reachable through the versioned command boundary" do
-    assert %{"status" => "ok", "body" => %{"id" => "nap", "prewake_seconds" => 300}} =
+    assert %{"status" => "ok", "body" => %{"id" => "nap", "prewake_seconds" => 120}} =
              Command.execute(%{
                "v" => 1,
                "id" => "nap-start",

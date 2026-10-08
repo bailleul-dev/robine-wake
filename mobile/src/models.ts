@@ -30,7 +30,7 @@ export function scheduleLabel(alarm: Pick<Alarm, "days_of_week">): string {
 }
 
 export const napAlarmId = "nap";
-export const napMaximumRampMinutes = 5;
+export const napMaximumRampMinutes = 2;
 
 export function regularAlarms(alarms: Alarm[]): Alarm[] {
   return alarms.filter((alarm) => alarm.id !== napAlarmId);
