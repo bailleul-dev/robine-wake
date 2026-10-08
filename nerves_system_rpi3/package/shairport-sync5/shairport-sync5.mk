@@ -16,7 +16,7 @@ SHAIRPORT_SYNC5_LICENSE = MIT, BSD-3-Clause
 SHAIRPORT_SYNC5_LICENSE_FILES = LICENSES
 SHAIRPORT_SYNC5_DEPENDENCIES = \
 	alsa-lib avahi ffmpeg libconfig libgcrypt libplist libsodium openssl \
-	popt util-linux host-pkgconf host-vim
+	popt util-linux host-libplist-host host-pkgconf host-vim
 
 # 5.5.2 dereferences the metadata pipe name at startup even when metadata is
 # disabled in the configuration file (metadata/pipe.c), so leave metadata out.
@@ -39,13 +39,9 @@ SHAIRPORT_SYNC5_CONF_OPTS = \
 	--without-mpris-interface \
 	--without-mqtt-client
 
-# configure insists on finding plistutil and xxd, but the build itself never
-# runs plistutil; xxd comes from host-vim. Satisfy the check with a stub.
-define SHAIRPORT_SYNC5_PLISTUTIL_STUB
-	printf '#!/bin/sh\nexit 0\n' > $(HOST_DIR)/bin/plistutil
-	chmod 0755 $(HOST_DIR)/bin/plistutil
-endef
-SHAIRPORT_SYNC5_PRE_CONFIGURE_HOOKS += SHAIRPORT_SYNC5_PLISTUTIL_STUB
+# The build embeds the AirPlay 2 info plist with plistutil (host-libplist-host)
+# and xxd (host-vim); a stub plistutil leaves the receiver unable to answer
+# /info, and every client then disconnects.
 
 define SHAIRPORT_SYNC5_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/shairport-sync \
