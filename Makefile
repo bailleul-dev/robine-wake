@@ -5,10 +5,7 @@ DEVICE ?=
 WITH_ENV ?= ./scripts/with-env
 SIGNED_FIRMWARE ?= _build/rpi3_dev/nerves/images/robine_wake-signed.fw
 FWUP_PUBLIC_KEY ?= rootfs_overlay/etc/robine-wake/fwup-key.pub
-IOS_DIR ?= ios/RobineWake
 MOBILE_DIR ?= mobile
-IPHONE_DERIVED_DATA ?= .derived/iphone
-IPHONE_APP ?= $(IPHONE_DERIVED_DATA)/Build/Products/Debug-iphoneos/Robine Wake.app
 EXPO_IPHONE_DERIVED_DATA ?= .derived/expo-iphone
 EXPO_IPHONE_APP ?= $(EXPO_IPHONE_DERIVED_DATA)/Build/Products/Release-iphoneos/RobineWake.app
 CHANGELOG ?=
@@ -23,12 +20,12 @@ VERSION_CODE ?=
 PLAY_TRACK ?=
 PLAY_ARGS = $(if $(strip $(CHANGELOG)),changelog:"$(CHANGELOG)") $(if $(strip $(VERSION_CODE)),version_code:"$(VERSION_CODE)") $(if $(strip $(PLAY_TRACK)),track:"$(PLAY_TRACK)")
 ANDROID_JAVA_HOME ?= $(shell /usr/libexec/java_home -v 17 2>/dev/null)
-TESTFLIGHT_ARGS = $(if $(strip $(CHANGELOG)),changelog:"$(CHANGELOG)") $(if $(strip $(BUILD_NUMBER)),build_number:"$(BUILD_NUMBER)")
+IOS_BETA_ARGS = $(if $(strip $(CHANGELOG)),changelog:"$(CHANGELOG)") $(if $(strip $(BUILD_NUMBER)),build_number:"$(BUILD_NUMBER)")
 HOMEBREW_RUBY_PREFIX := $(shell brew --prefix ruby 2>/dev/null)
 BUNDLE ?= $(if $(HOMEBREW_RUBY_PREFIX),$(HOMEBREW_RUBY_PREFIX)/bin/bundle,bundle)
 PLATFORMIO ?= uvx --from platformio platformio
 
-.PHONY: firmware burn-sd verify-firmware iphone testflight play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone
+.PHONY: firmware burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone
 
 firmware:
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
@@ -89,9 +86,9 @@ burn-sd: verify-firmware
 	 echo "Writing $(SIGNED_FIRMWARE) to $(DEVICE)"; \
 	 MIX_TARGET="$(MIX_TARGET)" mix burn --device "$(DEVICE)" --firmware "$(SIGNED_FIRMWARE)"
 
-testflight:
-	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(IOS_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
-	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(IOS_DIR)" && "$(BUNDLE)" exec fastlane ios beta $(TESTFLIGHT_ARGS)'
+ios-beta:
+	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(MOBILE_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
+	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(MOBILE_DIR)" && "$(BUNDLE)" exec fastlane ios beta $(IOS_BETA_ARGS)'
 
 play-store:
 	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(MOBILE_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
@@ -100,17 +97,6 @@ play-store:
 android-bundle:
 	@$(WITH_ENV) bash -eu -o pipefail -c 'cd "$(MOBILE_DIR)" && "$(BUNDLE)" check >/dev/null 2>&1 || "$(BUNDLE)" install'
 	@$(WITH_ENV) bash -eu -o pipefail -c 'export JAVA_HOME="$${JAVA_HOME_ANDROID:-$(ANDROID_JAVA_HOME)}"; cd "$(MOBILE_DIR)" && "$(BUNDLE)" exec fastlane android build $(if $(strip $(VERSION_CODE)),version_code:"$(VERSION_CODE)")'
-
-iphone:
-	@$(WITH_ENV) bash -eu -o pipefail -c ': "$${IPHONE_ID:?Set IPHONE_ID in .env}"; : "$${APPLE_TEAM_ID:?Set APPLE_TEAM_ID in .env}"; cd "$(IOS_DIR)"; xcodegen generate; xcodebuild \
-		-project RobineWake.xcodeproj \
-		-scheme RobineWake \
-		-configuration Debug \
-		-destination "platform=iOS,id=$${IPHONE_ID}" \
-		-derivedDataPath "$(IPHONE_DERIVED_DATA)" \
-		DEVELOPMENT_TEAM="$${APPLE_TEAM_ID}" \
-		-allowProvisioningUpdates \
-		build; xcrun devicectl device install app --device "$${IPHONE_ID}" "$(IPHONE_APP)"'
 
 expo-test:
 	@cd "$(MOBILE_DIR)" && npm test

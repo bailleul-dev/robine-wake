@@ -10,6 +10,7 @@ defmodule RobineWake.Bluetooth.Command do
     EventLog,
     Health,
     Hue,
+    Nap,
     RemoteButton,
     Scheduler,
     Settings,
@@ -29,6 +30,8 @@ defmodule RobineWake.Bluetooth.Command do
     "alarm.preview",
     "alarm.trigger",
     "alarm.trigger_strong",
+    "nap.start",
+    "nap.cancel",
     "session.get",
     "session.snooze",
     "session.dismiss",
@@ -130,6 +133,14 @@ defmodule RobineWake.Bluetooth.Command do
   defp dispatch("alarm.trigger_strong", %{"alarm_id" => id}) when is_binary(id) do
     with {:ok, _pid} <- Scheduler.trigger_strong_test(id),
          do: {:ok, %{"state" => "starting", "phase" => "strong"}}
+  end
+
+  defp dispatch("nap.start", %{"duration_minutes" => minutes}) do
+    with {:ok, alarm} <- Nap.start(minutes), do: {:ok, alarm_dto(alarm)}
+  end
+
+  defp dispatch("nap.cancel", _body) do
+    with :ok <- Nap.cancel(), do: {:ok, %{"cancelled" => true}}
   end
 
   defp dispatch("session.get", _body) do

@@ -665,71 +665,6 @@ function RampCard({
   );
 }
 
-function SnoozeCard({
-  draft,
-  setDraft,
-}: {
-  draft: AlarmDraft;
-  setDraft: SetDraft;
-}): React.JSX.Element {
-  return (
-    <theme.Card>
-      <View style={theme.style({ gap: 17 })}>
-        <Heading
-          number="5"
-          title="Répétition"
-          subtitle="Une pause avant de relancer le réveil"
-        />
-        <View
-          style={theme.style({ flexDirection: "row", alignItems: "center" })}
-        >
-          <Text
-            style={theme.style({
-              flex: 1,
-              fontSize: 14,
-              fontWeight: "700",
-              color: theme.c("text"),
-            })}
-          >
-            Autoriser la répétition
-          </Text>
-          <theme.Toggle
-            value={draft.snoozeEnabled}
-            accessibilityLabel="Autoriser la répétition"
-            onValueChange={(snoozeEnabled) =>
-              setDraft((current) => ({ ...current, snoozeEnabled }))
-            }
-          />
-        </View>
-        {draft.snoozeEnabled ? (
-          <>
-            <ValueSlider
-              draft={draft}
-              setDraft={setDraft}
-              field="snoozeMinutes"
-              title="Pause"
-              minimum={1}
-              maximum={30}
-              suffix=" min"
-              color="moon"
-            />
-            <ValueSlider
-              draft={draft}
-              setDraft={setDraft}
-              field="snoozeMaximum"
-              title="Maximum"
-              minimum={1}
-              maximum={10}
-              suffix=" fois"
-              color="lavender"
-            />
-          </>
-        ) : null}
-      </View>
-    </theme.Card>
-  );
-}
-
 function TestCard({ draft }: { draft: AlarmDraft }): React.JSX.Element {
   return (
     <theme.Card>
@@ -760,21 +695,25 @@ function TestCard({ draft }: { draft: AlarmDraft }): React.JSX.Element {
           </View>
         </View>
         <View style={theme.style({ flexDirection: "row", gap: 10 })}>
-          <theme.Button
-            title="Réveil complet"
-            grow
-            onPress={() => {
-              void actions.triggerAlarm(draft.id);
-            }}
-          />
-          <theme.Button
-            title="Tester fort"
-            variant="primary"
-            grow
-            onPress={() => {
-              void actions.triggerStrong(draft.id);
-            }}
-          />
+          <View style={theme.style({ flex: 1 })}>
+            <theme.Button
+              title="Réveil complet"
+              grow
+              onPress={() => {
+                void actions.triggerAlarm(draft.id);
+              }}
+            />
+          </View>
+          <View style={theme.style({ flex: 1 })}>
+            <theme.Button
+              title="Tester fort"
+              variant="primary"
+              grow
+              onPress={() => {
+                void actions.triggerStrong(draft.id);
+              }}
+            />
+          </View>
         </View>
       </View>
     </theme.Card>
@@ -861,7 +800,6 @@ export function AlarmEditor({
             hue={state.hue}
           />
           <RampCard draft={draft} setDraft={setDraft} />
-          <SnoozeCard draft={draft} setDraft={setDraft} />
           {draft.id ? <TestCard draft={draft} /> : null}
           <theme.Button
             title={draft.id ? "Enregistrer les changements" : "Créer l’alarme"}
@@ -874,6 +812,7 @@ export function AlarmEditor({
             <theme.Button
               title="Supprimer l’alarme"
               variant="danger"
+              grow
               onPress={() => confirmDelete(draft)}
             />
           ) : null}

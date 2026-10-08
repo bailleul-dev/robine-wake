@@ -130,20 +130,20 @@ defmodule RobineWake.AudioTest do
   end
 
   test "restores the music level at startup and whenever wake audio releases ALSA" do
-    assert Agent.get(FlakyDriver, & &1.music_levels) == [-3.0]
+    assert Agent.get(FlakyDriver, & &1.music_levels) == [0.0]
 
     assert :ok = Audio.play("session-d", "default")
-    assert Agent.get(FlakyDriver, & &1.music_levels) == [-3.0]
+    assert Agent.get(FlakyDriver, & &1.music_levels) == [0.0]
 
     assert :ok = Audio.stop("session-d")
-    assert Agent.get(FlakyDriver, & &1.music_levels) == [-3.0, -3.0]
+    assert Agent.get(FlakyDriver, & &1.music_levels) == [0.0, 0.0]
   end
 
   test "retries the music level until the sound card is ready" do
     Agent.update(FlakyDriver, &%{&1 | music_levels: [], music_level_failures: 2})
     restart_audio()
 
-    assert_eventually(fn -> Agent.get(FlakyDriver, & &1.music_levels) == [-3.0] end)
+    assert_eventually(fn -> Agent.get(FlakyDriver, & &1.music_levels) == [0.0] end)
   end
 
   test "a failing music receiver never prevents wake audio" do

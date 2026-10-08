@@ -109,10 +109,10 @@ Status meanings:
 | APY-001 | Verified | Shairport Sync is embedded and supervised; macOS `dns-sd` discovered `CC1323229925@Robine Wake Bedroom` and TCP 5000 accepted connections on the target. End-to-end source playback remains part of acoustic acceptance. |
 | APY-002 | Verified | Automated tests cover alarm ownership, and a target suspend/resume drill removed the Shairport process completely before returning with a new PID in under 750 ms. |
 | APY-003 | Partial | Existing direct HiFiBerry path is implemented; the simplified tactile energy-envelope extraction is specified only. |
-| APY-004 | Implemented | Shairport Sync attenuates in software under the -3 dB hardware music level kept by `RobineWake.Audio`, resets idle sessions to -30 dB, and treats -24 dB as the high-volume threshold; acoustic calibration remains pending. |
+| APY-004 | Implemented | Shairport Sync attenuates in software under the 0 dB hardware music level kept by `RobineWake.Audio`, resets idle sessions to -7.5 dB (75 %), and treats -3 dB as the high-volume threshold; acoustic calibration remains pending. |
 | APY-005 | Verified | Forcibly terminating target PID 209 produced a healthy replacement at PID 226 after the configured two-second recovery delay without restarting the BEAM. |
 | APY-006 | Verified | Host builds disable the receiver and require no Shairport executable or network service. |
-| APY-007 | Deferred | AirPlay 2 requires the separate Avahi, NQPTP, FFmpeg, resource, and compatibility validation described in `30/002-airplay-receiver`. |
+| APY-007 | Partial | AirPlay 2 is enabled (Shairport Sync with Avahi and NQPTP, supervised by `RobineWake.AirPlay`) and advertised on the network; resource, compatibility, and overnight timing evidence is pending. |
 
 ## Bluetooth audio receiver
 
@@ -121,7 +121,7 @@ Status meanings:
 | BTA-001 | Implemented | BlueZ `main.conf` makes the onboard controller always discoverable and pairable; `bluetoothctl --agent auto` accepts requests. Target pairing with a phone is pending. |
 | BTA-002 | Implemented | `RobineWake.Audio` suspends and resumes every configured music receiver; suspend stops `bluealsa-aplay`. Target alarm-during-stream drill is pending. |
 | BTA-003 | Verified | A receiver that exits or raises on suspend and resume is logged and skipped while wake audio plays and stops (`audio_test.exs`). |
-| BTA-004 | Implemented | The player uses BlueALSA software volume under the `-3.0 dB` Amp2 music level, which only `RobineWake.Audio` writes (restored at boot and after each alarm, `audio_test.exs`); acoustic calibration is pending. |
+| BTA-004 | Implemented | The player uses BlueALSA software volume under the `0.0 dB` Amp2 music level, which only `RobineWake.Audio` writes (restored at boot and after each alarm, `audio_test.exs`); acoustic calibration is pending. |
 | BTA-005 | Implemented | `bluealsa` runs with `--profile=a2dp-sink` and AAC, aptX and aptX HD codecs built from FDK AAC and libopenaptx; target codec negotiation is pending. |
 | BTA-006 | Implemented | Stack exits restart the whole stack and player exits restart the player after the configured delay; host tests cover missing executables. Target kill drill is pending. |
 | BTA-007 | Implemented | The onboard controller moves to the PL011 UART under `hci_uart`; BlueHeron is disabled and built with `runtime: false`. Target Bluetooth/Wi-Fi coexistence check is pending. |

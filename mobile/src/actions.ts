@@ -54,7 +54,9 @@ export const triggerAlarm = (id: string | undefined): Promise<unknown> =>
   command("alarm.trigger", { alarm_id: id });
 export const triggerStrong = (id: string | undefined): Promise<unknown> =>
   command("alarm.trigger_strong", { alarm_id: id });
-export const snooze = (): Promise<unknown> => command("session.snooze");
+export const startNap = (minutes: number): Promise<unknown> =>
+  command("nap.start", { duration_minutes: minutes });
+export const cancelNap = (): Promise<unknown> => command("nap.cancel");
 export const dismiss = (): Promise<unknown> => command("session.dismiss");
 export const setSmartphoneDismiss = (enabled: boolean): Promise<unknown> =>
   command("settings.smartphone_dismiss.set", { enabled });

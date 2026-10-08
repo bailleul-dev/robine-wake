@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 import * as actions from "./actions";
-import { scheduleLabel } from "./models";
+import {
+  napMaximumRampMinutes,
+  pendingNapWakeTime,
+  regularAlarms,
+  scheduleLabel,
+} from "./models";
 import { setState, useAppState } from "./store";
 import * as theme from "./theme";
 import * as transport from "./transport";
@@ -302,12 +307,6 @@ export function ActiveSessionCard({
             gap: 12,
           })}
         >
-          <theme.Button
-            title="Répéter"
-            onPress={() => {
-              void actions.snooze();
-            }}
-          />
           {session.test_mode ? (
             <theme.Button
               title="Arrêt direct"
@@ -485,6 +484,126 @@ function NextWakeCard({ alarm }: { alarm: Alarm | undefined }): React.JSX.Elemen
   );
 }
 
+function NapCard({ alarms }: { alarms: Alarm[] }): React.JSX.Element {
+  const busy = useAppState().busy;
+  const [minutes, setMinutes] = useState(20);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const wakeTime = pendingNapWakeTime(alarms, now);
+  const remaining = wakeTime
+    ? Math.max(1, Math.ceil((wakeTime.getTime() - now.getTime()) / 60_000))
+    : 0;
+  const ramp = Math.min(napMaximumRampMinutes, minutes);
+  return (
+    <theme.Card>
+      <View style={theme.style({ gap: 14 })}>
+        <View
+          style={theme.style({ flexDirection: "row", alignItems: "center" })}
+        >
+          <theme.Eyebrow color="lavender">Sieste</theme.Eyebrow>
+          <View style={theme.style({ flex: 1 })} />
+          <theme.Icon name="moon" size={20} color="lavender" />
+        </View>
+        {wakeTime ? (
+          <>
+            <View
+              style={theme.style({
+                flexDirection: "row",
+                alignItems: "baseline",
+                gap: 12,
+              })}
+            >
+              <Text
+                style={theme.style({
+                  fontSize: 34,
+                  fontWeight: "700",
+                  fontVariant: ["tabular-nums"],
+                  color: theme.c("text"),
+                })}
+              >
+                {new Intl.DateTimeFormat("fr-FR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(wakeTime)}
+              </Text>
+              <Text
+                style={theme.style({
+                  flex: 1,
+                  fontSize: 14,
+                  color: theme.c("muted"),
+                })}
+              >
+                Réveil dans {remaining} min
+              </Text>
+            </View>
+            <theme.Button
+              title="Annuler la sieste"
+              iconName="stop"
+              grow
+              disabled={busy}
+              onPress={() => {
+                void actions.cancelNap();
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <View style={theme.style({ flexDirection: "row" })}>
+              <Text
+                style={theme.style({
+                  flex: 1,
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: theme.c("text"),
+                })}
+              >
+                Durée
+              </Text>
+              <Text
+                style={theme.style({
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: theme.c("lavender"),
+                })}
+              >
+                {minutes} min
+              </Text>
+            </View>
+            <Slider
+              minimumValue={5}
+              maximumValue={120}
+              step={5}
+              value={minutes}
+              minimumTrackTintColor={theme.c("lavender")}
+              maximumTrackTintColor="rgba(255,255,255,0.15)"
+              thumbTintColor={theme.c("lavender")}
+              onValueChange={(value) => setMinutes(Math.round(value))}
+            />
+            <Text
+              style={theme.style({ fontSize: 12, color: theme.c("muted") })}
+            >
+              Le son monte pendant les {ramp} dernières minutes.
+            </Text>
+            <theme.Button
+              title="Lancer la sieste"
+              iconName="play"
+              variant="primary"
+              grow
+              disabled={busy}
+              onPress={() => {
+                void actions.startNap(minutes);
+              }}
+            />
+          </>
+        )}
+      </View>
+    </theme.Card>
+  );
+}
+
 function AlarmListCard({ alarms }: { alarms: Alarm[] }): React.JSX.Element {
   return (
     <theme.Card>
@@ -525,7 +644,8 @@ export function MorningScreen({
   desktop: boolean;
 }): React.JSX.Element {
   const state = useAppState();
-  const nextAlarm = [...state.alarms]
+  const alarms = regularAlarms(state.alarms);
+  const nextAlarm = alarms
     .filter((alarm) => alarm.enabled)
     .sort((left, right) =>
       (left.next_occurrences?.[0] ?? left.local_time).localeCompare(
@@ -557,7 +677,8 @@ export function MorningScreen({
           </View>
           <View style={theme.style({ flex: 1.18, gap: 22 })}>
             <NextWakeCard alarm={nextAlarm} />
-            <AlarmListCard alarms={state.alarms} />
+            <NapCard alarms={state.alarms} />
+            <AlarmListCard alarms={alarms} />
           </View>
         </View>
       ) : (
@@ -570,7 +691,8 @@ export function MorningScreen({
           ) : null}
           {state.device?.clock_trusted === false ? <ClockWarning /> : null}
           <NextWakeCard alarm={nextAlarm} />
-          <AlarmListCard alarms={state.alarms} />
+          <NapCard alarms={state.alarms} />
+          <AlarmListCard alarms={alarms} />
         </>
       )}
     </ScrollView>
@@ -708,6 +830,7 @@ export function AlarmsScreen({
   desktop: boolean;
 }): React.JSX.Element {
   const state = useAppState();
+  const alarms = regularAlarms(state.alarms);
   return (
     <View style={theme.style({ flex: 1 })}>
       <theme.ScreenTitle
@@ -724,7 +847,7 @@ export function AlarmsScreen({
         contentContainerStyle={pageContentStyle(desktop)}
         showsVerticalScrollIndicator={false}
       >
-        {state.alarms.length ? (
+        {alarms.length ? (
           <View
             style={theme.style({
               flexDirection: desktop ? "row" : "column",
@@ -732,7 +855,7 @@ export function AlarmsScreen({
               gap: 16,
             })}
           >
-            {state.alarms.map((alarm) => (
+            {alarms.map((alarm) => (
               <View
                 key={alarm.id}
                 style={theme.style(

@@ -1,0 +1,19 @@
+current directory: /Users/guillaume/sources/robine-wake/ios/RobineWake/vendor/bundle/ruby/4.0.0/gems/cgi-0.5.2/ext/cgi/escape
+/opt/homebrew/opt/ruby/bin/ruby extconf.rb
+creating Makefile
+
+current directory: /Users/guillaume/sources/robine-wake/ios/RobineWake/vendor/bundle/ruby/4.0.0/gems/cgi-0.5.2/ext/cgi/escape
+make -j9 DESTDIR\= sitearchdir\=./.gem.20261009-88424-2yu9i4 sitelibdir\=./.gem.20261009-88424-2yu9i4 clean
+
+current directory: /Users/guillaume/sources/robine-wake/ios/RobineWake/vendor/bundle/ruby/4.0.0/gems/cgi-0.5.2/ext/cgi/escape
+make -j9 DESTDIR\= sitearchdir\=./.gem.20261009-88424-2yu9i4 sitelibdir\=./.gem.20261009-88424-2yu9i4
+compiling escape.c
+linking shared-object cgi/escape.bundle
+ld: warning: search path '/opt/homebrew/Cellar/openssl@3/3.6.2/lib' not found
+
+current directory: /Users/guillaume/sources/robine-wake/ios/RobineWake/vendor/bundle/ruby/4.0.0/gems/cgi-0.5.2/ext/cgi/escape
+make -j9 DESTDIR\= sitearchdir\=./.gem.20261009-88424-2yu9i4 sitelibdir\=./.gem.20261009-88424-2yu9i4 install
+/usr/bin/install -c -m 0755 escape.bundle ./.gem.20261009-88424-2yu9i4/cgi
+
+current directory: /Users/guillaume/sources/robine-wake/ios/RobineWake/vendor/bundle/ruby/4.0.0/gems/cgi-0.5.2/ext/cgi/escape
+make DESTDIR\= sitearchdir\=./.gem.20261009-88424-2yu9i4 sitelibdir\=./.gem.20261009-88424-2yu9i4 clean

@@ -101,7 +101,7 @@ it until it goes idle.
 
 Phone volume is applied in software by BlueALSA; the receiver never writes the
 Amp2 `Digital` mixer. That hardware level belongs to `RobineWake.Audio`, which
-keeps it at the shared music ceiling (`music_mixer_db`, `-3.0 dB`) between
+keeps it at the shared music ceiling (`music_mixer_db`, `0.0 dB`) between
 alarms; see [audio output](../001-audio-output/spec.md#music-level). It must be
 replaced by the measured bedroom limit.
 

@@ -24,7 +24,7 @@ La prise source conserve une très grande dynamique (environ `-40,5 dBFS` RMS po
 avec un limiteur lié entre les canaux, une attaque par blocs de 10 ms, un relâchement de 2 secondes
 et un plafond à `-3 dBFS`. Elle atteint environ `-29,2 dBFS` RMS sans écrêter les coups de tonnerre.
 Le volume de méditation est transmis directement au gain audio sécurisé, sans l'ancienne seconde
-atténuation à 60 %, et le plafond matériel reste à `-6 dB`.
+atténuation à 60 %, et le plafond matériel est à `0 dB`.
 
 La page de licence de LaSonotheque indique que les fichiers marqués « Gratuit et Libre de droits »
 peuvent être utilisés, adaptés et redistribués, y compris commercialement, sans restriction, selon

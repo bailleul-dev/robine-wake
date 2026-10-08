@@ -77,12 +77,16 @@ platform :ios do
       ENV["FASTLANE_TEAM_ID"].to_s.empty? ? ENV["APPLE_TEAM_ID"] : ENV["FASTLANE_TEAM_ID"]
     UI.user_error!("FASTLANE_TEAM_ID or APPLE_TEAM_ID is required") if development_team.to_s.empty?
 
-    produce(
-      app_identifier: APP_IDENTIFIER,
-      app_name: APP_NAME,
-      language: "fr-FR",
-      sku: APP_IDENTIFIER
-    )
+    # produce only works with an Apple ID session; with an API key the app is
+    # expected to exist already (see the bootstrap lane).
+    unless api_key
+      produce(
+        app_identifier: APP_IDENTIFIER,
+        app_name: APP_NAME,
+        language: "fr-FR",
+        sku: APP_IDENTIFIER
+      )
+    end
 
     get_certificates
     get_provisioning_profile(

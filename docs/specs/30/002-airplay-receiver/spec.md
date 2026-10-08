@@ -7,17 +7,16 @@ weakening its primary responsibility as a reliable alarm clock.
 
 ## MVP scope
 
-The target firmware embeds Shairport Sync 4.3.7 in classic AirPlay mode. The
+The target firmware embeds Shairport Sync 4.3.7 built for AirPlay 2. The
 receiver advertises the name `Robine Wake Bedroom`, accepts audio from devices
 on the local network, and sends stereo PCM directly to the HiFiBerry Amp2 ALSA
 device. The host emulator does not start or emulate an AirPlay protocol server.
 This direct-output path describes the existing implementation. The tactile
 extension specified below remains to be implemented.
 
-Classic AirPlay is selected for the first hardware iteration because it has a
-small embedded dependency footprint, uses Shairport Sync's built-in mDNS
-backend, and does not require the AirPlay 2 timing and decoding services. This
-is an audio receiver only: photos, screen mirroring, and video are out of scope.
+AirPlay 2 replaced classic AirPlay so that the receiver, not the source,
+proposes the volume when it is selected. This is an audio receiver only:
+photos, screen mirroring, and video are out of scope.
 
 ## Runtime architecture
 
@@ -73,10 +72,10 @@ delay, replace, attenuate, or suppress an alarm.
 
 Shairport Sync attenuates in software, in 32-bit, and never writes the Amp2
 `Digital` mixer. That hardware level belongs to `RobineWake.Audio`, which keeps
-it at the music ceiling (`music_mixer_db`, `-3.0 dB`) between alarms; see
+it at the music ceiling (`music_mixer_db`, `0.0 dB`) between alarms; see
 [audio output](../001-audio-output/spec.md#music-level). A source at full volume
-therefore plays at that ceiling. The suggested volume after reset is `-30.0 dB`; volume at or above
-`-24.0 dB` is considered high and returns to the suggested value after 60 idle
+therefore plays at that ceiling. The suggested volume after reset is `-7.5 dB` (75 % on the source); volume at or above
+`-3.0 dB` is considered high and returns to the suggested value after 60 idle
 minutes. These are conservative bring-up values, not a substitute for acoustic
 calibration. The final maximum must be measured at the sleeping position and
 recorded alongside the alarm safety-ceiling validation.
@@ -95,17 +94,21 @@ a small negotiated UDP audio/control range beginning near 6001. No inbound
 internet connectivity or cloud account is required.
 
 The application continues to run its existing local mDNS advertisement for the
-web and SSH services. Coexistence of that responder and Shairport Sync's
-`tinysvcmdns` backend must be verified on the target Wi-Fi interface.
+web and SSH services. AirPlay 2 is advertised by Avahi under its own host name
+(`robine-wake-airplay.local`), next to that responder on port 5353.
 
 ## AirPlay 2 decision
 
-AirPlay 2 is not enabled in the MVP firmware. Shairport Sync 4.3.7 supports it,
-but the Buildroot image would also need FFmpeg with AAC decoding, Avahi, NQPTP,
-cryptographic libraries, and exclusive access to PTP UDP ports 319 and 320.
-Before enabling it, record firmware-size and idle-memory deltas, CPU load during
-buffered playback, alarm-preemption latency, mDNS integration, iOS/macOS
-compatibility, and overnight timing stability on the Raspberry Pi 3.
+AirPlay 2 is enabled. The Buildroot image adds FFmpeg (trimmed to the AAC
+decoder and parser so the root filesystem still fits its partition), Avahi,
+NQPTP, and the cryptographic libraries; NQPTP owns PTP UDP ports 319 and 320.
+`RobineWake.AirPlay` starts Avahi and NQPTP before Shairport Sync and keeps
+them running while wake audio suspends the receiver. Avahi needs the system
+D-Bus, which `RobineWake.BluetoothAudio` starts.
+
+Still to record on the Raspberry Pi 3: idle-memory delta, CPU load during
+buffered playback, alarm-preemption latency, iOS/macOS compatibility, and
+overnight timing stability.
 
 ## Requirements
 
@@ -121,8 +124,8 @@ compatibility, and overnight timing stability on the Raspberry Pi 3.
   trigger bounded automatic recovery without restarting the BEAM.
 - `APY-006` — AirPlay shall be disabled on the host build and shall remain
   optional to every P0 alarm function.
-- `APY-007` — AirPlay 2 shall remain disabled until its dependency, timing,
-  compatibility, and resource acceptance evidence is complete.
+- `APY-007` — AirPlay 2 shall be advertised through Avahi with NQPTP timing;
+  its resource and compatibility acceptance evidence remains to be recorded.
 
 - `APY-008` — Music shall support a separately limited tactile intensity envelope,
   with stable control, transport silence and measured response; its failure

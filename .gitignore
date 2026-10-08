@@ -21,22 +21,8 @@ erl_crash.dump
 
 .derived/
 
-# iOS / fastlane
+# Mobile / fastlane
 /build/ios/
-/ios/RobineWake/fastlane/report.xml
-/ios/RobineWake/fastlane/Preview.html
-/ios/RobineWake/fastlane/screenshots/
-/ios/RobineWake/fastlane/test_output/
-/ios/RobineWake/fastlane/.env
-/ios/RobineWake/fastlane/*.p8
-/ios/RobineWake/*.ipa
-/ios/RobineWake/*.dSYM.zip
-/ios/RobineWake/*.cer
-/ios/RobineWake/*.mobileprovision
-/ios/RobineWake/.bundle/
-/ios/RobineWake/vendor/bundle/
-
-# Android / fastlane
 /build/android/
 /mobile/fastlane/report.xml
 /mobile/fastlane/metadata/

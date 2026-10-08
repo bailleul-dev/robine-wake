@@ -29,6 +29,21 @@ export function scheduleLabel(alarm: Pick<Alarm, "days_of_week">): string {
     .join(" · ");
 }
 
+export const napAlarmId = "nap";
+export const napMaximumRampMinutes = 5;
+
+export function regularAlarms(alarms: Alarm[]): Alarm[] {
+  return alarms.filter((alarm) => alarm.id !== napAlarmId);
+}
+
+export function pendingNapWakeTime(alarms: Alarm[], now: Date): Date | null {
+  const nap = alarms.find((alarm) => alarm.id === napAlarmId && alarm.enabled);
+  const next = nap?.next_occurrences?.[0];
+  if (!next) return null;
+  const wakeTime = new Date(next);
+  return wakeTime.getTime() > now.getTime() ? wakeTime : null;
+}
+
 function sameDays(days: Set<number>, expected: number[]): boolean {
   return (
     days.size === expected.length && expected.every((day) => days.has(day))
@@ -76,12 +91,6 @@ export function alarmToDraft(alarm: Alarm | null, sounds: Sound[]): AlarmDraft {
           1200) / 60,
       ),
     ),
-    snoozeEnabled: alarm?.snooze?.enabled ?? true,
-    snoozeMinutes: Math.max(
-      1,
-      Math.trunc((alarm?.snooze?.duration_seconds ?? 480) / 60),
-    ),
-    snoozeMaximum: alarm?.snooze?.maximum ?? 3,
     ...(alarm?.revision !== undefined ? { revision: alarm.revision } : {}),
     lightEnabled: Boolean(light?.enabled),
     ...(light?.target_id ? { lightTargetId: light.target_id } : {}),
@@ -132,11 +141,7 @@ export function draftToPayload(draft: AlarmDraft): Record<string, unknown> {
       ...(draft.lightTargetName ? { target_name: draft.lightTargetName } : {}),
     },
     dismiss_policy: "manual",
-    snooze: {
-      enabled: draft.snoozeEnabled,
-      duration_seconds: 60 * draft.snoozeMinutes,
-      maximum: draft.snoozeMaximum,
-    },
+    snooze: { enabled: false },
     ...(draft.revision !== undefined ? { revision: draft.revision } : {}),
   };
 }

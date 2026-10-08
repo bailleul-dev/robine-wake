@@ -13,6 +13,19 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 # Available Actions
 
+## iOS
+
+### ios beta
+
+```sh
+[bundle exec] fastlane ios beta
+```
+
+Build and upload a new Robine Wake beta to TestFlight
+
+----
+
+
 ## Android
 
 ### android verify

@@ -48,3 +48,7 @@ Pour une CI sans session interactive, définir `ASC_KEY_ID`, `ASC_ISSUER_ID` et
 `ASC_KEY_FILEPATH` dans le gestionnaire de secrets de la CI. En local, ces
 champs sont disponibles dans le `.env` racine. La clé `.p8` doit rester hors
 Git.
+
+Avec une clé API, la lane `beta` ne passe plus par la session Apple ID et ne
+crée donc pas la fiche App Store Connect : lancer `ios bootstrap` une fois au
+préalable.

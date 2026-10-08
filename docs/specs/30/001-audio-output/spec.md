@@ -39,8 +39,8 @@ The absolute safety ceiling is separate from the user setting.
 
 `RobineWake.Audio` is the only writer of the hardware mixer. Wake audio ramps
 it; at startup and whenever wake audio releases ALSA, it is set back to the
-music ceiling (`music_mixer_db`, `-3.0 dB`, never above the `-3.0 dB` music
-maximum; wake audio keeps its own `-6.0 dB` maximum). Music receivers (AirPlay, Bluetooth) attenuate in software below that
+music ceiling (`music_mixer_db`, `0.0 dB`, never above the `0.0 dB` music
+maximum; wake audio keeps its own `0.0 dB` maximum). Music receivers (AirPlay, Bluetooth) attenuate in software below that
 level, so a receiver can never leave the device silent or louder than the
 ceiling for another one.
 

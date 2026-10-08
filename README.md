@@ -97,32 +97,15 @@ first to refresh it. See the
 The Raspberry Pi web interface is intentionally passwordless and intended only
 for the trusted local network. Firmware updates and SSH remain authenticated.
 
-## Run the iOS Bluetooth prototype
+## Mobile app
+
+The iOS and Android application is the Expo / TypeScript project in
+[`mobile/`](mobile/README.md). `make expo-iphone` installs it on a local iPhone,
+`make ios-beta` uploads it to TestFlight and `make play-store` to Google Play.
 
 > The BLE control service is disabled on the Raspberry Pi firmware: the onboard
 > controller now serves the [Bluetooth audio receiver](docs/specs/30/005-bluetooth-audio-receiver/spec.md).
 > On the device, the app only reaches the clock over Wi-Fi.
-
-The SwiftUI application is generated with XcodeGen. Its prototype local-control
-protocol is intentionally unauthenticated and should only be used for feature
-testing.
-
-```sh
-cd ios/RobineWake
-xcodegen generate
-open RobineWake.xcodeproj
-```
-
-The first Bluetooth connection discovers the clock's local HTTP endpoint and
-persists it on the iPhone. Later commands prefer the faster HTTP transport and
-automatically retry the same idempotent request over Bluetooth when Wi-Fi is not
-available. A replayable Server-Sent Events stream pushes alarm and state changes;
-the app does not poll the clock on a timer. The app connects to the first nearby
-`Robine Wake` peripheral. Its native
-morning dashboard, alarm journey editor, sound library, session controls, and
-system view mirror the functional language of the
-LiveView application. Use a physical iPhone for BLE testing; the iOS Simulator
-build only validates compilation and UI integration.
 
 The stable versioned command envelope, GATT UUIDs, paged response header, CRC32
 validation, compatibility rules, and supported operations are documented in the

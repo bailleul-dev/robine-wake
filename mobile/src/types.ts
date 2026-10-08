@@ -18,6 +18,7 @@ export interface Alarm {
   enabled: boolean;
   local_time: string;
   days_of_week: number[];
+  one_shot_date?: string | null;
   timezone: string;
   sound_id: string;
   strong_sound_id: string;
@@ -28,11 +29,6 @@ export interface Alarm {
     start?: number;
     ceiling?: number;
     ramp_seconds?: number;
-  };
-  snooze?: {
-    enabled?: boolean;
-    duration_seconds?: number;
-    maximum?: number;
   };
   light_profile?: {
     enabled?: boolean;
@@ -58,9 +54,6 @@ export interface AlarmDraft {
   startVolume: number;
   ceilingVolume: number;
   prewakeMinutes: number;
-  snoozeEnabled: boolean;
-  snoozeMinutes: number;
-  snoozeMaximum: number;
   revision?: number;
   lightEnabled: boolean;
   lightTargetId?: string;

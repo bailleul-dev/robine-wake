@@ -329,10 +329,10 @@ function NativeGlassButton({
     <SwiftUIHost
       matchContents={grow ? { vertical: true, horizontal: false } : true}
       colorScheme="dark"
+      ignoreSafeArea="all"
       seedColor={danger ? c("rose") : primary ? c("moon") : c("moonSoft")}
       style={style({
         minHeight: compact ? 38 : 48,
-        flex: grow ? 1 : undefined,
         alignSelf: grow ? "stretch" : "center",
       })}
     >

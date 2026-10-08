@@ -3,10 +3,10 @@ defmodule RobineWake.Audio.Driver.Alsa do
   @behaviour RobineWake.Audio.Driver
 
   @minimum_audible_db -45.0
-  @maximum_safe_db -6.0
+  @maximum_safe_db 0.0
   # Music receivers attenuate in software below this hardware level; it is
-  # separate from (and may exceed) the wake-audio ceiling above.
-  @maximum_music_db -3.0
+  # separate from the wake-audio ceiling above.
+  @maximum_music_db 0.0
   alias RobineWake.Audio.MeditationDSP
 
   @breathing_sound_id "breathing_meditation_ambience"

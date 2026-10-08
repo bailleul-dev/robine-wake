@@ -1,0 +1,80 @@
+require_relative 'analytics_ingester_client'
+require_relative 'action_launch_context'
+require_relative 'analytics_event_builder'
+
+module FastlaneCore
+  class AnalyticsSession
+    GA_TRACKING = "G-94HQ3VVP0X"
+
+    private_constant :GA_TRACKING
+    attr_accessor :session_id
+    attr_accessor :client
+
+    def initialize(analytics_ingester_client: AnalyticsIngesterClient.new(GA_TRACKING))
+      # GA4 requires a numeric session ID for events to be attributed to a session
+      @session_id = Time.now.to_i.to_s
+      @session_start_time = Time.now
+      @client = analytics_ingester_client
+      @threads = []
+      @launch_event = nil
+      @launch_event_captured = false
+    end
+
+    def action_launched(launch_context: nil)
+      if should_show_message?
+        show_message
+      end
+
+      if @launch_event_captured || launch_context.p_hash.nil?
+        return
+      end
+
+      @launch_event_captured = true
+      builder = AnalyticsEventBuilder.new(
+        p_hash: launch_context.p_hash,
+        session_id: session_id,
+        action_name: nil,
+        fastlane_client_language: launch_context.fastlane_client_language,
+        build_tool_version: launch_context.build_tool_version
+      )
+
+      # The event is not posted until finalize_session, so that the
+      # run duration can be reported as GA4 engagement time
+      @launch_event = builder.new_event(:launch)
+    end
+
+    def action_completed(completion_context: nil)
+    end
+
+    def show_message
+      UI.message("Sending anonymous analytics information")
+      UI.message("Learn more at https://docs.fastlane.tools/#metrics")
+      UI.message("No personal or sensitive data is sent.")
+      UI.message("You can disable this by adding `opt_out_usage` at the top of your Fastfile")
+    end
+
+    def should_show_message?
+      return false if FastlaneCore::Env.truthy?("FASTLANE_OPT_OUT_USAGE")
+
+      file_name = ".did_show_opt_info"
+      new_path = File.join(FastlaneCore.fastlane_user_dir, file_name)
+      return false if File.exist?(new_path)
+
+      File.write(new_path, '1')
+      true
+    end
+
+    def finalize_session
+      unless @launch_event.nil?
+        @launch_event[:engagement_time_msec] = ((Time.now - @session_start_time) * 1000).round
+        post_thread = client.post_event(@launch_event)
+        unless post_thread.nil?
+          @threads << post_thread
+        end
+        @launch_event = nil
+      end
+
+      @threads.map(&:join)
+    end
+  end
+end
