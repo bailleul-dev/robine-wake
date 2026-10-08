@@ -7,7 +7,7 @@ weakening its primary responsibility as a reliable alarm clock.
 
 ## MVP scope
 
-The target firmware embeds Shairport Sync 4.3.7 built for AirPlay 2. The
+The target firmware embeds Shairport Sync 5.5.2 built for AirPlay 2. The
 receiver advertises the name `Robine Wake Bedroom`, accepts audio from devices
 on the local network, and sends stereo PCM directly to the HiFiBerry Amp2 ALSA
 device. The host emulator does not start or emulate an AirPlay protocol server.
@@ -99,9 +99,16 @@ web and SSH services. AirPlay 2 is advertised by Avahi under its own host name
 
 ## AirPlay 2 decision
 
-AirPlay 2 is enabled. The Buildroot image adds FFmpeg (trimmed to the AAC
-decoder and parser so the root filesystem still fits its partition), Avahi,
-NQPTP, and the cryptographic libraries; NQPTP owns PTP UDP ports 319 and 320.
+AirPlay 2 is enabled. Shairport Sync comes from the system's own
+`package/shairport-sync5` (release 5.5.2): Buildroot's 4.3.7 negotiates the
+AirPlay 2 buffered stream with iOS 26 but plays silence, while the Mac's
+realtime stream works. Release 5 decodes both ALAC and AAC through FFmpeg,
+which is trimmed to those decoders, the ffmpeg CLI and a few audio filters so
+the root filesystem still fits its partition. The image also adds Avahi, NQPTP
+(shared-memory interface version 10, matching nqptp 1.2.4), and the
+cryptographic libraries; NQPTP owns PTP UDP ports 319 and 320. Release 5 is
+built without metadata support, whose pipe initialisation crashes at startup
+when no pipe name is configured.
 `RobineWake.AirPlay` starts Avahi and NQPTP before Shairport Sync and keeps
 them running while wake audio suspends the receiver. Avahi needs the system
 D-Bus, which `RobineWake.BluetoothAudio` starts.

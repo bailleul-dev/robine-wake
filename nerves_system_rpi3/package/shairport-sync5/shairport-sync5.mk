@@ -18,6 +18,8 @@ SHAIRPORT_SYNC5_DEPENDENCIES = \
 	alsa-lib avahi ffmpeg libconfig libgcrypt libplist libsodium openssl \
 	popt util-linux host-pkgconf host-vim
 
+# 5.5.2 dereferences the metadata pipe name at startup even when metadata is
+# disabled in the configuration file (metadata/pipe.c), so leave metadata out.
 # git repo, no configure
 SHAIRPORT_SYNC5_AUTORECONF = YES
 
@@ -28,8 +30,7 @@ SHAIRPORT_SYNC5_CONF_OPTS = \
 	--with-avahi \
 	--without-tinysvcmdns \
 	--with-ssl=openssl \
-	--with-metadata \
-	--with-pipe \
+	--without-metadata \
 	--with-stdout \
 	--without-libdaemon \
 	--without-soxr \
