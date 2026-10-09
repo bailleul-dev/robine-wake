@@ -17,6 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
   && rm -rf /var/lib/apt/lists/*
 
 ENV MIX_ENV=prod MIX_TARGET=host
+# Building linux/amd64 on an Apple Silicon Mac runs this stage under Rosetta,
+# where the BEAM JIT's dual-mapped code pages are not supported and the VM
+# crashes at startup (prim_tty NIF). A single mapping fixes it; harmless on a
+# native amd64 builder, and it does not reach the runtime stage.
+ENV ERL_FLAGS="+JMsingle true"
 WORKDIR /src
 
 RUN mix local.hex --force && mix local.rebar --force && mix archive.install hex nerves_bootstrap --force
