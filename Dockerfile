@@ -13,7 +13,7 @@ ARG RUNTIME_IMAGE=debian:trixie-slim
 
 FROM ${BUILDER_IMAGE} AS build
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential git ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential git ca-certificates libmnl-dev \
   && rm -rf /var/lib/apt/lists/*
 
 ENV MIX_ENV=prod MIX_TARGET=host
@@ -27,7 +27,9 @@ WORKDIR /src
 RUN mix local.hex --force && mix local.rebar --force && mix archive.install hex nerves_bootstrap --force
 
 COPY mix.exs mix.lock ./
-COPY nerves_system_rpi3/mix.exs nerves_system_rpi3/mix.exs
+# Mix loads every path dependency to fetch deps for all targets, even the
+# rpi3 system that the host target never compiles: its project needs VERSION.
+COPY nerves_system_rpi3/mix.exs nerves_system_rpi3/VERSION nerves_system_rpi3/
 COPY config config
 RUN mix deps.get --only prod && mix deps.compile
 

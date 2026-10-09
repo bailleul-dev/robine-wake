@@ -103,6 +103,14 @@ then rolls the image out to <https://robine-wake-demo.bailleul.dev/demo>.
 The Raspberry Pi web interface is intentionally passwordless and intended only
 for the trusted local network. Firmware updates and SSH remain authenticated.
 
+## Experimental prototypes
+
+The [`experimental/`](experimental/README.md) directory holds throwaway
+evaluation prototypes that are **not part of the product**: they are not built
+by `mix verify`, not shipped in the firmware, not deployed in the demo. The
+current one is a Rust port of the alarm API used to evaluate a future
+Buildroot-based system on custom hardware.
+
 ## Mobile app
 
 The iOS and Android application is the Expo / TypeScript project in
