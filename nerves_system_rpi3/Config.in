@@ -5,3 +5,4 @@
 
 source "$NERVES_DEFCONFIG_DIR/package/bluez-alsa5/Config.in"
 source "$NERVES_DEFCONFIG_DIR/package/shairport-sync5/Config.in"
+source "$NERVES_DEFCONFIG_DIR/package/nqptp8/Config.in"

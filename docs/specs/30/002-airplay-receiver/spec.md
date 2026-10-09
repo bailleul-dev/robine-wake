@@ -105,8 +105,9 @@ AirPlay 2 buffered stream with iOS 26 but plays silence, while the Mac's
 realtime stream works. Release 5 decodes both ALAC and AAC through FFmpeg,
 which is trimmed to those decoders, the ffmpeg CLI and a few audio filters so
 the root filesystem still fits its partition. The image also adds Avahi, NQPTP
-(shared-memory interface version 10, matching nqptp 1.2.4), and the
-cryptographic libraries; NQPTP owns PTP UDP ports 319 and 320. Release 5 is
+1.2.8 (`package/nqptp8`, shared-memory interface version 10; Shairport Sync
+5.5 asks for NQPTP to be updated with it), and the cryptographic libraries;
+NQPTP owns PTP UDP ports 319 and 320. Release 5 is
 built without metadata support, whose pipe initialisation crashes at startup
 when no pipe name is configured.
 `RobineWake.AirPlay` starts Avahi and NQPTP before Shairport Sync and keeps
