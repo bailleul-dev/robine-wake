@@ -161,6 +161,7 @@ defmodule RobineWake.AirPlay do
         state = state |> ensure_mdns() |> ensure_ptp()
 
         case MuonTrap.Daemon.start_link(executable, ["-c", config_path],
+               env: Application.get_env(:robine_wake, :airplay_environment, []),
                stderr_to_stdout: true,
                log_output: :debug,
                log_prefix: "Shairport Sync: ",

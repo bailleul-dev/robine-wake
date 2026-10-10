@@ -104,10 +104,10 @@ AirPlay 2 is enabled. Shairport Sync comes from the system's own
 AirPlay 2 buffered stream with iOS 26 but plays silence, while the Mac's
 realtime stream works. Release 5 decodes both ALAC and AAC through FFmpeg,
 which is trimmed to those decoders, the ffmpeg CLI and a few audio filters so
-the root filesystem still fits its partition. The image also adds Avahi, NQPTP
-1.2.8 (`package/nqptp8`, shared-memory interface version 10; Shairport Sync
-5.5 asks for NQPTP to be updated with it), and the cryptographic libraries;
-NQPTP owns PTP UDP ports 319 and 320. Release 5 is
+the root filesystem still fits its partition. The image also adds Avahi,
+Buildroot's NQPTP 1.2.4 (shared-memory interface version 10, which Shairport
+Sync 5.5 accepts; NQPTP 1.2.8 was tried and brought nothing), and the
+cryptographic libraries; NQPTP owns PTP UDP ports 319 and 320. Release 5 is
 built without metadata support, whose pipe initialisation crashes at startup
 when no pipe name is configured.
 `RobineWake.AirPlay` starts Avahi and NQPTP before Shairport Sync and keeps
@@ -117,6 +117,22 @@ D-Bus, which `RobineWake.BluetoothAudio` starts.
 Still to record on the Raspberry Pi 3: idle-memory delta, CPU load during
 buffered playback, alarm-preemption latency, iOS/macOS compatibility, and
 overnight timing stability.
+
+## Diagnostics
+
+A receiver that "plays" without sound is diagnosed on the target without a
+reflash. The firmware ships `/usr/bin/shairport-sync-diag`, a launcher
+running the same binary with Shairport's own diagnostics and its stderr in
+`/tmp`, and the binary carries an environment-gated per-block
+instrumentation (package patch 0002: block size and decoded peak, optional
+raw dump). `RobineWake.AirPlay.Diagnostics.enable/1` switches the receiver
+to that launcher through the `:airplay_executable` and `:airplay_environment`
+settings, `summary/0` tells a source sending silence from a decoding or
+output problem, and `disable/0` restores the production launcher. Nothing
+runs differently in normal operation. The procedure, its `/tmp` safeguards
+and the reference case (iOS 27 beta sending encoded silence from a stale
+session, cured on the phone side) are in
+[AirPlay diagnostics](../../../knowledges/airplay-diagnostics.md).
 
 ## Requirements
 
