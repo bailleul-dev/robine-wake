@@ -6,9 +6,15 @@ defmodule RobineWake.Audio do
 
   @music_level_retry_ms 1_000
   @music_level_attempts 120
+  @output_release_timeout_ms 3_000
+  # Covers the output release wait plus every start attempt.
+  @play_timeout_ms 15_000
 
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  def play(session_id, sound_id), do: GenServer.call(__MODULE__, {:play, session_id, sound_id})
+
+  def play(session_id, sound_id),
+    do: GenServer.call(__MODULE__, {:play, session_id, sound_id}, @play_timeout_ms)
+
   def set_gain(session_id, gain), do: GenServer.call(__MODULE__, {:set_gain, session_id, gain})
   def stop(session_id), do: GenServer.call(__MODULE__, {:stop, session_id})
   def status, do: GenServer.call(__MODULE__, :status)
@@ -44,6 +50,7 @@ defmodule RobineWake.Audio do
   def handle_call({:play, session_id, sound_id}, _from, state) do
     state = stop_current(state)
     suspend_music_receivers()
+    await_output_released(state.driver)
 
     retry_delays = Application.fetch_env!(:robine_wake, :audio_retry_delays_ms)
 
@@ -226,6 +233,27 @@ defmodule RobineWake.Audio do
     kind, reason ->
       Logger.error("Music level not applied: #{inspect({kind, reason})}")
       :error
+  end
+
+  # Stopping a receiver returns before its OS process has closed the card. A
+  # card still busy after the timeout is logged only: the player retries.
+  defp await_output_released(driver) do
+    Code.ensure_loaded(driver)
+
+    if function_exported?(driver, :await_output_released, 1) do
+      case driver.await_output_released(@output_release_timeout_ms) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning("Wake audio starts on a busy output: #{inspect(reason)}")
+      end
+    end
+
+    :ok
+  catch
+    kind, reason ->
+      Logger.error("Output release check failed: #{inspect({kind, reason})}")
   end
 
   defp call_receiver(receiver, action) do

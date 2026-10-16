@@ -1,6 +1,8 @@
 defmodule RobineWake.Audio.FlakyDriver do
   @behaviour RobineWake.Audio.Driver
 
+  alias RobineWake.Audio.AirPlayRecorder
+
   @impl true
   def capabilities, do: %{state: :available, device: "flaky-test"}
 
@@ -22,6 +24,15 @@ defmodule RobineWake.Audio.FlakyDriver do
 
   @impl true
   def set_gain(_gain), do: :ok
+
+  @impl true
+  def await_output_released(_timeout_ms) do
+    receivers = AirPlayRecorder.commands()
+
+    Agent.get_and_update(__MODULE__, fn state ->
+      {state.release_result, %{state | release_checks: [receivers | state.release_checks]}}
+    end)
+  end
 
   @impl true
   def set_music_level(decibels) do
@@ -73,7 +84,14 @@ defmodule RobineWake.AudioTest do
     {:ok, agent} =
       Agent.start_link(
         fn ->
-          %{remaining_failures: 0, attempts: 0, music_levels: [], music_level_failures: 0}
+          %{
+            remaining_failures: 0,
+            attempts: 0,
+            music_levels: [],
+            music_level_failures: 0,
+            release_checks: [],
+            release_result: :ok
+          }
         end,
         name: FlakyDriver
       )
@@ -119,6 +137,20 @@ defmodule RobineWake.AudioTest do
     assert Agent.get(FlakyDriver, & &1.attempts) == 4
     assert AirPlayRecorder.commands() == [:suspend, :resume]
     assert %{last_error: :injected_failure, active_session: nil} = Audio.status()
+  end
+
+  test "waits for the receivers to release the output before playing" do
+    assert :ok = Audio.play("session-e", "default")
+    assert Agent.get(FlakyDriver, & &1.release_checks) == [[:suspend]]
+    assert :ok = Audio.stop("session-e")
+  end
+
+  test "plays even when the output is still busy after the release timeout" do
+    Agent.update(FlakyDriver, &%{&1 | release_result: {:error, :output_busy}})
+
+    assert :ok = Audio.play("session-f", "default")
+    assert %{active_session: "session-f"} = Audio.status()
+    assert :ok = Audio.stop("session-f")
   end
 
   test "an older or unrelated session cannot replace or stop active audio" do

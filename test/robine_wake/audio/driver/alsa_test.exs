@@ -39,4 +39,22 @@ defmodule RobineWake.Audio.Driver.AlsaTest do
              "raw"
            ] = Alsa.meditation_args("plughw:0")
   end
+
+  test "watches the playback substreams of the configured card" do
+    assert Alsa.pcm_status_glob("plughw:0") == "/proc/asound/card0/pcm*p/sub*/status"
+    assert Alsa.pcm_status_glob("hw:1,0") == "/proc/asound/card1/pcm*p/sub*/status"
+    assert Alsa.pcm_status_glob("default") == "/proc/asound/card*/pcm*p/sub*/status"
+  end
+
+  @tag :tmp_dir
+  test "the output is released only when every substream is closed", %{tmp_dir: dir} do
+    closed = Path.join(dir, "closed")
+    running = Path.join(dir, "running")
+    File.write!(closed, "closed\n")
+    File.write!(running, "state: RUNNING\nowner_pid   : 1032\n")
+
+    assert Alsa.output_released?([closed])
+    assert Alsa.output_released?([closed, Path.join(dir, "missing")])
+    refute Alsa.output_released?([closed, running])
+  end
 end

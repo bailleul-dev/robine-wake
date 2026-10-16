@@ -2,6 +2,8 @@ defmodule RobineWake.Audio.Driver.Alsa do
   @moduledoc "ALSA adapter intended for a configured HiFiBerry output."
   @behaviour RobineWake.Audio.Driver
 
+  require Logger
+
   @minimum_audible_db -45.0
   @maximum_safe_db 0.0
   # Music receivers attenuate in software below this hardware level; it is
@@ -11,6 +13,11 @@ defmodule RobineWake.Audio.Driver.Alsa do
 
   @breathing_sound_id "breathing_meditation_ambience"
   @meditation_recording_id "storm_rain_lasonotheque_2719"
+
+  # A player that fails is restarted until the session stops it: a silent
+  # alarm is worse than a late one. The last delay repeats.
+  @player_retry_delays_ms [250, 500, 1_000, 2_000]
+  @release_poll_ms 50
 
   @impl true
   def capabilities do
@@ -101,6 +108,44 @@ defmodule RobineWake.Audio.Driver.Alsa do
           System.cmd(amixer, music_level_args(decibels), stderr_to_stdout: true)
 
         if status == 0, do: :ok, else: {:error, {:amixer_exit, status}}
+    end
+  end
+
+  @impl true
+  def await_output_released(timeout_ms) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    await_released(pcm_status_glob(device()), deadline)
+  end
+
+  defp await_released(glob, deadline) do
+    cond do
+      output_released?(Path.wildcard(glob)) ->
+        :ok
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        {:error, :output_busy}
+
+      true ->
+        Process.sleep(@release_poll_ms)
+        await_released(glob, deadline)
+    end
+  end
+
+  @doc false
+  def output_released?(status_paths) do
+    Enum.all?(status_paths, fn path ->
+      case File.read(path) do
+        {:ok, status} -> String.trim(status) == "closed"
+        {:error, _reason} -> true
+      end
+    end)
+  end
+
+  @doc false
+  def pcm_status_glob(device) do
+    case Regex.run(~r/^(?:plug)?hw:(?:CARD=)?(\d+)/, device) do
+      [_, card] -> "/proc/asound/card#{card}/pcm*p/sub*/status"
+      _other -> "/proc/asound/card*/pcm*p/sub*/status"
     end
   end
 
@@ -237,17 +282,28 @@ defmodule RobineWake.Audio.Driver.Alsa do
     if System.find_executable(name), do: :ok, else: {:error, reason}
   end
 
-  defp player_loop(executable, args) do
+  defp player_loop(executable, args, failures \\ 0) do
     Process.flag(:trap_exit, true)
 
     case MuonTrap.Daemon.start_link(executable, args,
            stderr_to_stdout: true,
-           log_output: :debug,
+           log_output: :warning,
            log_prefix: "Alarm audio: ",
            delay_to_sigkill: 500
          ) do
-      {:ok, daemon} -> wait_for_player(daemon, executable, args)
-      {:error, _reason} -> :ok
+      {:ok, daemon} -> wait_for_player(daemon, executable, args, failures)
+      {:error, reason} -> retry_player(executable, args, failures, reason)
+    end
+  end
+
+  defp retry_player(executable, args, failures, reason) do
+    delay = Enum.at(@player_retry_delays_ms, failures, List.last(@player_retry_delays_ms))
+    Logger.warning("Alarm audio player failed: #{inspect(reason)}; retrying in #{delay} ms")
+
+    receive do
+      :stop -> :ok
+    after
+      delay -> player_loop(executable, args, failures + 1)
     end
   end
 
@@ -295,7 +351,7 @@ defmodule RobineWake.Audio.Driver.Alsa do
     :error, _reason -> :ok
   end
 
-  defp wait_for_player(daemon, executable, args) do
+  defp wait_for_player(daemon, executable, args, failures) do
     receive do
       :stop ->
         safe_stop_daemon(daemon)
@@ -303,8 +359,8 @@ defmodule RobineWake.Audio.Driver.Alsa do
       {:EXIT, ^daemon, :normal} ->
         player_loop(executable, args)
 
-      {:EXIT, ^daemon, _reason} ->
-        :ok
+      {:EXIT, ^daemon, reason} ->
+        retry_player(executable, args, failures, reason)
     end
   end
 

@@ -14,5 +14,11 @@ defmodule RobineWake.Audio.Driver do
   """
   @callback set_music_level(float()) :: :ok | {:error, term()}
 
-  @optional_callbacks set_music_level: 1
+  @doc """
+  Waits until no other process holds the output device. Music receivers stop
+  asynchronously, so their OS process can still own the card for a moment.
+  """
+  @callback await_output_released(non_neg_integer()) :: :ok | {:error, term()}
+
+  @optional_callbacks set_music_level: 1, await_output_released: 1
 end
