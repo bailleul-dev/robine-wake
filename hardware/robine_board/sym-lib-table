@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Robine_Custom")(type "KiCad")(uri "/home/guillaume/sources/robine-wake/hardware/robine_board/Robine_Custom.kicad_sym")(options "")(descr "Robine Wake Custom IC Symbols"))
+)

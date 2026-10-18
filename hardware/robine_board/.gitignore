@@ -1,0 +1,6 @@
+# Sauvegardes automatiques du serveur MCP KiCad et préférences locales de l'éditeur
+.mcp-backups/
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.lck

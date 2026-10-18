@@ -1,0 +1,12 @@
+{
+  "board": "/home/guillaume/sources/robine-wake/hardware/robine_board/robine_board.kicad_pcb",
+  "timestamp": "2026-10-18T16:46:23+0200",
+  "total_violations": 0,
+  "violation_counts": {},
+  "severity_counts": {
+    "error": 0,
+    "warning": 0,
+    "info": 0
+  },
+  "violations": []
+}

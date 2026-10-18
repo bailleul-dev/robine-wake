@@ -1,0 +1,80 @@
+#VRML V2.0 utf8
+Transform {
+  translation 3.0000 0.0000 1.9685
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.1 0.58 0.22
+          specularColor 0.2 0.2 0.2
+          shininess 0.3
+        }
+      }
+      geometry Box { size 8.0000 3.3465 3.9370 }
+    }
+  ]
+}
+Transform {
+  translation 0.0000 0.0000 4.0354
+  rotation 1 0 0 1.570796
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.8 0.8 0.82
+          specularColor 0.9 0.8 0.3
+          shininess 0.8
+        }
+      }
+      geometry Cylinder { radius 0.6299 height 0.1969 }
+    }
+  ]
+}
+Transform {
+  translation 2.0000 0.0000 4.0354
+  rotation 1 0 0 1.570796
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.8 0.8 0.82
+          specularColor 0.9 0.8 0.3
+          shininess 0.8
+        }
+      }
+      geometry Cylinder { radius 0.6299 height 0.1969 }
+    }
+  ]
+}
+Transform {
+  translation 4.0000 0.0000 4.0354
+  rotation 1 0 0 1.570796
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.8 0.8 0.82
+          specularColor 0.9 0.8 0.3
+          shininess 0.8
+        }
+      }
+      geometry Cylinder { radius 0.6299 height 0.1969 }
+    }
+  ]
+}
+Transform {
+  translation 6.0000 0.0000 4.0354
+  rotation 1 0 0 1.570796
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.8 0.8 0.82
+          specularColor 0.9 0.8 0.3
+          shininess 0.8
+        }
+      }
+      geometry Cylinder { radius 0.6299 height 0.1969 }
+    }
+  ]
+}
