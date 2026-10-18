@@ -1,5 +1,10 @@
 # Robine Wake — All-In-One Mainboard v1.0 (`robine_board`)
 
+> **Statut : concept, non fabricable.** Plusieurs symboles et empreintes sont
+> des substituts (ampli, chargeur, Ethernet, PoE, condensateurs et
+> inductances de puissance) et des circuits d'accompagnement manquent. Voir
+> [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) avant toute commande.
+
 Carte électronique principale tout-en-un conçue sous **KiCad 9** via le serveur MCP `kicad` pour le réveil / barre de son **Robine Wake**.
 
 ---
@@ -51,8 +56,13 @@ Carte électronique principale tout-en-un conçue sous **KiCad 9** via le serveu
 
 ## 3. Vérifications Électriques & Physique (ERC / DRC)
 
-- **ERC Schéma (`run_erc`)** : **0 erreur, 0 warning** (61 composants, 68 nets, 296 broches connectées, 0 chevauchement, 0 fil croisant un symbole).
-- **DRC PCB (`run_drc`)** : **0 erreur, 0 warning, 0 piste non routée** (dimensions **180 × 120 mm**, 2 couches cuivre avec plans de masse `GND` sur `F.Cu` et `B.Cu`, 861 segments de pistes routés, 81 vias, 4 trous de fixation M3 `MH1..MH4`).
+- ERC et DRC passent (0 erreur), mais ils vérifient la cohérence des
+  symboles et empreintes **tels que dessinés** : ceux de U3, U4, U6, U8, U9,
+  U10, C1, C2, C9, C16 et L1 à L5 ne correspondent pas aux composants réels.
+- Dimensions 180 × 120 mm : trop grandes pour le compartiment électronique
+  de la barre (environ 166 × 176 × 126 mm intérieur, lampe comprise).
+- Le tableau GPIO ci-dessus ne correspond pas au schéma ; le schéma fait foi,
+  et GPIO45/46 y sont mal employés (voir la revue).
 
 ---
 
@@ -71,4 +81,4 @@ Carte électronique principale tout-en-un conçue sous **KiCad 9** via le serveu
   - [`robine_board.step`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board.step) — Modèle CAO 3D STEP
   - [`robine_board_bom.csv`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_bom.csv) — Nomenclature complète (BOM, 61 composants / 25 lignes groupées)
   - [`robine_board_positions.csv`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_positions.csv) — Fichier Pick-and-Place (CPL/POS)
-  - [`exports/gerbers/`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/gerbers) — Fichiers Gerber (`F.Cu`, `B.Cu`, `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.Silkscreen`, `B.Silkscreen`, `Edge.Cuts`) + perçage Excellon (`.drl`) prêts pour JLCPCB / PCBWay
+  - [`exports/gerbers/`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/gerbers) — Fichiers Gerber (`F.Cu`, `B.Cu`, `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.Silkscreen`, `B.Silkscreen`, `Edge.Cuts`) + perçage Excellon (`.drl`), **à ne pas commander en l'état**
