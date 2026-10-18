@@ -1,0 +1,11 @@
+# Read-only squashfs root (PLT-001.3)
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_FILE_DIRECT=y
+CONFIG_EXT4_FS=y
+# Hardware watchdog (PLT-004)
+CONFIG_WATCHDOG=y
+CONFIG_BCM2835_WDT=y
+# QEMU raspi3b has no LAN9514: networking goes through usb-net (QA-003)
+CONFIG_USB_USBNET=y
+CONFIG_USB_NET_CDCETHER=y

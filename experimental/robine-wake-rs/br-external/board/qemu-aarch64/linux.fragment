@@ -1,0 +1,11 @@
+# Read-only squashfs root (PLT-001.3)
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_FILE_DIRECT=y
+# Watchdog emulated by QEMU (PLT-004, QA-003)
+CONFIG_WATCHDOG=y
+CONFIG_I6300ESB_WDT=y
+# ALSA through virtio-sound for the audio engine (AUD-001, QA-003)
+CONFIG_SOUND=y
+CONFIG_SND=y
+CONFIG_SND_VIRTIO=y

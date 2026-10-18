@@ -1,0 +1,36 @@
+#!/bin/sh
+# Wired and wireless networking (PLT-003): eth0 on the Pi, usb0 under QEMU,
+# and wlan0 via wpa_supplicant if configured.
+exec 2>&1
+ip link set lo up
+
+# Start wpa_supplicant if wlan0 and a configuration exist
+WPA_CONF=
+for conf in /data/network/wpa_supplicant.conf /etc/wpa_supplicant.conf; do
+	if [ -f "$conf" ]; then
+		WPA_CONF=$conf
+		break
+	fi
+done
+
+if [ -n "$WPA_CONF" ] && [ -e /sys/class/net/wlan0 ] && command -v wpa_supplicant >/dev/null 2>&1; then
+	mkdir -p /var/run/wpa_supplicant
+	wpa_supplicant -B -i wlan0 -c "$WPA_CONF" 2>&1 || true
+fi
+
+iface=
+for attempt in $(seq 1 30); do
+	for candidate in eth0 end0 usb0 wlan0; do
+		if [ -e "/sys/class/net/$candidate" ]; then
+			iface=$candidate
+			break 2
+		fi
+	done
+	sleep 1
+done
+if [ -z "$iface" ]; then
+	echo "network: no network interface, retrying"
+	exec sleep 30
+fi
+ip link set "$iface" up
+exec udhcpc -f -i "$iface" -s /usr/share/udhcpc/default.script

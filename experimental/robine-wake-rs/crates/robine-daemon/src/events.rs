@@ -33,13 +33,16 @@ impl Event {
     }
 }
 
+use std::sync::Arc;
+
 struct Inner {
     sequence: u64,
     events: VecDeque<Event>,
 }
 
+#[derive(Clone)]
 pub struct EventStream {
-    inner: Mutex<Inner>,
+    inner: Arc<Mutex<Inner>>,
     sender: broadcast::Sender<Event>,
 }
 
@@ -59,10 +62,10 @@ impl EventStream {
     pub fn new() -> EventStream {
         let (sender, _receiver) = broadcast::channel(MAXIMUM_EVENTS);
         EventStream {
-            inner: Mutex::new(Inner {
+            inner: Arc::new(Mutex::new(Inner {
                 sequence: 0,
                 events: VecDeque::new(),
-            }),
+            })),
             sender,
         }
     }

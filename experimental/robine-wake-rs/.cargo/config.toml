@@ -1,0 +1,7 @@
+# Static musl binaries linked by the linker bundled with rustc: no cross C
+# toolchain is needed as long as the daemon has no C dependency.
+[target.aarch64-unknown-linux-musl]
+linker = "rust-lld"
+
+[target.arm-unknown-linux-musleabihf]
+linker = "rust-lld"

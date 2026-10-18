@@ -1,0 +1,57 @@
+#!/bin/sh
+# Firmware slots on the Raspberry Pi (OPS-001).
+#   robine-fw status          slots, versions, validation state
+#   robine-fw slot            running slot (a or b)
+#   robine-fw validate        make the running slot the default
+#   robine-fw revert          boot the other validated slot from next reboot
+#   robine-fw factory-reset   erase /data and reboot
+set -e
+
+OPS=/usr/share/fwup/ops.fw
+DEV=$(fw_printenv -n robine_fw_devpath 2>/dev/null || echo /dev/mmcblk0)
+
+ops() {
+	fwup -q -U --enable-trim -i "$OPS" -d "$DEV" -t "$1"
+}
+
+slot() {
+	case " $(cat /proc/cmdline) " in
+		*" root=${DEV}p5 "*) echo a ;;
+		*" root=${DEV}p6 "*) echo b ;;
+		*) echo unknown ;;
+	esac
+}
+
+env() {
+	fw_printenv -n "$1" 2>/dev/null || true
+}
+
+case "$1" in
+	slot)
+		slot
+		;;
+	status)
+		running=$(slot)
+		for s in a b; do
+			mark=" "
+			[ "$s" = "$running" ] && mark="*"
+			printf '%s %s  version=%s  validated=%s\n' "$mark" "$s" \
+				"$(env "$s.robine_fw_version")" "$(env "$s.robine_fw_validated")"
+		done
+		;;
+	validate)
+		ops validate
+		;;
+	revert)
+		ops revert
+		echo "robine-fw: the other slot boots from the next reboot"
+		;;
+	factory-reset)
+		ops factory-reset
+		reboot
+		;;
+	*)
+		sed -n '2,8s/^# //p' "$0"
+		exit 2
+		;;
+esac

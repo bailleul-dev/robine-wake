@@ -1,0 +1,30 @@
+config BR2_PACKAGE_ROBINE_WAKE
+	bool "robine-wake"
+	depends on BR2_aarch64 || BR2_arm
+	help
+	  Robine Wake 2 device daemon, its web bundle and its runit
+	  service.
+
+	  The daemon is a static musl binary built outside Buildroot by
+	  the top-level Makefile with the pinned Rust toolchain
+	  (rust-toolchain.toml): Buildroot's own rustc is older than the
+	  daemon's dependencies require. This package installs the
+	  staged distribution directory.
+
+if BR2_PACKAGE_ROBINE_WAKE
+
+config BR2_PACKAGE_ROBINE_WAKE_DIST_DIR
+	string "distribution directory"
+	default "$(BR2_EXTERNAL_ROBINE_PATH)/../output/dist"
+	help
+	  Directory staged by `make dist`: bin/robine-wake, web/,
+	  optional sounds/ and authorized_keys.
+
+config BR2_PACKAGE_ROBINE_WAKE_DEV_MODE
+	bool "development mode"
+	help
+	  Lets the service run /data/dev/robine-wake when
+	  /data/dev/enabled exists (`make deploy`). Never enable it in
+	  a production image (OPS-002.4).
+
+endif

@@ -152,6 +152,62 @@ impl Store {
         self.persist(&mut inner, next)
     }
 
+    pub fn disable_alarm(&self, id: &str, now: DateTime<Utc>) -> Result<Alarm, StoreError> {
+        let mut inner = self.lock();
+        let current = inner.alarms.get(id).ok_or(StoreError::NotFound)?.clone();
+        let mut merged = current.to_map();
+        merged.insert("enabled".into(), json!(false));
+        merged.insert("revision".into(), json!(current.revision + 1));
+        let alarm = Alarm::new(&Value::Object(merged), now)?;
+        self.validate_sound(&alarm)?;
+
+        let mut next = inner.alarms.clone();
+        next.insert(id.to_string(), alarm.clone());
+        self.persist(&mut inner, next)?;
+        Ok(alarm)
+    }
+
+    /// Start a nap mode alarm (ALM-003). Replaces any existing nap alarm.
+    pub fn start_nap(&self, minutes: u32, now: DateTime<Utc>) -> Result<Alarm, StoreError> {
+        let alarms = self.list();
+        let template = robine_core::nap::select_template_alarm(&alarms);
+        let payload = robine_core::nap::build_nap_payload(minutes, template, now)
+            .map_err(StoreError::Invalid)?;
+
+        let mut inner = self.lock();
+        if let Some(existing) = inner.alarms.get(robine_core::nap::NAP_ALARM_ID) {
+            let mut merged = existing.to_map();
+            if let Some(obj) = payload.as_object() {
+                merged.extend(obj.clone());
+            }
+            merged.insert("revision".into(), json!(existing.revision + 1));
+            let alarm = Alarm::new(&Value::Object(merged), now)?;
+            self.validate_sound(&alarm)?;
+            let mut next = inner.alarms.clone();
+            next.insert(alarm.id.clone(), alarm.clone());
+            self.persist(&mut inner, next)?;
+            Ok(alarm)
+        } else {
+            let alarm = Alarm::new(&payload, now)?;
+            self.validate_sound(&alarm)?;
+            let mut next = inner.alarms.clone();
+            next.insert(alarm.id.clone(), alarm.clone());
+            self.persist(&mut inner, next)?;
+            Ok(alarm)
+        }
+    }
+
+    /// Cancel a nap mode alarm if present (ALM-003). Idempotent.
+    pub fn cancel_nap(&self) -> Result<(), StoreError> {
+        let mut inner = self.lock();
+        if inner.alarms.contains_key(robine_core::nap::NAP_ALARM_ID) {
+            let mut next = inner.alarms.clone();
+            next.remove(robine_core::nap::NAP_ALARM_ID);
+            self.persist(&mut inner, next)?;
+        }
+        Ok(())
+    }
+
     fn validate_sound(&self, alarm: &Alarm) -> Result<(), StoreError> {
         for (field, id) in [
             ("sound_id", &alarm.sound_id),
@@ -192,6 +248,165 @@ impl Store {
         Ok(())
     }
 
+    pub fn record_session(&self, session: Value) -> Result<(), StoreError> {
+        let mut inner = self.lock();
+        let mut raw = inner.raw.clone();
+        let sessions = raw
+            .entry("sessions")
+            .or_insert_with(|| Value::Array(Vec::new()));
+
+        if let Value::Array(arr) = sessions {
+            let session_id = session.get("id").and_then(Value::as_str);
+            if let Some(id) = session_id {
+                if let Some(existing) = arr
+                    .iter_mut()
+                    .find(|s| s.get("id").and_then(Value::as_str) == Some(id))
+                {
+                    *existing = session;
+                } else {
+                    arr.push(session);
+                }
+            } else {
+                arr.push(session);
+            }
+
+            // DAT-001.6: Retain only 30 days of sessions
+            let cutoff = Utc::now() - chrono::Duration::days(30);
+            arr.retain(|s| {
+                s.get("scheduled_at")
+                    .or_else(|| s.get("started_at"))
+                    .and_then(Value::as_str)
+                    .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
+                    .map(|dt| dt.with_timezone(&Utc) >= cutoff)
+                    .unwrap_or(true)
+            });
+        }
+
+        save(&self.path, &raw)?;
+        inner.raw = raw;
+        Ok(())
+    }
+
+    pub fn clear_history(&self) -> Result<(), StoreError> {
+        let mut inner = self.lock();
+        let mut raw = inner.raw.clone();
+        raw.insert("sessions".into(), json!([]));
+        save(&self.path, &raw)?;
+        inner.raw = raw;
+        Ok(())
+    }
+
+    pub fn factory_reset(&self) -> Result<(), StoreError> {
+        let mut inner = self.lock();
+        let mut raw = Map::new();
+        raw.insert("schema_version".into(), json!(SCHEMA_VERSION));
+        raw.insert("alarms".into(), json!([]));
+        raw.insert("sessions".into(), json!([]));
+        raw.insert(
+            "settings".into(),
+            json!({ "smartphone_dismiss_enabled": false }),
+        );
+        raw.insert("remote_buttons".into(), json!([]));
+        raw.insert("created_at".into(), json!(Utc::now().to_rfc3339()));
+        save(&self.path, &raw)?;
+        inner.raw = raw;
+        inner.alarms = BTreeMap::new();
+        inner.degraded = None;
+        Ok(())
+    }
+
+    /// Export configuration without secrets (DAT-002.1).
+    pub fn export_configuration(&self) -> Value {
+        let alarms: Vec<Value> = self
+            .list()
+            .iter()
+            .map(|a| Value::Object(a.to_map()))
+            .collect();
+        json!({
+            "format": "robine-wake-configuration",
+            "format_version": 1,
+            "exported_at": Utc::now().to_rfc3339(),
+            "alarms": alarms,
+            "smartphone_dismiss_enabled": self.get_smartphone_dismiss_enabled(),
+        })
+    }
+
+    pub fn get_button(&self, button_id: &str) -> Option<robine_core::remote_button::PairedButton> {
+        let inner = self.lock();
+        inner
+            .raw
+            .get("remote_buttons")
+            .and_then(Value::as_array)?
+            .iter()
+            .find(|b| b.get("id").and_then(Value::as_str) == Some(button_id))
+            .and_then(|val| {
+                let id = val.get("id")?.as_str()?.to_string();
+                let secret_hex = val.get("secret")?.as_str()?;
+                let secret = hex::decode(secret_hex).ok()?;
+                let last_counter = val.get("last_counter")?.as_u64()?;
+                Some(robine_core::remote_button::PairedButton::new(
+                    id,
+                    secret,
+                    last_counter,
+                ))
+            })
+    }
+
+    pub fn save_button(
+        &self,
+        button: &robine_core::remote_button::PairedButton,
+    ) -> Result<(), StoreError> {
+        let mut inner = self.lock();
+        let mut raw = inner.raw.clone();
+        let buttons = raw
+            .entry("remote_buttons")
+            .or_insert_with(|| Value::Array(Vec::new()));
+
+        if let Value::Array(arr) = buttons {
+            let button_val = json!({
+                "id": button.id,
+                "secret": hex::encode(&button.secret),
+                "last_counter": button.last_counter,
+            });
+
+            if let Some(existing) = arr
+                .iter_mut()
+                .find(|b| b.get("id").and_then(Value::as_str) == Some(&button.id))
+            {
+                *existing = button_val;
+            } else {
+                arr.push(button_val);
+            }
+        }
+
+        save(&self.path, &raw)?;
+        inner.raw = raw;
+        Ok(())
+    }
+
+    pub fn get_smartphone_dismiss_enabled(&self) -> bool {
+        self.lock()
+            .raw
+            .get("settings")
+            .and_then(|s| s.get("smartphone_dismiss_enabled"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    }
+
+    pub fn set_smartphone_dismiss_enabled(&self, enabled: bool) -> Result<(), StoreError> {
+        let mut inner = self.lock();
+        let mut raw = inner.raw.clone();
+        let settings = raw.entry("settings").or_insert_with(|| json!({}));
+
+        if let Value::Object(map) = settings {
+            map.insert("smartphone_dismiss_enabled".into(), json!(enabled));
+        }
+
+        save(&self.path, &raw)?;
+        inner.raw = raw;
+        Ok(())
+    }
+
     fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
         self.inner
             .lock()
@@ -211,7 +426,11 @@ fn empty() -> Map<String, Value> {
     map.insert("schema_version".into(), json!(SCHEMA_VERSION));
     map.insert("alarms".into(), json!([]));
     map.insert("sessions".into(), json!([]));
-    map.insert("settings".into(), json!({}));
+    map.insert("remote_buttons".into(), json!([]));
+    map.insert(
+        "settings".into(),
+        json!({ "smartphone_dismiss_enabled": false }),
+    );
     map
 }
 
@@ -345,5 +564,59 @@ mod tests {
         let store = open(&path);
         assert!(store.degraded().is_some());
         assert!(store.list().is_empty());
+    }
+
+    #[test]
+    fn handles_nap_creation_replacement_and_cancellation() {
+        let path = scratch_path();
+        let store = open(&path);
+        let now = Utc::now();
+
+        // 1. Start a nap of 20 min
+        let nap1 = store.start_nap(20, now).unwrap();
+        assert_eq!(nap1.id, "nap");
+        assert_eq!(nap1.label, "Sieste");
+        assert_eq!(nap1.prewake_seconds, 120);
+        assert_eq!(store.list().len(), 1);
+
+        // 2. Starting another nap replaces the existing one (ALM-003.3)
+        let nap2 = store.start_nap(1, now).unwrap();
+        assert_eq!(nap2.id, "nap");
+        assert_eq!(nap2.prewake_seconds, 60);
+        assert_eq!(nap2.revision, 2);
+        assert_eq!(store.list().len(), 1);
+
+        // 3. Cancel nap removes it (idempotent)
+        store.cancel_nap().unwrap();
+        assert_eq!(store.list().len(), 0);
+        store.cancel_nap().unwrap(); // second cancel succeeds
+    }
+
+    #[test]
+    fn factory_reset_wipes_alarms_history_buttons_and_resets_settings() {
+        let path = scratch_path();
+        let store = open(&path);
+        let now = Utc::now();
+
+        // 1. Create alarm, record session, pair button, enable smartphone dismiss
+        store.create(&json!({ "label": "Morning" }), now).unwrap();
+        store
+            .record_session(json!({ "id": "s1", "status": "dismissed" }))
+            .unwrap();
+        let btn = robine_core::remote_button::PairedButton::new("b1", vec![1; 32], 0);
+        store.save_button(&btn).unwrap();
+        store.set_smartphone_dismiss_enabled(true).unwrap();
+
+        assert_eq!(store.list().len(), 1);
+        assert!(store.get_smartphone_dismiss_enabled());
+        assert!(store.get_button("b1").is_some());
+
+        // 2. Perform factory reset
+        store.factory_reset().unwrap();
+
+        assert_eq!(store.list().len(), 0);
+        assert!(!store.get_smartphone_dismiss_enabled());
+        assert!(store.get_button("b1").is_none());
+        assert_eq!(store.raw("sessions"), json!([]));
     }
 }

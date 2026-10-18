@@ -1,63 +1,57 @@
-# robine-wake-rs — prototype EXPÉRIMENTAL
+# Robine Wake (Rust + Buildroot)
 
-> ⚠️ **Ceci n'est pas le produit.** Robine Wake est l'application Elixir/Nerves
-> à la racine du dépôt. Ce crate est un prototype d'évaluation, hors de tout
-> pipeline, sans engagement de maintenance. Il peut être supprimé à tout moment.
+Implémentation en Rust de Robine Wake sur un système Buildroot minimal (sans Nerves ni BEAM), intégrée dans `experimental/robine-wake-rs/`. L'application Elixir à la racine du dépôt reste la référence de production pour le moment.
 
-## Pourquoi
+Cibles Buildroot : QEMU (`qemu`), Raspberry Pi 3 (`rpi3`) et Raspberry Pi Zero / Zero 2W (`rpi0`).
 
-Évaluer concrètement ce que coûterait un port de l'API locale en Rust, dans
-l'optique d'un futur système Buildroot sur une carte Linux exotique ou un
-design custom que Nerves ne couvre pas, et à terme un seul langage du réveil
-jusqu'aux MCU (télécommande ESP32, driver de vibration).
+Les spécifications v2 sont dans [`doc/specs`](doc/specs/README.md).
 
-Conclusion de l'évaluation (octobre 2026) : la BEAM n'est pas ce qui impose un
-Raspberry Pi. AirPlay 2 (shairport-sync, nqptp), BlueZ et ffmpeg imposent un
-Linux avec Wi-Fi/BT et ~128 Mo de RAM quel que soit le langage. Le port Rust
-se justifie par la liberté de design hardware, pas par le prix du compute.
+## Prérequis
 
-## Périmètre du prototype
+- Les dépendances hôtes de Buildroot (`gcc`, `g++`, `make`, `patch`, `perl`,
+  `python3`, `rsync`, `bc`, `cpio`, `unzip`, `file`, `wget`).
+- `rustup` : la toolchain Rust est figée par `rust-toolchain.toml` et
+  s'installe seule au premier `cargo`.
+- QEMU n'est pas requis : Buildroot construit le sien (`output/<carte>/host`).
 
-Porté fidèlement depuis Elixir, avec le même contrat JSON :
-
-- `RobineWake.Alarm` → `alarm.rs` : validation permissive, bornes de sécurité,
-  profils volume/lumière/snooze, occurrences avec fuseaux IANA et gestion DST
-  (heure inexistante → premier instant valide, heure ambiguë → première).
-- `RobineWake.Settings` (partie alarmes) + `Persistence` → `store.rs` :
-  fichier JSON `schema_version: 1`, écriture atomique (tmp + fsync + rename,
-  mode 0600), révisions optimistes, clés inconnues du fichier préservées.
-- `RobineWake.EventStream` → `events.rs` : flux rejouable de 64 événements,
-  `Last-Event-ID`.
-- Routeur → `http.rs` (axum) : `/health`, `/api/state`, `/api/alarms` CRUD,
-  `/api/alarms/preview`, `/api/sounds`, `/api/v1/events` (SSE) et le bundle
-  web Expo de `priv/web` servi en statique.
-
-Volontairement absent : sessions de réveil, scheduler, audio, Hue, AirPlay,
-Bluetooth, LoRa, MCP, auth, télécommande, firmware. `/health` le dit
-explicitement dans son JSON.
-
-## Lancer
+## Construire et lancer
 
 ```sh
-cd experimental/robine-wake-rs
-cargo test
-cargo run
-open http://localhost:4120
+make image                 # image QEMU virt (BOARD=qemu par défaut)
+make qemu                  # démarre ; Ctrl-A X pour quitter
+
+make image BOARD=rpi3      # image carte SD Raspberry Pi 3
+make qemu BOARD=rpi3       # la même image dans QEMU raspi3b
 ```
 
-Variables : `ROBINE_RS_PORT` (4120), `ROBINE_RS_DATA` (`./data/robine_wake_rs.json`,
-jamais le fichier de l'app Elixir par défaut), `ROBINE_RS_WEB` (`../../priv/web`,
-lancer `make expo-web` à la racine si absent), `ROBINE_RS_SOUNDS` (`../../priv/sounds`).
+Le premier build télécharge Buildroot 2026.02.3 (vérifié par SHA-256) dans
+`.cache/`, la toolchain Bootlin et le noyau.
 
-Le fichier de données est au même format que celui de l'app Elixir : on peut
-pointer `ROBINE_RS_DATA` sur une copie de `data/robine_wake_dev.json` pour
-vérifier l'interopérabilité.
+Sous QEMU, le réveil est joignable sur l'hôte :
 
-## Ce que le proto mesure
+- interface web : <http://localhost:4000>
+- SSH : `ssh -p 2222 root@localhost` (clés `~/.ssh/id_*.pub` copiées au build)
 
-| Question | Réponse donnée par ce crate |
-|---|---|
-| Coût de port d'un agrégat Elixir validé | `alarm.rs` ≈ 1,2× les lignes Elixir, tests inclus |
-| Perte d'OTP | un `Mutex` + `broadcast` suffisent ici ; la supervision des processus externes (aplay, shairport) n'est pas couverte |
-| Empreinte | binaire release statique, RSS à mesurer sur cible avec `ROBINE_RS_WEB` |
-| Compat API | le front Expo existant doit fonctionner sans modification sur les écrans alarmes |
+## Développer le démon
+
+```sh
+make test                                   # tests du workspace sur l'hôte
+cargo run -p robine-daemon                  # lance le démon sur l'hôte (:4000)
+make deploy HOST=localhost SSH_PORT=2222    # remplace le démon sans reconstruire l'image
+```
+
+`make deploy` ne fonctionne qu'avec une image en mode développement
+(`BR2_PACKAGE_ROBINE_WAKE_DEV_MODE`, actif dans les defconfigs actuels).
+
+## Organisation
+
+```text
+crates/robine-core/     domaine pur sans I/O (`no_std + alloc`)
+crates/robine-ports/    traits d'interface matérielle / système
+crates/robine-daemon/   démon Rust complet (HTTP, SSE, MCP, mDNS, audio, LoRa, CLI)
+br-external/            arbre BR2_EXTERNAL : defconfigs, cartes, paquets
+doc/specs/              spécifications et comparatif v1/v2
+../../priv/web/         bundle web partagé avec l'application Elixir
+../../priv/sounds/      sons intégrés partagés avec l'application Elixir
+Makefile                point d'entrée unique (Buildroot, QEMU, tests, déploiement)
+```

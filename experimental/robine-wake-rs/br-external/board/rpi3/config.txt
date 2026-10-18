@@ -1,0 +1,25 @@
+# Robine Wake 2 — Raspberry Pi 3 B/B+ and Zero 2 W, 64-bit (PLT-002)
+start_file=start.elf
+fixup_file=fixup.dat
+arm_64bit=1
+kernel=Image
+disable_splash=1
+boot_delay=0
+gpu_mem=16
+
+# Audio HAT/pHAT; the onboard analog output is unused (PLT-002, PLT-005).
+# Note: merus-amp (InnoMaker MA12070P Mini HAT) uses GPIO 14 (enable) and GPIO 15 (mute),
+# so UART must remain disabled on [pi02] to avoid a pinmux conflict.
+[pi3]
+dtoverlay=hifiberry-dacplus
+enable_uart=1
+[pi02]
+dtoverlay=merus-amp
+enable_uart=0
+[all]
+dtparam=audio=off
+dtoverlay=disable-bt
+
+# LoRa radio (ACC-003) and RTC: enable only with the hardware fitted.
+#dtparam=spi=on
+#dtparam=i2c_arm=on

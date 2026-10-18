@@ -1,0 +1,81 @@
+#!/bin/sh
+#
+# Mount the persistent /data partition (label robine-data), formatting it when
+# it is missing a valid filesystem (PLT-001.4), then prepare the directories
+# and state the services expect.
+
+LABEL=robine-data
+MNT=/data
+
+prepare() {
+	mkdir -p "$MNT/robine-wake" "$MNT/sounds" "$MNT/ssh/root" "$MNT/dev"
+	chmod 700 "$MNT/ssh" "$MNT/ssh/root"
+	if [ ! -s "$MNT/ssh/root/authorized_keys" ] &&
+	   [ -f /etc/robine-wake/authorized_keys.default ]; then
+		cp /etc/robine-wake/authorized_keys.default "$MNT/ssh/root/authorized_keys"
+		chmod 600 "$MNT/ssh/root/authorized_keys"
+	fi
+
+	# runsv needs writable supervise directories; the rootfs is read-only.
+	for service in /etc/service/*; do
+		name=${service##*/}
+		mkdir -p "/run/runit/supervise.$name" "/run/runit/supervise.$name.log"
+	done
+	mkdir -p /run/log
+}
+
+start() {
+	device=$(findfs "LABEL=$LABEL" 2>/dev/null)
+	if [ -z "$device" ]; then
+		# Try to locate the data partition on the boot drive if not yet formatted (PLT-001.4)
+		dev=
+		if command -v fw_printenv >/dev/null 2>&1; then
+			dev=$(fw_printenv -n robine_fw_devpath 2>/dev/null || true)
+		fi
+		if [ -z "$dev" ]; then
+			case " $(cat /proc/cmdline) " in
+				*" root=/dev/mmcblk"*)
+					dev=/dev/mmcblk0
+					;;
+				*" root=/dev/vd"*)
+					dev=/dev/vda
+					;;
+			esac
+		fi
+
+		if [ -n "$dev" ]; then
+			# Check partition candidates: p7 (fwup A/B layout), p3 (single slot), or p2 (virt)
+			for part in "${dev}p7" "${dev}7" "${dev}p3" "${dev}3" "${dev}2"; do
+				if [ -b "$part" ]; then
+					device=$part
+					break
+				fi
+			done
+		fi
+	fi
+
+	if [ -z "$device" ]; then
+		echo "data: no partition labelled $LABEL and no candidate device found, running without persistence"
+		mount -t tmpfs -o mode=0755 tmpfs "$MNT"
+		prepare
+		return
+	fi
+
+	e2fsck -p "$device" >/dev/null 2>&1
+	if ! mount -t ext4 -o noatime "$device" "$MNT"; then
+		echo "data: $device unreadable, formatting"
+		mkfs.ext4 -q -F -L "$LABEL" "$device" &&
+			mount -t ext4 -o noatime "$device" "$MNT"
+	fi
+	if ! mountpoint -q "$MNT"; then
+		echo "data: cannot mount $device, running without persistence"
+		mount -t tmpfs -o mode=0755 tmpfs "$MNT"
+	fi
+	prepare
+}
+
+case "$1" in
+	start) start ;;
+	stop) ;;
+	*) echo "Usage: $0 {start|stop}"; exit 1 ;;
+esac

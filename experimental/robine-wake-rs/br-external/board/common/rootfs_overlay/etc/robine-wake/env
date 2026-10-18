@@ -1,0 +1,5 @@
+export ROBINE_RS_PORT=4000
+export ROBINE_RS_DATA=/data/robine-wake/robine_wake.json
+export ROBINE_RS_WEB=/usr/share/robine-wake/web
+export ROBINE_RS_SOUNDS=/usr/share/robine-wake/sounds
+export ROBINE_RS_CUSTOM_SOUNDS=/data/sounds

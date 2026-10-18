@@ -1,0 +1,6 @@
+#!/bin/sh
+# Shairport-sync run script (AUD-002, PLT-004)
+exec 2>&1
+CONF=/run/shairport-sync.conf
+[ -f "$CONF" ] || CONF=/etc/shairport-sync.conf
+exec shairport-sync -c "$CONF"

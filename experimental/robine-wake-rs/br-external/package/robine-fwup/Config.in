@@ -1,0 +1,20 @@
+config BR2_PACKAGE_ROBINE_FWUP
+	bool "robine-fwup"
+	depends on BR2_USE_MMU
+	depends on BR2_USE_WCHAR
+	depends on !BR2_PACKAGE_FWUP
+	select BR2_PACKAGE_LIBARCHIVE
+	select BR2_PACKAGE_ZLIB
+	select BR2_PACKAGE_LIBCONFUSE
+	help
+	  fwup on the device, newer than Buildroot's (1.9.1), which
+	  lacks MBR logical partitions needed by the A/B layout
+	  (OPS-001). Installs /usr/bin/fwup.
+
+	  https://github.com/fwup-home/fwup
+
+config BR2_PACKAGE_HOST_ROBINE_FWUP
+	bool "host robine-fwup"
+	depends on !BR2_PACKAGE_HOST_FWUP
+	help
+	  fwup on the build host, to create and sign robine-wake.fw.

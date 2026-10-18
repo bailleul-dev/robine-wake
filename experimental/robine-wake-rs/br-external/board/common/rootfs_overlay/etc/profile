@@ -1,0 +1,3 @@
+# System-wide .profile for sh
+export PATH="/data/dev:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PAGER=cat

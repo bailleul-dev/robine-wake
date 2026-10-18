@@ -1,0 +1,12 @@
+#!/bin/sh
+exec 2>&1
+. /etc/robine-wake/env
+
+bin=/usr/bin/robine-wake
+# Development images only: `make deploy` drops a binary in /data/dev (OPS-002).
+if [ -f /etc/robine-wake/dev-mode ] && [ -f /data/dev/enabled ] &&
+   [ -x /data/dev/robine-wake ]; then
+	bin=/data/dev/robine-wake
+fi
+
+exec "$bin"

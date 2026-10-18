@@ -1,0 +1,48 @@
+#!/bin/sh
+# Install a signed firmware read from stdin into the inactive slot, then
+# reboot to try it once (OPS-001). The new slot becomes the default only after
+# fw-validate sees it healthy; any failure boots the previous slot again.
+#
+#   ssh root@robine-wake.local robine-update [--force] [--no-reboot] < robine-wake.fw
+set -e
+
+force=
+reboot=1
+for arg in "$@"; do
+	case "$arg" in
+		--force) force=1 ;;
+		--no-reboot) reboot= ;;
+		*) sed -n '6s/^# //p' "$0" >&2; exit 2 ;;
+	esac
+done
+
+# Update policy (OPS-001.2).
+if [ -z "$force" ]; then
+	if command -v robine-wake >/dev/null 2>&1; then
+		robine-wake can-update || exit 1
+	else
+		health=$(wget -q -T 5 -O - http://127.0.0.1:4000/health 2>/dev/null) || {
+			echo "robine-update: refused, the daemon does not answer (use --force)" >&2
+			exit 1
+		}
+		case "$health" in
+			*'"active_session":null'*) ;;
+			*)
+				echo "robine-update: refused, a wake session is active (use --force)" >&2
+				exit 1
+				;;
+		esac
+	fi
+fi
+
+DEV=$(fw_printenv -n robine_fw_devpath 2>/dev/null || echo /dev/mmcblk0)
+fwup -a -U --enable-trim -i - -d "$DEV" -t upgrade \
+	--public-key-file /etc/robine-wake/fwup-key.pub
+
+if [ -n "$reboot" ]; then
+	echo "robine-update: rebooting to try the new firmware"
+	printf '0 tryboot' > /run/reboot-param
+	reboot
+else
+	echo "robine-update: installed; run: printf '0 tryboot' > /run/reboot-param; reboot"
+fi

@@ -1,0 +1,19 @@
+# Robine Wake 2 — Raspberry Pi Zero 1 W, 32-bit ARMv6 (PLT-002, PLT-005)
+start_file=start.elf
+fixup_file=fixup.dat
+arm_64bit=0
+kernel=zImage
+disable_splash=1
+boot_delay=0
+gpu_mem=16
+
+# InnoMaker HiFi AMP Pro Mini HAT (Infineon Merus MA12070P, merus-amp).
+# Note: merus-amp uses GPIO 14 (enable) and GPIO 15 (mute), so UART is disabled.
+dtoverlay=merus-amp
+enable_uart=0
+dtparam=audio=off
+dtoverlay=disable-bt
+
+# LoRa radio (ACC-003) and RTC: enable only with the hardware fitted.
+#dtparam=spi=on
+#dtparam=i2c_arm=on

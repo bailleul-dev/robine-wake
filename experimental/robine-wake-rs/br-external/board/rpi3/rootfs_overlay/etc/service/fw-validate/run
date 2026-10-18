@@ -1,0 +1,31 @@
+#!/bin/sh
+# Validate a slot booted on trial (OPS-001.3): once the daemon answers on
+# /health, make this slot the default. Without an answer within the deadline,
+# reboot: the firmware then boots the previous, validated slot.
+exec 2>&1
+
+DEADLINE=120
+idle() { exec sleep 2147483647; }
+
+slot=$(robine-fw slot)
+if [ "$slot" = unknown ]; then
+	echo "fw-validate: running slot unknown, nothing to validate"
+	idle
+fi
+if [ "$(fw_printenv -n "$slot.robine_fw_validated" 2>/dev/null)" = 1 ]; then
+	idle
+fi
+
+echo "fw-validate: slot $slot on trial, waiting for the daemon"
+elapsed=0
+while [ "$elapsed" -lt "$DEADLINE" ]; do
+	if wget -q -T 2 -O /dev/null http://127.0.0.1:4000/health; then
+		robine-fw validate && echo "fw-validate: slot $slot validated"
+		idle
+	fi
+	sleep 1
+	elapsed=$((elapsed + 1))
+done
+
+echo "fw-validate: slot $slot unhealthy after ${DEADLINE}s, back to the previous slot"
+exec reboot

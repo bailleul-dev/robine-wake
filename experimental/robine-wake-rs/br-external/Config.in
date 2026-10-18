@@ -1,0 +1,2 @@
+source "$BR2_EXTERNAL_ROBINE_PATH/package/robine-fwup/Config.in"
+source "$BR2_EXTERNAL_ROBINE_PATH/package/robine-wake/Config.in"

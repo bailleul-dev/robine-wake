@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# Without an RTC the board boots in 1970. Restore the last known time from
+# /data as a floor; it stays "untrusted" for the daemon until NTP (PLT-003).
+
+FILE=/data/clock
+
+case "$1" in
+	start)
+		if [ -f "$FILE" ]; then
+			saved=$(cat "$FILE")
+			now=$(date +%s)
+			[ "$saved" -gt "$now" ] 2>/dev/null && date -s "@$saved" >/dev/null
+		fi
+		;;
+	stop)
+		date +%s > "$FILE.tmp" && mv "$FILE.tmp" "$FILE" && sync
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+		;;
+esac

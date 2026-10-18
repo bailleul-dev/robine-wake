@@ -1,0 +1,11 @@
+#!/bin/sh
+# Key-only SSH (OPS-002.1). Host keys live on /data to survive updates.
+exec 2>&1
+keys=/data/ssh
+for type in ed25519 ecdsa; do
+	key="$keys/dropbear_${type}_host_key"
+	[ -f "$key" ] || dropbearkey -t "$type" -f "$key" >/dev/null
+done
+exec dropbear -F -E -s -g \
+	-r "$keys/dropbear_ed25519_host_key" \
+	-r "$keys/dropbear_ecdsa_host_key"
