@@ -32,12 +32,13 @@ pub enum Event {
     Stream(Stream),
     /// Volume in dB (0 = maximum, -144 = muted).
     Volume { db: f32 },
-    /// Play (`rate` 1) or pause (0); `rtp_time` plays at the network time.
+    /// Play (`rate` 1) or pause (0). With an anchor, RTP sample
+    /// `anchor.rtp_time` plays at `anchor.network_ns` on the PTP clock
+    /// `timeline`.
     RateAnchor {
         rate: i64,
-        rtp_time: Option<i64>,
-        network_time_secs: Option<i64>,
-        network_time_frac: Option<i64>,
+        anchor: Option<crate::ptp::Anchor>,
+        timeline: Option<u64>,
     },
     /// Drop buffered audio up to this sequence number (seek, skip).
     Flush { until_seq: Option<i64> },

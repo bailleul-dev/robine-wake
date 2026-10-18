@@ -7,6 +7,8 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use crate::bits::{BitReader, Truncated};
+
 /// `ALACSpecificConfig` (the codec "magic cookie").
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AlacConfig {
@@ -63,6 +65,12 @@ pub enum AlacError {
     Unsupported,
 }
 
+impl From<Truncated> for AlacError {
+    fn from(_: Truncated) -> Self {
+        AlacError::Corrupt
+    }
+}
+
 pub struct AlacDecoder {
     config: AlacConfig,
     residuals: Vec<i32>,
@@ -112,7 +120,8 @@ impl AlacDecoder {
                 ID_FIL => {
                     let mut count = bits.read(4)? as usize;
                     if count == 15 {
-                        count += bits.read(8)? as usize - 1;
+                        // 15 means 14 plus an escape count.
+                        count = 14 + bits.read(8)? as usize;
                     }
                     bits.skip(count * 8)?;
                 }
@@ -225,7 +234,7 @@ fn skip_data_element(bits: &mut BitReader) -> Result<(), AlacError> {
     if aligned {
         bits.align();
     }
-    bits.skip(count * 8)
+    Ok(bits.skip(count * 8)?)
 }
 
 // ----- Adaptive Golomb-Rice residuals (Apple `ag_dec.c`) ---------------------
@@ -295,7 +304,7 @@ fn read_value(bits: &mut BitReader, m: u32, k: u32, escape_bits: u32, sample: bo
         prefix += 1;
     }
     if prefix >= MAX_PREFIX {
-        return bits.read(escape_bits);
+        return Ok(bits.read(escape_bits)?);
     }
     // `sample` with k == 1: the value is the prefix alone.
     if sample && k == 1 {
@@ -369,56 +378,4 @@ fn predict(residuals: &[i32], out: &mut [i32], coefs: &mut [i16], order: usize, 
 fn sign_extend(value: u32, bits: u32) -> i32 {
     let shift = 32 - bits;
     ((value << shift) as i32) >> shift
-}
-
-// ----- Bit reader -------------------------------------------------------------
-
-struct BitReader<'a> {
-    bytes: &'a [u8],
-    position: usize,
-}
-
-impl<'a> BitReader<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, position: 0 }
-    }
-
-    fn remaining(&self) -> usize {
-        (self.bytes.len() * 8).saturating_sub(self.position)
-    }
-
-    /// Up to 32 bits, most significant first.
-    fn peek(&self, count: u32) -> Result<u32, AlacError> {
-        if count == 0 {
-            return Ok(0);
-        }
-        if self.remaining() < count as usize {
-            return Err(AlacError::Corrupt);
-        }
-        let mut value: u64 = 0;
-        let first = self.position / 8;
-        for offset in 0..5 {
-            value = (value << 8) | u64::from(*self.bytes.get(first + offset).unwrap_or(&0));
-        }
-        let skip = (self.position % 8) as u32;
-        Ok(((value << (24 + skip)) >> (64 - count)) as u32)
-    }
-
-    fn read(&mut self, count: u32) -> Result<u32, AlacError> {
-        let value = self.peek(count)?;
-        self.position += count as usize;
-        Ok(value)
-    }
-
-    fn skip(&mut self, count: usize) -> Result<(), AlacError> {
-        if self.remaining() < count {
-            return Err(AlacError::Corrupt);
-        }
-        self.position += count;
-        Ok(())
-    }
-
-    fn align(&mut self) {
-        self.position = self.position.div_ceil(8) * 8;
-    }
 }

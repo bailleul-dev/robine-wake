@@ -7,16 +7,19 @@
 //!
 //! Development tool only: the product runs the same core on the ESP32.
 
+use std::collections::VecDeque;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
+use robine_airplay::aac::AacDecoder;
 use robine_airplay::alac::{AlacConfig, AlacDecoder};
 use robine_airplay::audio::{split_buffered, StreamCipher};
+use robine_airplay::ptp::{Anchor, PtpFollower};
 use robine_airplay::{Config, Connection, Event, Identity, Ports, Receiver, DEFAULT_PORT, STREAM_BUFFERED, STREAM_REALTIME};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
@@ -36,6 +39,16 @@ fn data_dir() -> PathBuf {
 /// AirPlay volume in dB (f32 bits), applied to the PCM before playback.
 static VOLUME_DB: AtomicU32 = AtomicU32::new(0xC1A0_0000); // -20.0
 
+/// Latency asked from PipeWire: buffered frames are written this long
+/// before their play time.
+const OUTPUT_LATENCY: Duration = Duration::from_millis(40);
+
+/// Local monotonic clock, in nanoseconds, shared by PTP and playback.
+fn local_ns() -> i64 {
+    static EPOCH: OnceLock<Instant> = OnceLock::new();
+    EPOCH.get_or_init(Instant::now).elapsed().as_nanos() as i64
+}
+
 /// Plays 44.1 kHz stereo PCM on the default output through PipeWire.
 struct Speaker {
     child: Option<Child>,
@@ -43,8 +56,9 @@ struct Speaker {
 
 impl Speaker {
     fn new() -> Self {
+        let latency = format!("--latency={}ms", OUTPUT_LATENCY.as_millis());
         let child = Command::new("pw-cat")
-            .args(["--playback", "--raw", "--format", "s16", "--rate", "44100", "--channels", "2", "-"])
+            .args(["--playback", "--raw", "--format", "s16", "--rate", "44100", "--channels", "2", &latency, "-"])
             .stdin(Stdio::piped())
             .spawn()
             .map_err(|error| eprintln!("no PipeWire playback (pw-cat): {error}"))
@@ -67,6 +81,27 @@ impl Speaker {
 
 /// Stream type and cipher of the current stream, set by `SETUP`.
 type CurrentStream = Arc<Mutex<Option<(i64, StreamCipher)>>>;
+
+/// An AAC frame waiting for its play time.
+struct QueuedFrame {
+    sequence: u32,
+    timestamp: u32,
+    data: Vec<u8>,
+}
+
+/// Buffered playback: the sender's clock, its anchor and play state, and
+/// the frames received ahead of time.
+#[derive(Default)]
+struct Playback {
+    ptp: PtpFollower,
+    anchor: Option<Anchor>,
+    playing: bool,
+    queue: VecDeque<QueuedFrame>,
+    /// Frames below this sequence were flushed (seek) and are dropped.
+    flush_until: Option<u32>,
+}
+
+type SharedPlayback = Arc<Mutex<Playback>>;
 
 /// The identity must survive restarts, or the iPhone sees a new speaker.
 fn load_identity() -> Identity {
@@ -124,16 +159,21 @@ async fn main() {
         .expect("port 7000 is busy");
     let receiver = Arc::new(receiver);
     let current_stream: CurrentStream = Arc::default();
-    spawn_session_listeners(receiver.ports, current_stream.clone());
+    let playback: SharedPlayback = Arc::default();
+    spawn_session_listeners(receiver.ports, current_stream.clone(), playback.clone());
+    spawn_ptp_listeners(playback.clone());
+    let player = playback.clone();
+    std::thread::spawn(move || play_buffered(player));
     loop {
         tokio::select! {
             accepted = listener.accept() => {
                 let Ok((stream, peer)) = accepted else { continue };
                 let receiver = receiver.clone();
                 let current = current_stream.clone();
+                let playback = playback.clone();
                 tokio::spawn(async move {
                     eprintln!("[{peer}] connected");
-                    if let Err(error) = serve(stream, &receiver, &current).await {
+                    if let Err(error) = serve(stream, &receiver, &current, &playback).await {
                         eprintln!("[{peer}] closed: {error}");
                     } else {
                         eprintln!("[{peer}] closed");
@@ -146,7 +186,12 @@ async fn main() {
     let _ = mdns.shutdown();
 }
 
-async fn serve(mut stream: TcpStream, receiver: &Receiver, current: &CurrentStream) -> std::io::Result<()> {
+async fn serve(
+    mut stream: TcpStream,
+    receiver: &Receiver,
+    current: &CurrentStream,
+    playback: &SharedPlayback,
+) -> std::io::Result<()> {
     let peer = stream.peer_addr()?;
     let local_ip = match stream.local_addr()?.ip() {
         std::net::IpAddr::V4(ip) => ip.octets(),
@@ -183,11 +228,35 @@ async fn serve(mut stream: TcpStream, receiver: &Receiver, current: &CurrentStre
                     VOLUME_DB.store(db.to_bits(), Ordering::Relaxed);
                     eprintln!("[{peer}] 🔊 volume {db} dB");
                 }
-                Event::RateAnchor { rate, rtp_time, .. } => {
-                    eprintln!("[{peer}] {} rtpTime {rtp_time:?}", if *rate == 0 { "⏸ pause" } else { "▶ play" })
+                Event::RateAnchor { rate, anchor, timeline } => {
+                    let mut state = playback.lock().unwrap();
+                    if let Some(timeline) = timeline {
+                        state.ptp.set_timeline(*timeline);
+                    }
+                    if anchor.is_some() {
+                        state.anchor = *anchor;
+                    }
+                    state.playing = *rate != 0;
+                    eprintln!(
+                        "[{peer}] {} anchor {anchor:?}, PTP offset {:?}",
+                        if *rate == 0 { "⏸ pause" } else { "▶ play" },
+                        state.ptp.offset()
+                    );
                 }
-                Event::Flush { until_seq } => eprintln!("[{peer}] ⏭ flush until {until_seq:?}"),
-                Event::Teardown => eprintln!("[{peer}] ⏹ teardown"),
+                Event::Flush { until_seq } => {
+                    let mut state = playback.lock().unwrap();
+                    if let Some(until) = until_seq.map(|until| until as u32) {
+                        state.queue.retain(|frame| frame.sequence >= until);
+                        state.flush_until = Some(until);
+                    }
+                    eprintln!("[{peer}] ⏭ flush until {until_seq:?} ({} frames left)", state.queue.len());
+                }
+                Event::Teardown => {
+                    let mut state = playback.lock().unwrap();
+                    state.queue.clear();
+                    (state.anchor, state.playing, state.flush_until) = (None, false, None);
+                    eprintln!("[{peer}] ⏹ teardown");
+                }
             }
         }
         stream.write_all(&output.reply).await?;
@@ -196,7 +265,7 @@ async fn serve(mut stream: TcpStream, receiver: &Receiver, current: &CurrentStre
 
 /// Session channels: for now they only report what arrives, to watch the
 /// audio flow before it is decrypted and decoded.
-fn spawn_session_listeners(ports: Ports, current: CurrentStream) {
+fn spawn_session_listeners(ports: Ports, current: CurrentStream, playback: SharedPlayback) {
     tokio::spawn(async move {
         let listener = TcpListener::bind(("0.0.0.0", ports.event)).await.expect("event port busy");
         loop {
@@ -215,7 +284,7 @@ fn spawn_session_listeners(ports: Ports, current: CurrentStream) {
         loop {
             if let Ok((stream, peer)) = listener.accept().await {
                 eprintln!("[{peer}] buffered audio channel open");
-                tokio::spawn(buffered_audio(stream, buffered.clone()));
+                tokio::spawn(buffered_audio(stream, buffered.clone(), playback.clone()));
             }
         }
     });
@@ -325,17 +394,15 @@ fn save_capture(frames: &[Vec<u8>], pcm: &[i16]) {
     }
 }
 
-/// AAC frames kept in the buffered capture (about 23 s).
-const CAPTURE_AAC_FRAMES: usize = 1000;
+/// Frames this late are dropped instead of played.
+const LATE: Duration = Duration::from_millis(30);
 
-/// Buffered audio: split the TCP blocks, decrypt, and keep the first AAC
-/// frames as an ADTS file (playable, and decodable by ffmpeg for tests).
-async fn buffered_audio(mut stream: TcpStream, current: CurrentStream) {
+/// Buffered audio: split the TCP blocks, decrypt, and queue the AAC frames
+/// with their RTP timestamp; `play_buffered` plays them on time.
+async fn buffered_audio(mut stream: TcpStream, current: CurrentStream, playback: SharedPlayback) {
     let peer = stream.peer_addr().map(|peer| peer.to_string()).unwrap_or_default();
     let (mut pending, mut chunk) = (Vec::new(), vec![0u8; 64 * 1024]);
     let (mut opened, mut failed) = (0usize, 0usize);
-    let mut sizes = (usize::MAX, 0usize);
-    let mut adts = Vec::new();
     let mut reported = Instant::now();
     while let Ok(read) = stream.read(&mut chunk).await {
         if read == 0 {
@@ -344,52 +411,115 @@ async fn buffered_audio(mut stream: TcpStream, current: CurrentStream) {
         pending.extend_from_slice(&chunk[..read]);
         let (packets, used) = split_buffered(&pending);
         for packet in packets {
-            let guard = current.lock().unwrap();
-            let Some((_, cipher)) = guard.as_ref().filter(|(kind, _)| *kind == STREAM_BUFFERED) else {
-                continue;
+            let opened_packet = {
+                let guard = current.lock().unwrap();
+                guard
+                    .as_ref()
+                    .filter(|(kind, _)| *kind == STREAM_BUFFERED)
+                    .map(|(_, cipher)| cipher.open_buffered(packet))
             };
-            match cipher.open_buffered(packet) {
-                Some((_, frame)) => {
+            match opened_packet {
+                Some(Some((header, data))) => {
                     opened += 1;
-                    sizes = (sizes.0.min(frame.len()), sizes.1.max(frame.len()));
-                    if opened <= CAPTURE_AAC_FRAMES {
-                        adts.extend_from_slice(&adts_header(frame.len()));
-                        adts.extend_from_slice(&frame);
-                        if opened == CAPTURE_AAC_FRAMES {
-                            let path = data_dir().join("capture.aac");
-                            match std::fs::write(&path, &adts) {
-                                Ok(()) => eprintln!("💾 AAC capture saved in {} ({CAPTURE_AAC_FRAMES} frames)", path.display()),
-                                Err(error) => eprintln!("AAC capture not saved: {error}"),
-                            }
-                        }
+                    let mut state = playback.lock().unwrap();
+                    if state.flush_until.is_none_or(|until| header.sequence >= until) {
+                        state.queue.push_back(QueuedFrame { sequence: header.sequence, timestamp: header.timestamp, data });
                     }
                 }
-                None => failed += 1,
+                Some(None) => failed += 1,
+                None => {}
             }
         }
         pending.drain(..used);
         if reported.elapsed().as_secs() >= 2 {
-            eprintln!(
-                "[{peer}] 🎧 buffered: {opened} AAC frames decrypted ({}-{} bytes), {failed} rejected",
-                sizes.0.min(sizes.1),
-                sizes.1
-            );
+            let queued = playback.lock().unwrap().queue.len();
+            eprintln!("[{peer}] 🎧 buffered: {opened} AAC frames received, {failed} rejected, {queued} queued");
             reported = Instant::now();
         }
     }
     eprintln!("[{peer}] buffered audio closed: {opened} frames, {failed} rejected");
 }
 
-/// ADTS header of an AAC-LC frame, 44.1 kHz stereo.
-fn adts_header(payload: usize) -> [u8; 7] {
-    let length = payload + 7;
-    [
-        0xFF,
-        0xF1, // MPEG-4, no CRC
-        0x50, // AAC LC, 44.1 kHz (index 4)
-        0x80 | (length >> 11) as u8, // 2 channels
-        (length >> 3) as u8,
-        ((length & 7) << 5) as u8 | 0x1F,
-        0xFC,
-    ]
+/// Plays each queued frame when the sender's clock reaches its anchored
+/// time, minus the output latency; holds while paused or without clock.
+fn play_buffered(playback: SharedPlayback) {
+    enum Step {
+        Wait(Duration),
+        Drop,
+        Play(QueuedFrame),
+    }
+    let mut decoder = AacDecoder::new(2).expect("stereo AAC decoder");
+    let mut speaker = Speaker::new();
+    let (mut pcm, mut late, mut corrupt, mut played) = (Vec::new(), 0usize, 0usize, 0usize);
+    let mut reported = Instant::now();
+    loop {
+        let step = {
+            let mut state = playback.lock().unwrap();
+            match (state.playing, state.anchor, state.ptp.offset()) {
+                (true, Some(anchor), Some(_)) => match state.queue.front() {
+                    None => Step::Wait(Duration::from_millis(5)),
+                    Some(frame) => {
+                        let target = state.ptp.to_local(anchor.master_time(frame.timestamp, 44_100)).unwrap_or(0);
+                        let lead = target - local_ns();
+                        if lead < -(LATE.as_nanos() as i64) {
+                            state.queue.pop_front();
+                            Step::Drop
+                        } else if lead > OUTPUT_LATENCY.as_nanos() as i64 {
+                            let wait = (lead - OUTPUT_LATENCY.as_nanos() as i64) as u64;
+                            Step::Wait(Duration::from_nanos(wait).min(Duration::from_millis(20)))
+                        } else {
+                            Step::Play(state.queue.pop_front().expect("front exists"))
+                        }
+                    }
+                },
+                _ => Step::Wait(Duration::from_millis(10)),
+            }
+        };
+        match step {
+            Step::Wait(duration) => std::thread::sleep(duration),
+            Step::Drop => late += 1,
+            Step::Play(frame) => {
+                pcm.clear();
+                match decoder.decode(&frame.data, &mut pcm) {
+                    Ok(_) => {
+                        speaker.play(&pcm);
+                        played += 1;
+                    }
+                    Err(_) => corrupt += 1,
+                }
+            }
+        }
+        if reported.elapsed().as_secs() >= 2 && played + late > 0 {
+            eprintln!("🔈 buffered playback: {played} frames played on time, {late} too late, {corrupt} corrupt");
+            reported = Instant::now();
+        }
+    }
+}
+
+/// PTP event (319) and general (320) ports: the sender's clock.
+fn spawn_ptp_listeners(playback: SharedPlayback) {
+    for port in [319u16, 320] {
+        let playback = playback.clone();
+        tokio::spawn(async move {
+            let socket = match UdpSocket::bind(("0.0.0.0", port)).await {
+                Ok(socket) => socket,
+                Err(error) => {
+                    eprintln!(
+                        "⚠️  PTP port {port} unavailable ({error}): run `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=319`"
+                    );
+                    return;
+                }
+            };
+            let mut buffer = [0u8; 512];
+            let mut announced = false;
+            while let Ok((read, peer)) = socket.recv_from(&mut buffer).await {
+                let arrival = local_ns();
+                let mut state = playback.lock().unwrap();
+                if state.ptp.receive(&buffer[..read], arrival) && !announced {
+                    announced = true;
+                    eprintln!("[{peer}] ⏱ PTP clock followed (offset {:?} ns)", state.ptp.offset());
+                }
+            }
+        });
+    }
 }

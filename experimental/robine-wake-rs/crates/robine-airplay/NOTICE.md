@@ -29,3 +29,10 @@ Le comportement du récepteur (enregistrements TXT, `/info`, SRP HomeKit,
 canal de contrôle) a été vérifié en lisant openairplay2 0.3.0 (MIT) et
 shairport-sync (MIT, © James Laird et Mike Brady). Le reste du code est
 original.
+
+## Tables de Huffman AAC (`src/aac/tables.rs`)
+
+Extraites de Symphonia (symphonia-codec-aac 0.6.1), sous licence
+**MPL-2.0** : ce fichier reste sous MPL-2.0 (copyleft au niveau du fichier,
+compatible avec un produit commercial tant que ses modifications éventuelles
+sont publiées). Le reste du décodeur AAC est original.

@@ -90,11 +90,19 @@ impl Session {
             }
             "SETRATEANCHORTIME" => {
                 if let Ok(body) = bplist::from_bytes(&request.body) {
+                    let integer = |key: &str| body.get(key).and_then(Value::as_integer);
+                    let anchor = match (integer("rtpTime"), integer("networkTimeSecs")) {
+                        (Some(rtp_time), Some(seconds)) => Some(crate::ptp::Anchor {
+                            rtp_time: rtp_time as u32,
+                            // Unsigned 64-bit values are stored as their bits.
+                            network_ns: crate::ptp::network_time_ns(seconds, integer("networkTimeFrac").unwrap_or(0) as u64),
+                        }),
+                        _ => None,
+                    };
                     events.push(Event::RateAnchor {
-                        rate: body.get("rate").and_then(Value::as_integer).unwrap_or(0),
-                        rtp_time: body.get("rtpTime").and_then(Value::as_integer),
-                        network_time_secs: body.get("networkTimeSecs").and_then(Value::as_integer),
-                        network_time_frac: body.get("networkTimeFrac").and_then(Value::as_integer),
+                        rate: integer("rate").unwrap_or(0),
+                        anchor,
+                        timeline: integer("networkTimeTimelineID").map(|id| id as u64),
                     });
                     events.push(Event::Body { method: request.method.clone(), summary: summarize(&body) });
                 }

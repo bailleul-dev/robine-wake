@@ -15,15 +15,18 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
+pub mod aac;
 pub mod alac;
 pub mod audio;
 pub mod bplist;
+mod bits;
 mod cipher;
 mod connection;
 #[cfg(feature = "fairplay")]
 mod fairplay;
 mod info;
 mod pairing;
+pub mod ptp;
 mod rtsp;
 mod session;
 mod srp;
