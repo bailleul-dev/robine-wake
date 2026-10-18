@@ -1,0 +1,24 @@
+[package]
+name = "esp8266-hello"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Premier test Rust sur NodeMCU ESP8266 : LED et port série"
+
+[dependencies]
+esp8266-hal = "0.5.1"
+panic-halt = "0.2"
+nb = "1"
+
+[profile.dev]
+opt-level = 1
+lto = true
+
+[profile.release]
+opt-level = "s"
+lto = true
+
+# xtensa-lx-rt 0.12 (dernière version avec l'ESP8266) utilise l'ancienne
+# syntaxe des fonctions naked ; copie corrigée pour les compilateurs récents.
+[patch.crates-io]
+xtensa-lx-rt = { path = "patches/xtensa-lx-rt" }
