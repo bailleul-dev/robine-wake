@@ -28,11 +28,24 @@ Sans ampli, le son décodé est seulement mesuré ; toutes les 5 s le journal
 donne les trames décodées, le temps de décodage par trame, le niveau crête et
 la mémoire libre.
 
-État au 2026-10-18 sur Heltec V1 (ESP32 rév. 1.0, sans PSRAM) : démarrage,
-vérificateur SRP en 1,6 s, annonce mDNS visible sur le réseau. **Pas encore
-essayé avec un iPhone.** Limites de cette carte : tampon du flux mis en
-tampon annoncé à 48 Kio, décodeur AAC créé seulement s'il reste 90 Kio de tas,
-pile principale réduite à 21 Kio.
+État au 2026-10-18 sur Heltec V1 (ESP32 rév. 1.0, sans PSRAM), essayé avec
+un iPhone sous iOS 27 :
+
+| | Résultat |
+|---|---|
+| Appairage SRP 3072 bits | environ 3,5 s (vérificateur préparé en 1,6 s au démarrage) |
+| FairPlay, `SETUP`, `RECORD`, volume, PTP | fonctionnent |
+| Flux temps réel ALAC | 124 trames/s, aucune rejetée ni corrompue |
+| Décodage ALAC | 3,6 ms par trame de 8 ms (environ 45 % d'un cœur) |
+| Tas libre pendant la lecture | 69 Kio |
+
+Le flux mis en tampon (AAC, ex. YouTube) demande 90 Kio de tas pour son
+décodeur : la Heltec ne les a pas, ce sera pour l'ESP32-S3 N16R8. Autres
+limites de cette carte : tampon annoncé de 48 Kio, pile principale de 21 Kio.
+
+Le nom d'hôte mDNS est propre à chaque carte (`robine-wake-xxxxxx.local`) :
+le Raspberry Pi répond déjà à `robine-wake.local`, et un iPhone qui résout
+ce nom vers le Pi ne joint jamais l'ESP32.
 
 ## Wi-Fi
 

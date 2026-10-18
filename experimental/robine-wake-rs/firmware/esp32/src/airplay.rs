@@ -460,8 +460,12 @@ pub async fn mdns_task(stack: Stack<'static>, airplay: &'static Airplay) {
     };
     let (recv, send) = socket.split();
 
+    // Unique per board: the Raspberry Pi build already answers for
+    // robine-wake.local, and senders resolve the service through this name.
+    let mac = airplay.receiver.identity.device_id;
+    let hostname = alloc::format!("robine-wake-{:02x}{:02x}{:02x}", mac[3], mac[4], mac[5]);
     let host = Host {
-        hostname: "robine-wake",
+        hostname: &hostname,
         ipv4: config.address.address(),
         ipv6: Ipv6Addr::UNSPECIFIED,
         ttl: Ttl::from_secs(120),
@@ -481,7 +485,7 @@ pub async fn mdns_task(stack: Stack<'static>, airplay: &'static Airplay) {
     let (recv_buf, send_buf) = (VecBufAccess::<NoopRawMutex, 1500>::new(), VecBufAccess::<NoopRawMutex, 1500>::new());
     let signal = Signal::<NoopRawMutex, ()>::new();
     let mdns = io::Mdns::new(Some(Ipv4Addr::UNSPECIFIED), None, recv, send, &recv_buf, &send_buf, HardwareRng, &signal);
-    info!("mDNS: announcing \"{NAME}\" (_airplay._tcp) on {}", config.address.address());
+    info!("mDNS: announcing \"{NAME}\" (_airplay._tcp) as {hostname}.local on {}", config.address.address());
     if let Err(error) = mdns.run(HostAnswersMdnsHandler::new(ServiceAnswers::new(&host, &service))).await {
         warn!("mDNS stopped: {error:?}");
     }
