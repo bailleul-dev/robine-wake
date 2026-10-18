@@ -46,9 +46,11 @@ make deploy HOST=localhost SSH_PORT=2222    # remplace le démon sans reconstrui
 ## Organisation
 
 ```text
-crates/robine-core/     domaine pur sans I/O (`no_std + alloc`)
+crates/robine-core/     domaine pur sans I/O (`no_std + alloc`, `std` par défaut)
 crates/robine-ports/    traits d'interface matérielle / système
 crates/robine-daemon/   démon Rust complet (HTTP, SSE, MCP, mDNS, audio, LoRa, CLI)
+crates/robine-api/      protocole de commandes v1 de l'app (no_std), partagé par les firmwares
+firmware/esp32/         firmware ESP32 sans OS (hors workspace, chaîne Xtensa)
 br-external/            arbre BR2_EXTERNAL : defconfigs, cartes, paquets
 doc/specs/              spécifications et comparatif v1/v2
 ../../priv/web/         bundle web partagé avec l'application Elixir
