@@ -4,7 +4,9 @@
 //! regular alarm, but its gentle ramp is short: at most two minutes, and never
 //! longer than the nap.
 
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::string::ToString;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use chrono_tz::Tz;
@@ -37,7 +39,7 @@ pub fn select_template_alarm<'a>(alarms: impl IntoIterator<Item = &'a Alarm>) ->
 
 /// Compute the nap ramp in seconds: `min(120 s, duration)` (ALM-003.2).
 pub fn ramp_seconds_for_duration(minutes: u32) -> i64 {
-    std::cmp::min(MAXIMUM_RAMP_SECONDS, (minutes as i64) * 60)
+    core::cmp::min(MAXIMUM_RAMP_SECONDS, (minutes as i64) * 60)
 }
 
 /// Build the JSON payload to create or update a nap alarm.
@@ -129,6 +131,7 @@ pub fn build_nap_payload(
 
 #[cfg(test)]
 mod tests {
+    use std::prelude::rust_2021::*;
     use super::*;
     use chrono::TimeZone;
 

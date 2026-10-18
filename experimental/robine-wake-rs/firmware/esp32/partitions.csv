@@ -1,0 +1,6 @@
+# Name,   Type, SubType, Offset,  Size
+nvs,      data, nvs,     0x9000,  0x6000
+phy_init, data, phy,     0xf000,  0x1000
+# Alarms, sessions and buttons: two 32 KiB slots written alternately.
+robine,   data, undefined, 0x10000, 0x10000
+factory,  app,  factory, 0x20000, 0x3E0000

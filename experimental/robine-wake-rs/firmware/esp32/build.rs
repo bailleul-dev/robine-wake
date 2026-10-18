@@ -2,6 +2,7 @@ fn main() {
     linker_be_nice();
     check_xtensa_linker_available();
     embed_wifi_credentials();
+    embed_web_assets();
     // make sure linkall.x is the last linker script (otherwise might cause problems with flip-link)
     println!("cargo:rustc-link-arg=-Tlinkall.x");
 }
@@ -45,6 +46,71 @@ fn embed_wifi_credentials() {
 
     println!("cargo:rustc-env=WIFI_SSID={ssid}");
     println!("cargo:rustc-env=WIFI_PASSWORD={password}");
+}
+
+/// Gzips the mobile web build (`priv/web`, `make expo-web`) into the
+/// firmware and generates the `ASSETS` table served by `web.rs`.
+///
+/// `ROBINE_WEB_DIR` overrides the source directory. Without it the firmware
+/// still builds and only serves the API.
+fn embed_web_assets() {
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+
+    println!("cargo:rerun-if-env-changed=ROBINE_WEB_DIR");
+    let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let root = std::env::var_os("ROBINE_WEB_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| manifest.join("../../../../priv/web"));
+    let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+
+    fn walk(dir: &Path, files: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, files);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    walk(&root, &mut files);
+    files.sort();
+    if files.is_empty() {
+        println!("cargo:warning=no web build in {}: only the API is served", root.display());
+    }
+    println!("cargo:rerun-if-changed={}", root.display());
+
+    let mut table = String::from("pub static ASSETS: &[Asset] = &[\n");
+    for (index, file) in files.iter().enumerate() {
+        println!("cargo:rerun-if-changed={}", file.display());
+        let relative = file.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/");
+        let content_type = match file.extension().and_then(|ext| ext.to_str()).unwrap_or("") {
+            "html" => "text/html; charset=utf-8",
+            "js" => "text/javascript; charset=utf-8",
+            "css" => "text/css; charset=utf-8",
+            "json" => "application/json",
+            "ico" => "image/x-icon",
+            "png" => "image/png",
+            "svg" => "image/svg+xml",
+            "ttf" => "font/ttf",
+            "woff2" => "font/woff2",
+            _ => "application/octet-stream",
+        };
+        let data = std::fs::read(file).unwrap();
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        encoder.write_all(&data).unwrap();
+        let gzip = out.join(format!("web-{index}.gz"));
+        std::fs::write(&gzip, encoder.finish().unwrap()).unwrap();
+        table.push_str(&format!(
+            "    Asset {{ path: \"/{relative}\", content_type: \"{content_type}\", gzip: include_bytes!({gzip:?}) }},\n"
+        ));
+    }
+    table.push_str("];\n");
+    std::fs::write(out.join("web_assets.rs"), table).unwrap();
 }
 
 #[cfg(unix)]

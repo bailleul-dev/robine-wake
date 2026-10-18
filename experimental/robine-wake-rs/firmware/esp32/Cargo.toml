@@ -1,11 +1,13 @@
 [package]
 edition      = "2024"
-name         = "esp32-hello"
+name         = "robine-esp32"
 rust-version = "1.95"
 version      = "0.1.0"
 
+description  = "Robine Wake firmware for ESP32: alarms, naps and remote button over the v1 API"
+
 [[bin]]
-name = "esp32-hello"
+name = "robine-esp32"
 path = "./src/bin/main.rs"
 
 [dependencies]
@@ -24,6 +26,7 @@ log                    = "0.4.27"
 
 embassy-net = { version = "0.9.1", features = [
   "dhcpv4",
+  "dns",
   "log",
   "medium-ethernet",
   "tcp",
@@ -65,6 +68,16 @@ smoltcp = { version = "0.14.0", default-features = false, features = [
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 
+chrono       = { version = "0.4", default-features = false, features = ["alloc"] }
+embassy-sync = "0.8.0"
+esp-storage  = { version = "0.10.0", features = ["esp32"] }
+robine-api   = { path = "../../crates/robine-api", default-features = false }
+robine-core  = { path = "../../crates/robine-core", default-features = false }
+serde_json   = { version = "1", default-features = false, features = ["alloc"] }
+
+[build-dependencies]
+flate2 = "1"
+
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
 [profile.dev]
@@ -77,3 +90,6 @@ codegen-units = 1     # LLVM can perform better optimizations using a single thr
 debug         = 2     # prefer slower builds but better debugging experience
 lto           = 'fat'
 opt-level     = 's'
+
+# Standalone: built with the Xtensa toolchain, outside the host workspace.
+[workspace]

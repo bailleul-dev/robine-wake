@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["crates/robine-core", "crates/robine-ports", "crates/robine-daemon"]
+members = ["crates/robine-core", "crates/robine-ports", "crates/robine-daemon", "crates/robine-api"]
+exclude = ["firmware"]
 
 [profile.release]
 opt-level = "s"

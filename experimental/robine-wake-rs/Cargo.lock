@@ -665,6 +665,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "robine-api"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "robine-core",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "robine-core"
 version = "0.1.0"
 dependencies = [

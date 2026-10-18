@@ -3,6 +3,10 @@
 //! Validates HMAC-SHA256 dismiss signatures received from Heltec WiFi Kit 32 buttons
 //! and enforces monotonic counters to prevent replays.
 
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::fmt;
+
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -33,8 +37,8 @@ pub enum ButtonError {
     CounterReplay { counter: u64, last_seen: u64 },
 }
 
-impl std::fmt::Display for ButtonError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for ButtonError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ButtonError::UnknownButton => write!(f, "unknown remote button"),
             ButtonError::InvalidSecret => write!(f, "invalid button secret"),
@@ -50,7 +54,7 @@ impl std::fmt::Display for ButtonError {
     }
 }
 
-impl std::error::Error for ButtonError {}
+impl core::error::Error for ButtonError {}
 
 /// Compute the HMAC-SHA256 signature for a remote button dismiss request.
 /// Payload format: `rw-remote-v1\0{button_id}\0{counter}\0dismiss`
@@ -116,6 +120,7 @@ impl PairedButton {
 
 #[cfg(test)]
 mod tests {
+    use std::prelude::rust_2021::*;
     use super::*;
 
     #[test]

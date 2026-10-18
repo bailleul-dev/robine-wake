@@ -1,10 +1,18 @@
 //! Robine Wake 2 pure core domain library (PRD-002).
 //!
 //! Contains pure domain rules, models, validations, and state machines with zero I/O
-//! and no async runtime dependencies.
+//! and no async runtime dependencies. `no_std + alloc` without the `std` feature
+//! (PLT-005.1), so the same rules run on the ESP32 firmware.
+
+#![no_std]
+
+extern crate alloc;
+#[cfg(any(feature = "std", test))]
+extern crate std;
 
 pub mod alarm;
 pub mod nap;
+pub mod random;
 pub mod remote_button;
 pub mod session;
 

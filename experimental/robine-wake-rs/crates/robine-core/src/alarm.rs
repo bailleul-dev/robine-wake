@@ -4,7 +4,11 @@
 //! integers, day names, "HH:MM"), output is the exact JSON shape produced by
 //! `Alarm.to_map/1` in the Elixir application.
 
-use std::collections::BTreeMap;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use chrono::{
     DateTime, Datelike, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone,
@@ -194,7 +198,7 @@ impl Alarm {
     ) -> Box<dyn Iterator<Item = NaiveDate> + '_> {
         match self.one_shot_date {
             Some(one) if direction > 0 && one != today => Box::new([today, one].into_iter()),
-            Some(one) => Box::new(std::iter::once(one)),
+            Some(one) => Box::new(core::iter::once(one)),
             None => Box::new((0..=CANDIDATE_DAYS).filter_map(move |offset| {
                 today.checked_add_signed(TimeDelta::days(offset * direction))
             })),
@@ -236,7 +240,12 @@ fn local_datetime(tz: &Tz, naive: NaiveDateTime) -> Option<DateTime<Tz>> {
 }
 
 pub fn generate_id() -> String {
-    uuid::Uuid::new_v4().to_string().to_uppercase()
+    let mut bytes = [0u8; 16];
+    crate::random::fill(&mut bytes);
+    uuid::Builder::from_random_bytes(bytes)
+        .into_uuid()
+        .to_string()
+        .to_uppercase()
 }
 
 fn error(field: &str, message: &str) -> Errors {
@@ -517,6 +526,7 @@ fn optional_text(value: Option<&Value>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::prelude::rust_2021::*;
     use super::*;
     use chrono::Offset;
     use serde_json::json;

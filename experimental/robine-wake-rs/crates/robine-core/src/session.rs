@@ -6,6 +6,11 @@
 //!
 //! Pure functional core: `(state, event, timestamp) -> Result<(new_state, effects), SessionError>`
 
+use alloc::format;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt;
+
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -117,8 +122,8 @@ pub enum SessionError {
     InvalidTransition(String),
 }
 
-impl std::fmt::Display for SessionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for SessionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SessionError::AlreadyEnded => write!(f, "session already ended"),
             SessionError::MaxSnoozesReached => write!(f, "maximum snooze limit reached"),
@@ -128,7 +133,7 @@ impl std::fmt::Display for SessionError {
     }
 }
 
-impl std::error::Error for SessionError {}
+impl core::error::Error for SessionError {}
 
 impl WakeSession {
     pub fn new(id: impl Into<String>, config: SessionConfig, scheduled_at: DateTime<Utc>) -> Self {
@@ -466,12 +471,18 @@ impl WakeSession {
         let start = self.config.start_gain as f64;
         let ceiling = self.config.ceiling_gain as f64;
 
-        (start + progress * (ceiling - start)).round() as i64
+        round(start + progress * (ceiling - start))
     }
+}
+
+/// `f64::round` lives in `std`; gains are never negative.
+fn round(value: f64) -> i64 {
+    (value + 0.5) as i64
 }
 
 #[cfg(test)]
 mod tests {
+    use std::prelude::rust_2021::*;
     use super::*;
 
     fn sample_config(target: DateTime<Utc>) -> SessionConfig {

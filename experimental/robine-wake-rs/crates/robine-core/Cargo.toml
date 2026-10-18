@@ -5,12 +5,18 @@ edition = "2021"
 publish = false
 description = "Robine Wake 2 pure domain logic (PRD-002)"
 
+[features]
+default = ["std"]
+# Linux daemon. Without it the crate is `no_std + alloc` (PLT-005.1) and the
+# firmware must register a random source with `random::set_source`.
+std = ["chrono/clock", "chrono/std", "chrono-tz/std", "serde_json/std", "uuid/v4", "uuid/std"]
+
 [dependencies]
-chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
-chrono-tz = { version = "0.10", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "alloc"] }
+chrono-tz = { version = "0.10", default-features = false, features = ["serde"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
-uuid = { version = "1", default-features = false, features = ["v4"] }
+uuid = { version = "1", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 hmac = "0.12"
 sha2 = { version = "0.10", default-features = false }
