@@ -1,0 +1,12 @@
+[package]
+name = "robine-airplay-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Development bench: runs the robine-airplay core on a PC so an iPhone can stream to it"
+
+[dependencies]
+robine-airplay = { path = "../robine-airplay", features = ["fairplay"] }
+getrandom = "0.4"
+mdns-sd = "0.21.5"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "signal"] }

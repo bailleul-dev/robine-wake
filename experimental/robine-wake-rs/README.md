@@ -50,6 +50,8 @@ crates/robine-core/     domaine pur sans I/O (`no_std + alloc`, `std` par défau
 crates/robine-ports/    traits d'interface matérielle / système
 crates/robine-daemon/   démon Rust complet (HTTP, SSE, MCP, mDNS, audio, LoRa, CLI)
 crates/robine-api/      protocole de commandes v1 de l'app (no_std), partagé par les firmwares
+crates/robine-airplay/  récepteur AirPlay 2 audio (no_std, sans E/S)
+crates/robine-airplay-bench/  banc d'essai AirPlay sur PC (développement)
 firmware/esp32/         firmware ESP32 sans OS (hors workspace, chaîne Xtensa)
 br-external/            arbre BR2_EXTERNAL : defconfigs, cartes, paquets
 doc/specs/              spécifications et comparatif v1/v2

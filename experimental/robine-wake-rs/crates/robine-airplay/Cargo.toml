@@ -1,0 +1,19 @@
+[package]
+name = "robine-airplay"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "AirPlay 2 audio receiver core: no_std, no I/O, any device"
+
+[features]
+# Fixed FairPlay tables required by Apple senders; see NOTICE.md before
+# enabling them in anything but a prototype.
+fairplay = []
+
+[dependencies]
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+ed25519-dalek = { version = "2", default-features = false }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+hkdf = "0.12"
+num-bigint = { version = "0.4", default-features = false }
+sha2 = { version = "0.10", default-features = false }
