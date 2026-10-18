@@ -17,6 +17,23 @@ Sans ampli pour l'instant, la LED blanche (GPIO 25) clignote tant qu'une
 alarme sonne. Hue, respiration guidée et caméra répondent
 `unsupported_operation`.
 
+## AirPlay 2
+
+Le firmware embarque le récepteur [`robine-airplay`](../../crates/robine-airplay)
+sous le nom « Robine Wake » : annonce mDNS `_airplay._tcp`, contrôle sur le
+port 7000, événements 7001, audio 7002 (TCP mis en tampon, UDP temps réel),
+retransmissions 7003, horloge PTP 319 et 320.
+
+Sans ampli, le son décodé est seulement mesuré ; toutes les 5 s le journal
+donne les trames décodées, le temps de décodage par trame, le niveau crête et
+la mémoire libre.
+
+État au 2026-10-18 sur Heltec V1 (ESP32 rév. 1.0, sans PSRAM) : démarrage,
+vérificateur SRP en 1,6 s, annonce mDNS visible sur le réseau. **Pas encore
+essayé avec un iPhone.** Limites de cette carte : tampon du flux mis en
+tampon annoncé à 48 Kio, décodeur AAC créé seulement s'il reste 90 Kio de tas,
+pile principale réduite à 21 Kio.
+
 ## Wi-Fi
 
 Créer `wifi.ini` (ignoré par git), lu par `build.rs` à la compilation :

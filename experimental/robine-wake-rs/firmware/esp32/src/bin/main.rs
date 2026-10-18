@@ -24,6 +24,7 @@ use esp_radio::wifi::{AuthenticationMethodConfig, Config, Interface, WifiControl
 use esp_storage::FlashStorage;
 use log::{info, warn};
 use robine_api::{Device, Platform, DEFAULT_HTTP_PORT};
+use robine_esp32::airplay::{self, Airplay};
 use robine_esp32::app::{App, RINGING};
 use robine_esp32::store::Store;
 use robine_esp32::{clock, http, ntp};
@@ -40,7 +41,11 @@ const WIFI_SSID: &str = env!("WIFI_SSID");
 const WIFI_PASSWORD: &str = env!("WIFI_PASSWORD");
 
 /// Concurrent HTTP connections: event streams hold one each.
-const HTTP_WORKERS: usize = 5;
+const HTTP_WORKERS: usize = 3;
+/// Sockets: HTTP workers, DHCP, DNS and NTP, then AirPlay (two control
+/// connections, events, buffered and realtime audio, retransmissions, two
+/// PTP ports, mDNS).
+const SOCKETS: usize = HTTP_WORKERS + 3 + 9;
 /// Re-synchronize the clock every six hours.
 const NTP_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 
@@ -101,7 +106,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let rng = Rng::new();
     let seed = (u64::from(rng.random()) << 32) | u64::from(rng.random());
-    static RESOURCES: StaticCell<StackResources<{ HTTP_WORKERS + 3 }>> = StaticCell::new();
+    static RESOURCES: StaticCell<StackResources<SOCKETS>> = StaticCell::new();
     let (stack, runner) = embassy_net::new(
         Interface::station(),
         embassy_net::Config::dhcpv4(Default::default()),
@@ -111,6 +116,10 @@ async fn main(spawner: Spawner) -> ! {
 
     static APP: StaticCell<App> = StaticCell::new();
     let app: &'static App = APP.init(App::new(device, store, stack));
+
+    let mac: [u8; 6] = esp_hal::efuse::base_mac_address().as_bytes().try_into().expect("6-byte MAC");
+    static AIRPLAY: StaticCell<Airplay> = StaticCell::new();
+    let airplay: &'static Airplay = AIRPLAY.init(Airplay::new(mac, fill_random));
 
     // Heltec WiFi Kit 32 V1: white LED on GPIO 25.
     let led = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
@@ -122,6 +131,18 @@ async fn main(spawner: Spawner) -> ! {
     for _ in 0..HTTP_WORKERS {
         spawner.spawn(http_task(stack, app).unwrap());
     }
+    for _ in 0..2 {
+        spawner.spawn(airplay::control_task(stack, airplay).unwrap());
+    }
+    spawner.spawn(airplay::event_task(stack, airplay).unwrap());
+    spawner.spawn(airplay::buffered_task(stack, airplay).unwrap());
+    spawner.spawn(airplay::realtime_task(stack, airplay).unwrap());
+    spawner.spawn(airplay::control_udp_task(stack, airplay).unwrap());
+    spawner.spawn(airplay::ptp_task(stack, airplay, 319).unwrap());
+    spawner.spawn(airplay::ptp_task(stack, airplay, 320).unwrap());
+    spawner.spawn(airplay::player_task(airplay).unwrap());
+    spawner.spawn(airplay::stats_task(airplay).unwrap());
+    spawner.spawn(airplay::mdns_task(stack, airplay).unwrap());
 
     stack.wait_config_up().await;
     if let Some(config) = stack.config_v4() {

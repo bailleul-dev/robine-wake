@@ -19,8 +19,6 @@ const PARAMETERS: &str = "text/parameters";
 pub const STREAM_REALTIME: i64 = 96;
 /// Buffered stream (TCP, usually AAC), pushed ahead of playback.
 pub const STREAM_BUFFERED: i64 = 103;
-/// Buffer we tell the sender it may fill ahead of playback.
-const AUDIO_BUFFER_SIZE: i64 = 8 * 1024 * 1024;
 
 /// Ports the platform listens on for a session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,9 +63,9 @@ impl Session {
     }
 
     /// `None` if the request is not a session verb.
-    pub fn handle(&mut self, ports: Ports, request: &Request, events: &mut Vec<Event>) -> Option<Response> {
+    pub fn handle(&mut self, ports: Ports, buffer_size: u32, request: &Request, events: &mut Vec<Event>) -> Option<Response> {
         let response = match request.method.as_str() {
-            "SETUP" => self.setup(ports, request, events),
+            "SETUP" => self.setup(ports, buffer_size, request, events),
             "GET_PARAMETER" => {
                 let query = core::str::from_utf8(&request.body).unwrap_or("").trim();
                 if query == "volume" {
@@ -125,7 +123,7 @@ impl Session {
         Some(response)
     }
 
-    fn setup(&mut self, ports: Ports, request: &Request, events: &mut Vec<Event>) -> Response {
+    fn setup(&mut self, ports: Ports, buffer_size: u32, request: &Request, events: &mut Vec<Event>) -> Response {
         let Ok(body) = bplist::from_bytes(&request.body) else {
             return Response::status(400, "Bad Request");
         };
@@ -172,7 +170,7 @@ impl Session {
                     ("controlPort".into(), Value::Integer(i64::from(ports.control))),
                 ];
                 if kind == STREAM_BUFFERED {
-                    reply.push(("audioBufferSize".into(), Value::Integer(AUDIO_BUFFER_SIZE)));
+                    reply.push(("audioBufferSize".into(), Value::Integer(i64::from(buffer_size))));
                 }
                 let reply = dict([("streams", Value::Array(alloc::vec![Value::Dict(reply)]))]);
                 Response::ok().body(PLIST, bplist::to_bytes(&reply))

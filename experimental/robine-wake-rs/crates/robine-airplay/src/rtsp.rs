@@ -5,7 +5,8 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-/// Bodies above this size are refused (largest expected: artwork).
+/// Largest body kept by default (largest expected: artwork); bigger ones are
+/// skipped, see [`Request::parse`].
 pub const MAX_BODY: usize = 512 * 1024;
 const MAX_HEAD: usize = 8 * 1024;
 pub const SERVER: &str = "AirTunes/366.0";
@@ -17,6 +18,8 @@ pub struct Request {
     pub protocol: String,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
+    /// The body exceeded the limit and was dropped.
+    pub truncated: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -34,7 +37,11 @@ impl Request {
     }
 
     /// Takes one complete request off the front of `buffer`, if present.
-    pub fn parse(buffer: &mut Vec<u8>) -> Result<Option<Self>, ParseError> {
+    ///
+    /// A body larger than `max_body` is not kept: the request comes back
+    /// `truncated` with an empty body as soon as its head is complete, along
+    /// with the number of body bytes still to discard from the stream.
+    pub fn parse(buffer: &mut Vec<u8>, max_body: usize) -> Result<Option<(Self, usize)>, ParseError> {
         let Some(head_len) = buffer.windows(4).position(|window| window == b"\r\n\r\n") else {
             return if buffer.len() > MAX_HEAD { Err(ParseError::TooLarge) } else { Ok(None) };
         };
@@ -61,13 +68,17 @@ impl Request {
             protocol: protocol.into(),
             headers,
             body: Vec::new(),
+            truncated: false,
         };
         let body_len = match request.header("Content-Length") {
             Some(value) => value.parse::<usize>().map_err(|_| ParseError::Malformed)?,
             None => 0,
         };
-        if body_len > MAX_BODY {
-            return Err(ParseError::TooLarge);
+        if body_len > max_body {
+            let present = (buffer.len() - head_len - 4).min(body_len);
+            buffer.drain(..head_len + 4 + present);
+            request.truncated = true;
+            return Ok(Some((request, body_len - present)));
         }
         let total = head_len + 4 + body_len;
         if buffer.len() < total {
@@ -75,7 +86,7 @@ impl Request {
         }
         request.body = buffer[head_len + 4..total].to_vec();
         buffer.drain(..total);
-        Ok(Some(request))
+        Ok(Some((request, 0)))
     }
 }
 
@@ -129,12 +140,12 @@ mod tests {
     #[test]
     fn parses_pipelined_requests_incrementally() {
         let mut buffer = Vec::from(&b"POST /pair-setup RTSP/1.0\r\nCSeq: 3\r\nContent-Length: 3\r\n\r\nab"[..]);
-        assert_eq!(Request::parse(&mut buffer), Ok(None));
+        assert_eq!(Request::parse(&mut buffer, MAX_BODY), Ok(None));
         buffer.extend_from_slice(b"cGET /info HTTP/1.1\r\n\r\n");
-        let first = Request::parse(&mut buffer).unwrap().unwrap();
+        let (first, _) = Request::parse(&mut buffer, MAX_BODY).unwrap().unwrap();
         assert_eq!((first.method.as_str(), first.body.as_slice()), ("POST", &b"abc"[..]));
         assert_eq!(first.header("cseq"), Some("3"));
-        let second = Request::parse(&mut buffer).unwrap().unwrap();
+        let (second, _) = Request::parse(&mut buffer, MAX_BODY).unwrap().unwrap();
         assert_eq!((second.target.as_str(), second.protocol.as_str()), ("/info", "HTTP/1.1"));
         assert!(buffer.is_empty());
     }
@@ -142,7 +153,7 @@ mod tests {
     #[test]
     fn responses_echo_protocol_and_cseq() {
         let mut buffer = Vec::from(&b"SETUP rtsp://x/1 RTSP/1.0\r\nCSeq: 9\r\n\r\n"[..]);
-        let request = Request::parse(&mut buffer).unwrap().unwrap();
+        let (request, _) = Request::parse(&mut buffer, MAX_BODY).unwrap().unwrap();
         let bytes = Response::ok().body("text/plain", b"hi".to_vec()).encode(&request);
         let text = core::str::from_utf8(&bytes).unwrap();
         assert!(text.starts_with("RTSP/1.0 200 OK\r\nCSeq: 9\r\nServer: AirTunes/366.0\r\n"));
@@ -152,6 +163,14 @@ mod tests {
     #[test]
     fn rejects_garbage() {
         let mut buffer = Vec::from(&b"hello\r\n\r\n"[..]);
-        assert_eq!(Request::parse(&mut buffer), Err(ParseError::Malformed));
+        assert_eq!(Request::parse(&mut buffer, MAX_BODY), Err(ParseError::Malformed));
+    }
+
+    #[test]
+    fn oversized_bodies_are_reported_for_skipping() {
+        let mut buffer = Vec::from(&b"SET_PARAMETER rtsp://x RTSP/1.0\r\nContent-Length: 10\r\n\r\n1234"[..]);
+        let (request, remaining) = Request::parse(&mut buffer, 8).unwrap().unwrap();
+        assert!(request.truncated && request.body.is_empty());
+        assert_eq!((remaining, buffer.len()), (6, 0));
     }
 }

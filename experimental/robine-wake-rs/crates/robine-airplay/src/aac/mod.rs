@@ -159,27 +159,33 @@ struct TnsFilter {
     lpc: [f32; TNS_MAX_ORDER_LONG],
 }
 
-/// One decoded individual channel stream, before the filterbank.
+/// One decoded individual channel stream, before the filterbank. Its
+/// arrays live on the heap so the decoder stays small enough to move on a
+/// microcontroller stack.
 struct Ics {
     info: IcsInfo,
-    band_types: [[u8; 64]; 8],
+    /// Per window group, per band.
+    band_types: Vec<[u8; 64]>,
     /// Scale factor, noise energy or intensity position, per band.
-    factors: [[i32; 64]; 8],
-    tns: Option<[[TnsFilter; 4]; 8]>,
+    factors: Vec<[i32; 64]>,
+    tns_present: bool,
+    /// Per window, up to 4 filters.
+    tns: Vec<[TnsFilter; 4]>,
     tns_filters: [usize; 8],
     /// Dequantized coefficients; short windows are 8 blocks of 128.
-    spectrum: [f32; 1024],
+    spectrum: Vec<f32>,
 }
 
 impl Default for Ics {
     fn default() -> Self {
         Self {
             info: IcsInfo::default(),
-            band_types: [[0; 64]; 8],
-            factors: [[0; 64]; 8],
-            tns: None,
+            band_types: vec![[0; 64]; 8],
+            factors: vec![[0; 64]; 8],
+            tns_present: false,
+            tns: vec![[TnsFilter::default(); 4]; 8],
             tns_filters: [0; 8],
-            spectrum: [0.0; 1024],
+            spectrum: vec![0.0; 1024],
         }
     }
 }
@@ -207,11 +213,14 @@ pub struct AacDecoder {
     ics: [Ics; 2],
     time: Vec<f32>,
     short_time: Vec<f32>,
+    quantized: Vec<i32>,
     noise_seed: u32,
 }
 
 impl AacDecoder {
     /// `channels`: 1 or 2, from the stream's audio format.
+    // Kept out of line: inlined, the frame overflows Xtensa codegen.
+    #[inline(never)]
     pub fn new(channels: usize) -> Result<Self> {
         if !(1..=2).contains(&channels) {
             return Err(AacError::Unsupported);
@@ -245,12 +254,14 @@ impl AacDecoder {
             ics: [Ics::default(), Ics::default()],
             time: vec![0.0; 2048],
             short_time: vec![0.0; 256],
+            quantized: vec![0; 1024],
             noise_seed: 0x1F2E_3D4C,
         })
     }
 
     /// Decodes one raw data block (1024 samples per channel), appending
     /// interleaved 16-bit samples to `out`.
+    #[inline(never)]
     pub fn decode(&mut self, frame: &[u8], out: &mut Vec<i16>) -> Result<usize> {
         let mut bits = BitReader::new(frame);
         let mut decoded = 0usize;
@@ -319,6 +330,7 @@ impl AacDecoder {
         Ok(1024)
     }
 
+    #[inline(never)]
     fn read_pair(&mut self, bits: &mut BitReader) -> Result<()> {
         let common = bits.read_bool()?;
         let mut ms_used = [[false; 64]; 8];
@@ -349,13 +361,14 @@ impl AacDecoder {
         Ok(())
     }
 
+    #[inline(never)]
     fn read_ics(&mut self, bits: &mut BitReader, channel: usize, common: Option<IcsInfo>) -> Result<()> {
         let global_gain = bits.read(8)? as i32;
         let info = match common {
             Some(info) => info,
             None => IcsInfo::read(bits)?,
         };
-        let Self { ics, scale_factors, spectra, noise_seed, .. } = self;
+        let Self { ics, scale_factors, spectra, noise_seed, quantized, .. } = self;
         let ics = &mut ics[channel];
         ics.info = info;
 
@@ -436,9 +449,9 @@ impl AacDecoder {
         }
 
         // Temporal noise shaping.
-        ics.tns = None;
-        if bits.read_bool()? {
-            let mut filters = [[TnsFilter::default(); 4]; 8];
+        ics.tns_present = bits.read_bool()?;
+        if ics.tns_present {
+            let filters = &mut ics.tns[..];
             let (length_bits, order_bits, max_order) =
                 if info.short() { (4, 3, TNS_MAX_ORDER_SHORT) } else { (6, 5, TNS_MAX_ORDER_LONG) };
             for window in 0..info.num_windows {
@@ -462,7 +475,6 @@ impl AacDecoder {
                     filter.lpc = tns_coefficients(bits, resolution, compress, filter.order)?;
                 }
             }
-            ics.tns = Some(filters);
         }
 
         if bits.read_bool()? {
@@ -471,7 +483,7 @@ impl AacDecoder {
         }
 
         // Spectral data.
-        let mut quantized = [0i32; 1024];
+        quantized.fill(0);
         let swb = info.swb();
         let mut window_start = 0;
         for group in 0..info.num_groups {
@@ -502,7 +514,7 @@ impl AacDecoder {
         }
 
         // Dequantization and noise substitution.
-        ics.spectrum = [0.0; 1024];
+        ics.spectrum.fill(0.0);
         let mut window_start = 0;
         for group in 0..info.num_groups {
             let windows = info.group_lengths[group];
@@ -542,6 +554,7 @@ impl AacDecoder {
     }
 
     /// M/S then intensity stereo, on the dequantized spectra.
+    #[inline(never)]
     fn stereo(&mut self, ms_present: u32, ms_used: &[[bool; 64]; 8]) {
         let [left, right] = &mut self.ics;
         let info = left.info;
@@ -582,17 +595,18 @@ impl AacDecoder {
         }
     }
 
+    #[inline(never)]
     fn apply_tns(&mut self, channel: usize) {
-        let ics = &mut self.ics[channel];
-        let Some(filters) = ics.tns else {
+        let Ics { info, tns_present, tns: filters, tns_filters, spectrum, .. } = &mut self.ics[channel];
+        if !*tns_present {
             return;
-        };
-        let info = ics.info;
+        }
+        let info = *info;
         let swb = info.swb();
         let max_bands = if info.short() { TNS_MAX_BANDS_SHORT } else { TNS_MAX_BANDS_LONG }.min(info.max_sfb);
         for window in 0..info.num_windows {
             let mut top = swb.len() - 1;
-            for filter in filters[window].iter().take(ics.tns_filters[window]) {
+            for filter in filters[window].iter().take(tns_filters[window]) {
                 let bottom = top.saturating_sub(filter.length);
                 let (start, end) = (usize::from(swb[bottom.min(max_bands)]), usize::from(swb[top.min(max_bands)]));
                 top = bottom;
@@ -600,7 +614,7 @@ impl AacDecoder {
                     continue;
                 }
                 let length = if info.short() { 128 } else { 1024 };
-                let spectrum = &mut ics.spectrum[window * length..(window + 1) * length];
+                let spectrum = &mut spectrum[window * length..(window + 1) * length];
                 // All-pole filter: y[n] = x[n] - sum lpc[j] y[n - 1 - j].
                 if filter.downward {
                     for (step, index) in (start..end).rev().enumerate() {
@@ -620,6 +634,7 @@ impl AacDecoder {
     }
 
     /// IMDCT, windowing and overlap-add into `states[channel]`.
+    #[inline(never)]
     fn filterbank(&mut self, channel: usize) {
         let Self { long, short, time, short_time, sine_long, kbd_long, sine_short, kbd_short, states, ics, .. } = self;
         let (info, spectrum, state) = (ics[channel].info, &ics[channel].spectrum, &mut states[channel]);
@@ -655,7 +670,9 @@ impl AacDecoder {
                 for n in 0..128 {
                     time[1024 + 448 + n] *= short_right[127 - n];
                 }
-                time[1024 + 576..].fill(0.0);
+                // black_box: the Xtensa LLVM backend cannot select the
+                // folded -6400 byte offset of this range.
+                time[core::hint::black_box(1024 + 576)..].fill(0.0);
             } else {
                 for n in 0..1024 {
                     time[1024 + n] *= long_right[1023 - n];

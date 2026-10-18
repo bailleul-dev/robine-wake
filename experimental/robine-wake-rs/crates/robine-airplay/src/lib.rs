@@ -63,6 +63,8 @@ pub struct Config {
     pub model: String,
     pub features: u64,
     pub status_flags: u32,
+    /// Bytes the sender may push ahead of playback on a buffered stream.
+    pub audio_buffer_size: u32,
 }
 
 impl Config {
@@ -72,6 +74,7 @@ impl Config {
             model: "RobineWake1,1".into(),
             features: DEFAULT_FEATURES,
             status_flags: DEFAULT_STATUS_FLAGS,
+            audio_buffer_size: 8 * 1024 * 1024,
         }
     }
 }
@@ -105,6 +108,20 @@ impl Identity {
         identity.pi[6] = (identity.pi[6] & 0x0F) | 0x40;
         identity.pi[8] = (identity.pi[8] & 0x3F) | 0x80;
         identity
+    }
+
+    /// A stable identity derived from the device MAC and a device secret,
+    /// for platforms without storage for [`Identity::to_bytes`]. Transient
+    /// pairing never signs with the key, so its secrecy does not matter.
+    pub fn derive(device_id: [u8; 6], secret: &[u8]) -> Self {
+        use sha2::{Digest, Sha256};
+        let digest = |label: &[u8]| -> [u8; 32] {
+            Sha256::new().chain_update(label).chain_update(device_id).chain_update(secret).finalize().into()
+        };
+        let mut pi: [u8; 16] = digest(b"robine-airplay-pi")[..16].try_into().expect("16 bytes");
+        pi[6] = (pi[6] & 0x0F) | 0x40;
+        pi[8] = (pi[8] & 0x3F) | 0x80;
+        Self { device_id, seed: digest(b"robine-airplay-key"), pi }
     }
 
     /// `AA:BB:CC:DD:EE:FF`.

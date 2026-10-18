@@ -85,6 +85,9 @@ pub struct Connection {
     channel: Option<(Sealer, Opener)>,
     pairing: PairSetup,
     session: Session,
+    max_body: usize,
+    /// Bytes of an oversized body still to drop.
+    skipping: usize,
 }
 
 /// Bytes to send back and what happened.
@@ -104,7 +107,16 @@ impl Connection {
             channel: None,
             pairing: PairSetup::default(),
             session: Session::new(local_ip),
+            max_body: crate::rtsp::MAX_BODY,
+            skipping: 0,
         }
+    }
+
+    /// Limits the request bodies kept in memory; larger ones (cover art) are
+    /// skipped while their request is still answered.
+    pub fn with_max_body(mut self, max_body: usize) -> Self {
+        self.max_body = max_body;
+        self
     }
 
     pub fn is_encrypted(&self) -> bool {
@@ -117,8 +129,17 @@ impl Connection {
         let mut output = Output::default();
         loop {
             self.decrypt()?;
-            let request = match Request::parse(&mut self.plain) {
-                Ok(Some(request)) => request,
+            let skipped = self.skipping.min(self.plain.len());
+            self.plain.drain(..skipped);
+            self.skipping -= skipped;
+            if self.skipping > 0 {
+                return Ok(output);
+            }
+            let request = match Request::parse(&mut self.plain, self.max_body) {
+                Ok(Some((request, remaining))) => {
+                    self.skipping = remaining;
+                    request
+                }
                 Ok(None) => return Ok(output),
                 Err(ParseError::Malformed) => return Err(Error::Malformed),
                 Err(ParseError::TooLarge) => return Err(Error::TooLarge),
@@ -160,7 +181,7 @@ impl Connection {
 
     /// The response, and the pairing secret when pairing just completed.
     fn dispatch(&mut self, receiver: &Receiver, request: &Request, events: &mut Vec<Event>) -> (Response, Option<[u8; 64]>) {
-        if let Some(response) = self.session.handle(receiver.ports, request, events) {
+        if let Some(response) = self.session.handle(receiver.ports, receiver.config.audio_buffer_size, request, events) {
             return (response, None);
         }
         let path = request.target.split('?').next().unwrap_or("");
