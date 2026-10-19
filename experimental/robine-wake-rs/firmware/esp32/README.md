@@ -14,8 +14,66 @@ Le protocole vient de [`robine-api`](../../crates/robine-api), testé sur PC
 (`cargo test -p robine-api` à la racine du workspace).
 
 Sans ampli pour l'instant, la LED blanche (GPIO 25) clignote tant qu'une
-alarme sonne. Hue, respiration guidée et caméra répondent
-`unsupported_operation`.
+alarme sonne. Hue et caméra répondent `unsupported_operation`.
+
+## Veilleuse NeoPixel
+
+Une Adafruit Flora RGB Smart NeoPixel sert de guide lumineux pour la
+respiration 4/6. Le Raspberry Pi, maître de l'audio, garde l'horloge de la
+séance ([30-003](../../../../docs/specs/30/003-guided-breathing/spec.md)) et
+pilote la LED par une commande bas niveau, une par phase, comme les
+transitions natives Hue. Elle passe par la liaison série avec le Pi (voir
+plus bas) ou par HTTP, avec la même enveloppe API-002 :
+
+```json
+{"v":1,"id":"guide-light-42","op":"light.set","body":{
+  "color":{"r":255,"g":120,"b":12},"brightness":30,
+  "transition_ms":4000,"easing":"smoothstep"}}
+```
+
+| Champ | |
+|---|---|
+| `brightness` | obligatoire, 0 à 100 % (rapport cyclique PWM, pas de gamma) |
+| `color` | `{"r","g","b"}` de 0 à 255 ; garde la couleur actuelle s'il est omis |
+| `transition_ms` | 0 (immédiat, par défaut) à 60 000 |
+| `easing` | `linear` (par défaut) ou `smoothstep` |
+
+La transition part toujours de la couleur affichée à la réception, même
+si la précédente n'était pas finie. `light.get` renvoie la couleur actuelle,
+la cible et le temps de transition restant. L'ESP32 calcule les images à
+50 Hz et ne garde aucun rythme propre : la LED reste sur la dernière
+consigne jusqu'à la suivante. Elle est éteinte au démarrage et n'est pas
+persistée.
+
+| Flora NeoPixel | Heltec WiFi Kit 32 V1 |
+|---|---|
+| `+` | 3V3 |
+| `−` | GND |
+| `→` (entrée, flèche vers le pixel) | GPIO 13, via 330 Ω |
+
+Alimentée en 3,3 V, la WS2812B accepte directement les données 3,3 V de
+l'ESP32 : pas de level shifter. Elle éclaire un peu moins fort qu'en 5 V,
+sans importance la nuit. Le signal est produit par le RMT : le Wi-Fi ne
+peut pas déformer les bits.
+
+## Liaison série avec le Raspberry Pi
+
+UART2 à 115 200 bauds, 8N1. Une requête JSON par ligne (`\n`), une réponse
+par ligne avec le même `id`, traitée comme `POST /api/v1/command`. Les
+lignes qui ne commencent pas par `{` sont ignorées sans réponse : la console
+noyau du Pi écrit sur le même UART.
+
+| Raspberry Pi 3 | Heltec WiFi Kit 32 V1 |
+|---|---|
+| GPIO 14 TXD (broche 8) | GPIO 18 (RX) |
+| GPIO 15 RXD (broche 10) | GPIO 17 (TX) |
+| GND (broche 6) | GND |
+
+Les deux cartes sont en 3,3 V : fils directs. Côté Pi, c'est le mini UART
+`ttyS0` (le PL011 sert au Bluetooth), réglé par
+`config :robine_wake, guide_light: [driver: RobineWake.GuideLight.Driver.UART, device: "ttyS0"]`
+dans `config/target.exs`. Pour passer par le Wi-Fi à la place :
+`ROBINE_GUIDE_LIGHT_URL=http://robine-wake-xxxxxx.local:4000`.
 
 ## AirPlay 2
 

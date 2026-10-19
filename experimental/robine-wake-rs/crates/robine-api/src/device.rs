@@ -19,6 +19,7 @@ use serde_json::{json, Map, Value};
 
 use crate::command::CommandCache;
 use crate::dto::{self, iso8601};
+use crate::light::LightFade;
 use crate::{Context, Outcome, Platform, SESSION_CHANGED, STATE_CHANGED};
 
 /// A missed occurrence still rings if the device catches up within this delay.
@@ -153,6 +154,7 @@ pub struct Device {
     schedule: Vec<ScheduleEntry>,
     pairing: Option<Pairing>,
     recovery: Option<Recovery>,
+    pub(crate) light: Option<LightFade>,
     pub(crate) cache: CommandCache,
 }
 
@@ -168,6 +170,7 @@ impl Device {
             schedule: Vec::new(),
             pairing: None,
             recovery: None,
+            light: None,
             cache: CommandCache::default(),
         }
     }

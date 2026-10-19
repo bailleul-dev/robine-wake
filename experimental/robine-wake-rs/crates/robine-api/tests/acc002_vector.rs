@@ -19,6 +19,7 @@ fn paired_secret_and_counter_7_match_the_specification_signature() {
         sounds: sounds::BUNDLED,
         remote_dismiss_enabled: false,
         audio_available: false,
+        light: None,
     });
     let ctx = Context {
         now: Utc.with_ymd_and_hms(2026, 10, 19, 6, 0, 0).unwrap(),

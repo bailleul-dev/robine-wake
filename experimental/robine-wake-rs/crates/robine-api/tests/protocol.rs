@@ -14,6 +14,7 @@ fn platform() -> Platform {
         sounds: sounds::BUNDLED,
         remote_dismiss_enabled: false,
         audio_available: false,
+        light: None,
     }
 }
 

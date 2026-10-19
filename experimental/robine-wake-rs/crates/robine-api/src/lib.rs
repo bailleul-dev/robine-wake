@@ -18,12 +18,14 @@ extern crate std;
 mod command;
 mod device;
 mod dto;
+mod light;
 pub mod sounds;
 
 use alloc::vec::Vec;
 use chrono::{DateTime, Utc};
 
 pub use device::{AudioOutput, Device, SnapshotError};
+pub use light::{Easing, LightFade, LightLevel, Rgb, MAX_TRANSITION_MS};
 pub use sounds::Sound;
 
 /// Port of the HTTP command endpoint, shared with the Raspberry Pi build.
@@ -47,6 +49,9 @@ pub struct Platform {
     pub remote_dismiss_enabled: bool,
     /// Whether the device can play sound at all.
     pub audio_available: bool,
+    /// Name of a light wired to the device, which enables `light.set` and
+    /// `light.get`.
+    pub light: Option<&'static str>,
 }
 
 /// Per-call view of the outside world.

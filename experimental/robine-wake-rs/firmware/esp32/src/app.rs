@@ -10,7 +10,7 @@ use log::{error, info};
 use robine_api::{Context, Device, Outcome};
 
 use crate::store::Store;
-use crate::{clock, events};
+use crate::{clock, events, guide_light};
 
 /// Whether an alarm is audible; drives the LED until the amplifier is wired.
 pub static RINGING: AtomicBool = AtomicBool::new(false);
@@ -53,6 +53,7 @@ impl App {
                 device.refresh_schedule(&self.context());
             }
             RINGING.store(device.audio().is_some(), Ordering::Relaxed);
+            guide_light::publish(device.light());
             let snapshot = outcome.persist.then(|| device.snapshot());
             (response, outcome, snapshot)
         };

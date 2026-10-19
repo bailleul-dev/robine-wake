@@ -41,6 +41,9 @@ const OPERATIONS: &[&str] = &[
     "device.factory_reset",
 ];
 
+/// Operations of a device with a light wired to it.
+const LIGHT_OPERATIONS: &[&str] = &["light.set", "light.get"];
+
 /// Read-only operations: replays are answered by executing them again, so
 /// only their fingerprint is kept.
 const READ_ONLY: &[&str] = &[
@@ -49,6 +52,7 @@ const READ_ONLY: &[&str] = &[
     "alarm.preview",
     "session.get",
     "remote_button.status",
+    "light.get",
 ];
 
 struct CacheEntry {
@@ -161,11 +165,15 @@ impl Device {
         let text = |key: &str| body.get(key).and_then(Value::as_str);
         let body_value = || Value::Object(body.clone());
 
+        if self.platform.light.is_none() && LIGHT_OPERATIONS.contains(&operation) {
+            return Err(Error::Code("unsupported_operation"));
+        }
+
         match operation {
             "capabilities.get" => Ok(json!({
                 "contract_version": VERSION,
                 "security": "remote-button-hmac-sha256-counter",
-                "operations": OPERATIONS,
+                "operations": self.operations(),
                 "response_transport": "http",
             })),
             "state.get" => Ok(self.state_payload(ctx)),
@@ -249,6 +257,9 @@ impl Device {
             }
             "remote_button.dismiss" => self.remote_dismiss(body, ctx, out),
 
+            "light.set" => self.set_light(body, ctx),
+            "light.get" => Ok(self.light_status(ctx)),
+
             "device.factory_reset" => match text("confirmation") {
                 Some("RESET") => {
                     self.factory_reset(out);
@@ -259,6 +270,14 @@ impl Device {
 
             _ => Err(Error::Code("unsupported_operation")),
         }
+    }
+
+    fn operations(&self) -> Vec<&'static str> {
+        let mut operations = OPERATIONS.to_vec();
+        if self.platform.light.is_some() {
+            operations.extend_from_slice(LIGHT_OPERATIONS);
+        }
+        operations
     }
 
     fn state_payload(&self, ctx: &Context) -> Value {
