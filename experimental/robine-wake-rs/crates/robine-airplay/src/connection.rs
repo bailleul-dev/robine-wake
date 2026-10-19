@@ -2,6 +2,7 @@
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use crate::cipher::{self, Opener, Sealer};
 use crate::info;
@@ -62,13 +63,26 @@ pub struct Receiver {
     pub identity: Identity,
     random: RandomSource,
     verifier: Verifier,
+    /// Volume proposed to senders in `GET /info` (f32 bits, NaN for none).
+    initial_volume: AtomicU32,
 }
 
 impl Receiver {
     /// Computes the pairing verifier: slow on a microcontroller, done once.
     pub fn new(config: Config, identity: Identity, random: RandomSource) -> Self {
         let verifier = Verifier::new(TRANSIENT_PIN, random);
-        Self { config, ports: Ports::default(), identity, random, verifier }
+        let initial_volume = AtomicU32::new(f32::NAN.to_bits());
+        Self { config, ports: Ports::default(), identity, random, verifier, initial_volume }
+    }
+
+    /// Volume in dB a sender starts a session at (`initialVolume`), or none
+    /// to let it choose. Settable while connections run.
+    pub fn set_initial_volume(&self, db: Option<f32>) {
+        self.initial_volume.store(db.unwrap_or(f32::NAN).to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn initial_volume(&self) -> Option<f32> {
+        Some(f32::from_bits(self.initial_volume.load(Ordering::Relaxed))).filter(|db| !db.is_nan())
     }
 
     /// TXT records to publish on `_airplay._tcp`.
@@ -187,7 +201,7 @@ impl Connection {
         let path = request.target.split('?').next().unwrap_or("");
         match (request.method.as_str(), path) {
             ("GET", "/info") => (
-                Response::ok().body(PLIST, info::info_plist(&receiver.config, &receiver.identity)),
+                Response::ok().body(PLIST, info::info_plist(&receiver.config, &receiver.identity, receiver.initial_volume())),
                 None,
             ),
             ("POST", "/pair-setup") => {
@@ -254,6 +268,12 @@ mod tests {
         assert_eq!(info.get("name").and_then(|v| v.as_str()), Some("Robine Wake"));
         assert_eq!(info.get("features").and_then(|v| v.as_integer()), Some(crate::DEFAULT_FEATURES as i64));
         assert_eq!(info.get("pk").and_then(|v| v.as_data()), Some(&receiver.identity.public_key()[..]));
+        assert!(info.get("initialVolume").is_none());
+
+        receiver.set_initial_volume(Some(-7.5));
+        let output = connection.feed(&receiver, b"GET /info RTSP/1.0\r\nCSeq: 2\r\n\r\n").unwrap();
+        let info = bplist::from_bytes(&split(&output.reply).1).unwrap();
+        assert_eq!(info.get("initialVolume"), Some(&bplist::Value::Real(-7.5)));
     }
 
     /// The exchange an iPhone performs, then an encrypted request.

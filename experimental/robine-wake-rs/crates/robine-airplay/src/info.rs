@@ -42,8 +42,9 @@ fn packed_txt(config: &Config, identity: &Identity) -> Vec<u8> {
 }
 
 /// Body of `GET /info` (fields of shairport-sync's `get_info_response`).
-pub fn info_plist(config: &Config, identity: &Identity) -> Vec<u8> {
-    let value = dict([
+/// `initial_volume`: dB the sender should start the session at.
+pub fn info_plist(config: &Config, identity: &Identity, initial_volume: Option<f32>) -> Vec<u8> {
+    let mut value = dict([
         ("vv", Value::Integer(2)),
         ("protocolVersion", Value::String("1.1".into())),
         ("volumeControlType", Value::Integer(3)),
@@ -68,5 +69,8 @@ pub fn info_plist(config: &Config, identity: &Identity) -> Vec<u8> {
         ("pk", Value::Data(identity.public_key().to_vec())),
         ("txtAirPlay", Value::Data(packed_txt(config, identity))),
     ]);
+    if let (Value::Dict(entries), Some(db)) = (&mut value, initial_volume) {
+        entries.push(("initialVolume".into(), Value::Real(f64::from(db))));
+    }
     bplist::to_bytes(&value)
 }

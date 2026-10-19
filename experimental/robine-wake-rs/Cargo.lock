@@ -846,6 +846,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "robine-airplayd"
+version = "0.1.0"
+dependencies = [
+ "getrandom",
+ "libc",
+ "mdns-sd",
+ "robine-airplay",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "robine-api"
 version = "0.1.0"
 dependencies = [

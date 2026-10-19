@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/robine-core", "crates/robine-ports", "crates/robine-daemon", "crates/robine-api", "crates/robine-airplay", "crates/robine-airplay-bench"]
+members = ["crates/robine-core", "crates/robine-ports", "crates/robine-daemon", "crates/robine-api", "crates/robine-airplay", "crates/robine-airplay-bench", "crates/robine-airplayd"]
 exclude = ["firmware"]
 
 [profile.release]

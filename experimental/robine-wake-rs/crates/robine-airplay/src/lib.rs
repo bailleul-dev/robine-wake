@@ -27,6 +27,7 @@ mod fairplay;
 mod info;
 mod pairing;
 pub mod ptp;
+pub mod realtime;
 mod rtsp;
 mod session;
 mod srp;
