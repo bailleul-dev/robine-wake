@@ -106,13 +106,13 @@ Status meanings:
 
 | ID | Status | Evidence or remaining proof |
 |---|---|---|
-| APY-001 | Verified | Shairport Sync is embedded and supervised; macOS `dns-sd` discovered `CC1323229925@Robine Wake Bedroom` and TCP 5000 accepted connections on the target. End-to-end source playback remains part of acoustic acceptance. |
-| APY-002 | Verified | Automated tests cover alarm ownership, and a target suspend/resume drill removed the Shairport process completely before returning with a new PID in under 750 ms. |
+| APY-001 | Verified | `robine-airplayd` is embedded and supervised; an iPhone found and played to `Robine Wake Bedroom` on 2026-10-19. Earlier evidence, with Shairport Sync: macOS `dns-sd` discovered `CC1323229925@Robine Wake Bedroom` and TCP 5000 accepted connections on the target. End-to-end source playback remains part of acoustic acceptance. |
+| APY-002 | Verified | Automated tests cover alarm ownership, and a target suspend/resume drill removed the Shairport process completely (receiver since replaced by `robine-airplayd`, whose suspend keeps the session and only releases ALSA, covered by `air_play_test.exs`) before returning with a new PID in under 750 ms. |
 | APY-003 | Partial | Existing direct HiFiBerry path is implemented; the simplified tactile energy-envelope extraction is specified only. |
-| APY-004 | Implemented | Shairport Sync attenuates in software under the 0 dB hardware music level kept by `RobineWake.Audio`, resets idle sessions to -7.5 dB (75 %), and treats -3 dB as the high-volume threshold; acoustic calibration remains pending. |
+| APY-004 | Implemented | `robine-airplayd` attenuates in software under the 0 dB hardware music level kept by `RobineWake.Audio`, resets idle sessions to -7.5 dB (75 %), and treats -3 dB as the high-volume threshold; acoustic calibration remains pending. |
 | APY-005 | Verified | Forcibly terminating target PID 209 produced a healthy replacement at PID 226 after the configured two-second recovery delay without restarting the BEAM. |
-| APY-006 | Verified | Host builds disable the receiver and require no Shairport executable or network service. |
-| APY-007 | Partial | AirPlay 2 is enabled with Shairport Sync 5.5.2 (`package/shairport-sync5`, Avahi, NQPTP, supervised by `RobineWake.AirPlay`); iPhone (iOS 26) and Mac playback verified on 2026-10-09; resource and overnight timing evidence is pending. |
+| APY-006 | Verified | Host builds disable the receiver and require no receiver executable or network service. |
+| APY-007 | Partial | AirPlay 2 is served by `robine-airplayd` (own mDNS and PTP, supervised by `RobineWake.AirPlay`), which replaced Shairport Sync, Avahi and NQPTP on 2026-10-19; iPhone buffered playback (music and YouTube) verified that day; realtime stream, Mac, resource and overnight timing evidence is pending. |
 
 ## Bluetooth audio receiver
 

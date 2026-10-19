@@ -7,52 +7,39 @@ weakening its primary responsibility as a reliable alarm clock.
 
 ## MVP scope
 
-The target firmware embeds Shairport Sync 5.5.2 built for AirPlay 2. The
-receiver advertises the name `Robine Wake Bedroom`, accepts audio from devices
-on the local network, and sends stereo PCM directly to the HiFiBerry Amp2 ALSA
-device. The host emulator does not start or emulate an AirPlay protocol server.
-This direct-output path describes the existing implementation. The tactile
-extension specified below remains to be implemented.
+The target firmware embeds `robine-airplayd`, the project's own AirPlay 2
+receiver. It advertises the name `Robine Wake Bedroom`, accepts audio from
+devices on the local network, and sends stereo PCM directly to the HiFiBerry
+Amp2 ALSA device. The host emulator does not start or emulate an AirPlay
+protocol server. This direct-output path describes the existing
+implementation. The tactile extension specified below remains to be
+implemented.
 
-AirPlay 2 replaced classic AirPlay so that the receiver, not the source,
-proposes the volume when it is selected. This is an audio receiver only:
-photos, screen mirroring, and video are out of scope.
+AirPlay 2 lets the receiver, not the source, propose the volume when it is
+selected. This is an audio receiver only: photos, screen mirroring, and video
+are out of scope.
 
 ## Runtime architecture
 
-`RobineWake.AirPlay` owns one foreground Shairport Sync operating-system
-process through an Erlang port. It starts only on the Raspberry Pi target,
-captures process output into bounded system logging, observes exit status, and
-restarts unexpected exits after two seconds. A missing executable or
-configuration file is reported through health and retried without preventing
-the alarm application from booting.
-
-Shairport Sync performs Bonjour/mDNS advertisement and network protocol
-handling. It opens `plughw:0` in 32-bit and has no hardware mixer: see volume below.
-This selection matches the hardware-validated HiFiBerry card for the current
-single-board product profile and must be revisited if another ALSA card is
-added.
-
-## Alternative receiver: robine-airplayd
-
-`airplay_receiver: :robine` replaces Shairport Sync, NQPTP and Avahi with
-`robine-airplayd` (`experimental/robine-wake-rs/crates/robine-airplayd`), a
+`robine-airplayd` (`experimental/robine-wake-rs/crates/robine-airplayd`) is a
 1.4 MB static binary on the project's own AirPlay 2 core, the one the ESP32
 runs. `make airplayd` (a prerequisite of `make firmware`) builds it into
-`rootfs_overlay/usr/bin`. Shairport Sync stays the default until the
-receiver is validated.
+`rootfs_overlay/usr/bin`. It replaced Shairport Sync, NQPTP and Avahi on
+2026-10-19, after listening tests from an iPhone; the image no longer ships
+them.
 
 `RobineWake.AirPlay` owns it through an Erlang port, one JSON message per
-line. It advertises itself over mDNS as `robine-wake-airplay.local`,
-follows the sender's PTP clock on ports 319/320, plays through `aplay` in
-S32_LE on `plughw:0` with the same software volume, and keeps its identity
-in `/data/airplay`. The process exits when the port closes.
+line. It starts only on the Raspberry Pi target, logs the process output,
+observes exit status, and restarts unexpected exits after two seconds. A
+missing executable is reported through health and retried without
+preventing the alarm application from booting.
 
-Alarm priority is kept with a lighter suspend: the receiver keeps its
-session, releases ALSA and confirms with `suspended`. If that confirmation
-does not arrive within one second, the receiver is stopped like Shairport
-Sync. On resume it plays again without reconnecting the sender. Its decoded
-PCM is available to the tactile extension below.
+The receiver advertises itself over mDNS as `robine-wake-airplay.local`,
+follows the sender's PTP clock on ports 319/320, plays through `aplay` in
+S32_LE on `plughw:0` with a software volume, and keeps its identity in
+`/data/airplay`. The process exits when the port closes. This selection
+matches the hardware-validated HiFiBerry card for the current single-board
+product profile and must be revisited if another ALSA card is added.
 
 Both streams play on the sender's clock: buffered ones from their
 `SETRATEANCHORTIME` anchor, realtime ones from the sync packets of the
@@ -62,9 +49,9 @@ once, smaller ones and the sender/DAC clock drift by dropping or repeating
 an occasional frame. `/info` proposes the last volume to new sessions,
 back to -7.5 dB after an hour idle at -3 dB or more.
 
-Before it becomes the default: a long listening validation on the Pi,
-including the realtime anchor correction taken from Shairport Sync and the
-output latency estimate.
+Still to validate on the Pi: a long listening session, including the
+realtime anchor correction taken from Shairport Sync and the output latency
+estimate, through the `stats` events (debug log of `RobineWake.AirPlay`).
 
 ## Tactile music extension — specified, pending implementation
 
@@ -85,13 +72,15 @@ session may restore receiver availability but never replay a stale tactile buffe
 ALSA access is exclusive. The alarm path is authoritative and never mixes with
 AirPlay:
 
-1. Before attempting alarm playback, `RobineWake.Audio` suspends AirPlay and
-   closes the Shairport Sync process.
+1. Before attempting alarm playback, `RobineWake.Audio` suspends AirPlay: the
+   receiver keeps its session and releases ALSA, and is stopped if it does
+   not confirm within one second.
 2. The alarm opens the HiFiBerry and applies its normal progressive gain rules.
 3. AirPlay remains unavailable for the complete wake-session audio interval,
    including retries.
-4. After a normal stop or terminal playback failure, the receiver restarts and
-   advertises itself again.
+4. After a normal stop or terminal playback failure, the receiver resumes
+   without the sender reconnecting, or restarts and advertises itself again
+   if it was stopped.
 
 The same rules apply to the [Bluetooth receiver](../005-bluetooth-audio-receiver/spec.md):
 `RobineWake.Audio` suspends and resumes every music receiver, and a receiver
@@ -103,7 +92,7 @@ delay, replace, attenuate, or suppress an alarm.
 
 ## Volume and bedroom safety
 
-Shairport Sync attenuates in software, in 32-bit, and never writes the Amp2
+The receiver attenuates in software, in 32-bit, and never writes the Amp2
 `Digital` mixer. That hardware level belongs to `RobineWake.Audio`, which keeps
 it at the music ceiling (`music_mixer_db`, `0.0 dB`) between alarms; see
 [audio output](../001-audio-output/spec.md#music-level). A source at full volume
@@ -122,50 +111,13 @@ must not be allowed to block alarm startup.
 
 The receiver must remain optional: loss of Wi-Fi or mDNS only removes AirPlay
 availability. The scheduler, alarm audio, physical controls, and generated breathing/wake
-vibration continue locally. Classic AirPlay normally uses mDNS on UDP 5353, TCP 5000, and
-a small negotiated UDP audio/control range beginning near 6001. No inbound
-internet connectivity or cloud account is required.
+vibration continue locally. AirPlay 2 uses mDNS on UDP 5353, the control
+connection on TCP 7000, PTP on UDP 319/320 and negotiated audio ports. No
+inbound internet connectivity or cloud account is required.
 
 The application continues to run its existing local mDNS advertisement for the
-web and SSH services. AirPlay 2 is advertised by Avahi under its own host name
-(`robine-wake-airplay.local`), next to that responder on port 5353.
-
-## AirPlay 2 decision
-
-AirPlay 2 is enabled. Shairport Sync comes from the system's own
-`package/shairport-sync5` (release 5.5.2): Buildroot's 4.3.7 negotiates the
-AirPlay 2 buffered stream with iOS 26 but plays silence, while the Mac's
-realtime stream works. Release 5 decodes both ALAC and AAC through FFmpeg,
-which is trimmed to those decoders, the ffmpeg CLI and a few audio filters so
-the root filesystem still fits its partition. The image also adds Avahi,
-Buildroot's NQPTP 1.2.4 (shared-memory interface version 10, which Shairport
-Sync 5.5 accepts; NQPTP 1.2.8 was tried and brought nothing), and the
-cryptographic libraries; NQPTP owns PTP UDP ports 319 and 320. Release 5 is
-built without metadata support, whose pipe initialisation crashes at startup
-when no pipe name is configured.
-`RobineWake.AirPlay` starts Avahi and NQPTP before Shairport Sync and keeps
-them running while wake audio suspends the receiver. Avahi needs the system
-D-Bus, which `RobineWake.BluetoothAudio` starts.
-
-Still to record on the Raspberry Pi 3: idle-memory delta, CPU load during
-buffered playback, alarm-preemption latency, iOS/macOS compatibility, and
-overnight timing stability.
-
-## Diagnostics
-
-A receiver that "plays" without sound is diagnosed on the target without a
-reflash. The firmware ships `/usr/bin/shairport-sync-diag`, a launcher
-running the same binary with Shairport's own diagnostics and its stderr in
-`/tmp`, and the binary carries an environment-gated per-block
-instrumentation (package patch 0002: block size and decoded peak, optional
-raw dump). `RobineWake.AirPlay.Diagnostics.enable/1` switches the receiver
-to that launcher through the `:airplay_executable` and `:airplay_environment`
-settings, `summary/0` tells a source sending silence from a decoding or
-output problem, and `disable/0` restores the production launcher. Nothing
-runs differently in normal operation. The procedure, its `/tmp` safeguards
-and the reference case (iOS 27 beta sending encoded silence from a stale
-session, cured on the phone side) are in
-[AirPlay diagnostics](../../../knowledges/airplay-diagnostics.md).
+web and SSH services. The receiver advertises AirPlay 2 under its own host
+name (`robine-wake-airplay.local`), next to that responder on port 5353.
 
 ## Requirements
 
@@ -181,8 +133,9 @@ session, cured on the phone side) are in
   trigger bounded automatic recovery without restarting the BEAM.
 - `APY-006` — AirPlay shall be disabled on the host build and shall remain
   optional to every P0 alarm function.
-- `APY-007` — AirPlay 2 shall be advertised through Avahi with NQPTP timing;
-  its resource and compatibility acceptance evidence remains to be recorded.
+- `APY-007` — AirPlay 2 shall be advertised and timed by the receiver itself,
+  without Avahi or NQPTP; its resource and compatibility acceptance evidence
+  remains to be recorded.
 
 - `APY-008` — Music shall support a separately limited tactile intensity envelope,
   with stable control, transport silence and measured response; its failure
@@ -199,7 +152,7 @@ session, cured on the phone side) are in
   normal alarm latency target; the source disconnects and the receiver becomes
   discoverable again after dismissal.
 - Wi-Fi loss, source disappearance, malformed connection attempts, and a
-  forcibly terminated Shairport process do not restart or block the alarm
+  forcibly terminated receiver process do not restart or block the alarm
   application.
 - Reboot and overnight tests show no mDNS conflict with the local web and SSH
   advertisements.

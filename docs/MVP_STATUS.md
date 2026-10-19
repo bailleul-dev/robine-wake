@@ -94,9 +94,10 @@ Coverage is intentionally lower for target-only ALSA and Raspberry Pi camera
 drivers because those paths require the actual peripherals. Their decision
 logic and state transitions are covered through the host drivers.
 
-The AirPlay implementation currently targets classic AirPlay through Shairport
-Sync. AirPlay 2 is intentionally deferred until its larger FFmpeg/Avahi/NQPTP
-stack and timing behavior have been measured on the Raspberry Pi 3.
+AirPlay 2 is served by `robine-airplayd`, the project's own receiver, which
+replaced Shairport Sync, Avahi and NQPTP in the image on 2026-10-19. Its
+long-listening and overnight timing behavior remain to be measured on the
+Raspberry Pi 3.
 
 ## Historical verification on target hardware
 

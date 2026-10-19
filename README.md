@@ -182,7 +182,7 @@ uses its inactive A/B slot and startup validation guard.
 
 The HiFiBerry Amp2 is validated as `plughw:0` with the
 `hifiberry-dacplus` Device Tree overlay. Target firmware also advertises
-`Robine Wake Bedroom` as a classic AirPlay receiver. An alarm always preempts
+`Robine Wake Bedroom` as an AirPlay 2 receiver (`robine-airplayd`). An alarm always preempts
 an active stream and the receiver returns after alarm playback ends. Each alarm
 selects two sounds: a progressive wake track and a strong fallback track that
 starts if the gentle ramp completes without dismissal. Curated MP3 assets and

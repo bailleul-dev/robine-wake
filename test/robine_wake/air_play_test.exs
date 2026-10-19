@@ -10,8 +10,7 @@ defmodule RobineWake.AirPlayTest do
       enabled: Application.fetch_env!(:robine_wake, :airplay_enabled),
       network_state: Application.get_env(:robine_wake, :host_network_state, :available),
       restart_delay: Application.fetch_env!(:robine_wake, :airplay_restart_delay_ms),
-      receiver: Application.get_env(:robine_wake, :airplay_receiver, :shairport),
-      robine_executable: Application.fetch_env!(:robine_wake, :airplay_robine_executable)
+      executable: Application.fetch_env!(:robine_wake, :airplay_executable)
     }
 
     on_exit(fn ->
@@ -19,8 +18,7 @@ defmodule RobineWake.AirPlayTest do
       Application.put_env(:robine_wake, :airplay_enabled, original.enabled)
       Application.put_env(:robine_wake, :host_network_state, original.network_state)
       Application.put_env(:robine_wake, :airplay_restart_delay_ms, original.restart_delay)
-      Application.put_env(:robine_wake, :airplay_receiver, original.receiver)
-      Application.put_env(:robine_wake, :airplay_robine_executable, original.robine_executable)
+      Application.put_env(:robine_wake, :airplay_executable, original.executable)
       {:ok, _pid} = Supervisor.restart_child(RobineWake.Supervisor, @airplay_child)
     end)
 
@@ -52,7 +50,7 @@ defmodule RobineWake.AirPlayTest do
 
       assert_eventually(fn ->
         match?(
-          %{state: :available, receiver: :robine, session: "playing", volume_db: -12.5},
+          %{state: :available, session: "playing", volume_db: -12.5},
           AirPlay.status()
         )
       end)
@@ -89,8 +87,7 @@ defmodule RobineWake.AirPlayTest do
 
   defp start_robine(executable) do
     :ok = Supervisor.terminate_child(RobineWake.Supervisor, @airplay_child)
-    Application.put_env(:robine_wake, :airplay_receiver, :robine)
-    Application.put_env(:robine_wake, :airplay_robine_executable, executable)
+    Application.put_env(:robine_wake, :airplay_executable, executable)
     Application.put_env(:robine_wake, :host_network_state, :available)
     {:ok, _pid} = Supervisor.restart_child(RobineWake.Supervisor, @airplay_child)
   end
