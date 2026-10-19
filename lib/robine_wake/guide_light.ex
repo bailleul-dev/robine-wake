@@ -16,7 +16,6 @@ defmodule RobineWake.GuideLight do
   """
 
   use GenServer
-  require Logger
 
   alias RobineWake.EventLog
 
