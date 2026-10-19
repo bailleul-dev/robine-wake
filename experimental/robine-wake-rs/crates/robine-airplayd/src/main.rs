@@ -102,7 +102,7 @@ fn load_identity(data_dir: &std::path::Path) -> Identity {
     identity
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub struct Stats {
     /// Frames received.
     realtime_frames: u64,

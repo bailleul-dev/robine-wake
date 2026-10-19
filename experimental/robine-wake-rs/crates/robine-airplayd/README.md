@@ -76,7 +76,8 @@ cargo build --release --target arm-unknown-linux-musleabihf -p robine-airplayd
 
 `make airplayd`, à la racine du dépôt, fait de même et le copie dans
 `rootfs_overlay/usr/bin` ; `make firmware` l'appelle. Il est choisi par
-`config :robine_wake, airplay_receiver: :robine` (Shairport Sync par défaut).
+`config :robine_wake, airplay_receiver: :robine`, le récepteur par défaut ;
+`:shairport` revient à Shairport Sync.
 
 ## À faire avant de remplacer Shairport Sync
 

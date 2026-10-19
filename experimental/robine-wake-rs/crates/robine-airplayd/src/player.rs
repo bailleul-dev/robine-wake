@@ -24,7 +24,7 @@ use serde_json::json;
 use crate::control::emit;
 use crate::queue::FrameQueue;
 use crate::speaker::{Message, Output, CHUNK, SAMPLE_RATE, SUSPENDED};
-use crate::{local_ns, Shared, State};
+use crate::{local_ns, Shared, State, Stats};
 
 /// Larger sync errors are corrected at once rather than by stuffing.
 const HARD_SYNC: Duration = Duration::from_millis(50);
@@ -287,7 +287,9 @@ pub fn run(device: String, state: Shared, messages: Receiver<Message>) {
 
 fn report(state: &Shared) {
     let stats = std::mem::take(&mut state.lock().unwrap().stats);
-    if stats.realtime_frames + stats.buffered_frames == 0 {
+    // Buffered audio arrives in bursts: a window without packets still
+    // counts the corrections and underruns of the playback.
+    if stats == Stats::default() {
         return;
     }
     emit(

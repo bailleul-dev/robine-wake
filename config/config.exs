@@ -39,7 +39,7 @@ config :robine_wake,
   airplay_enabled: false,
   airplay_name: "Robine Wake Bedroom",
   # :shairport (Shairport Sync + NQPTP + Avahi) or :robine (robine-airplayd).
-  airplay_receiver: :shairport,
+  airplay_receiver: :robine,
   airplay_robine_executable: "/usr/bin/robine-airplayd",
   airplay_device: "plughw:0",
   airplay_data_dir: "data/airplay",
