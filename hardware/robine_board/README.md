@@ -1,11 +1,16 @@
-# Robine Wake — All-In-One Mainboard v1.0 (`robine_board`)
+# Robine Wake — All-In-One Mainboard v1.1 (`robine_board`)
 
-> **Statut : concept, non fabricable.** Plusieurs symboles et empreintes sont
-> des substituts (ampli, chargeur, Ethernet, PoE, condensateurs et
-> inductances de puissance) et des circuits d'accompagnement manquent. Voir
-> [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) avant toute commande.
+> **Statut : schéma v1.1 terminé, PCB placé mais non routé.** Les exports de
+> fabrication (`exports/gerbers/`) reflètent cet état et **ne sont pas
+> commandables**. La revue [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) porte sur la
+> v1.0 ; une partie de ses points a été traitée par la v1.1.
 
-Carte électronique principale tout-en-un conçue sous **KiCad 9** via le serveur MCP `kicad` pour le réveil / barre de son **Robine Wake**.
+Carte électronique principale tout-en-un du réveil / barre de son **Robine
+Wake**, conçue sous **KiCad 9** via le serveur MCP `kicad`. Carte 2 couches,
+120 × 90 mm, 145 composants.
+
+Pour prototyper sans cette carte, voir le banc de dev sur breadboard :
+[`../dev_bench/banc-de-dev.pdf`](../dev_bench/banc-de-dev.pdf).
 
 ---
 
@@ -13,72 +18,110 @@ Carte électronique principale tout-en-un conçue sous **KiCad 9** via le serveu
 
 | Sous-système | Référence(s) | Composant choisi | Caractéristiques clés |
 | :--- | :--- | :--- | :--- |
-| **1. MCU Principal (Wi-Fi + BLE 5.0 + DSP)** | `U1`, `SW1`, `SW2`, `J3` | `ESP32-S3-WROOM-1-N16R8` | Dual-core Xtensa LX7 @ 240 MHz, 16 Mo Flash, 8 Mo PSRAM Octal, Wi-Fi 802.11 b/g/n, BLE 5.0, USB natif (`GPIO19/20`), maître I²S / SPI / I²C |
-| **2. Co-processeur Bluetooth Audio (A2DP) + BLE + Wi-Fi** | `U2`, `J9` | `ESP32-WROOM-32E` | Dual-core Xtensa LX6 avec pile **Bluetooth Classic BR/EDR (A2DP Sink / AVRCP)** + BLE + Wi-Fi, relié à `U1` en I²S numérique (`I2S_BCLK`, `I2S_LRCLK`, `I2S_BT_DOUT`) et par son UART0 (`BT_RXD0/BT_TXD0`). `U1` pilote aussi `BT_EN` et `BT_IO0` : il peut redémarrer `U2` en bootloader ROM et le reflasher. `J9` (`BT_PROG`) reste en parallèle pour la récupération manuelle |
-| **3. Entrée Alimentation Externe (24V DC)** | `J1`, `D1`, `C1`, `R1`, `R2` | Bornier `24V_DC_IN_5A` + Schottky `D1` (`SS54`) | Entrée **24V DC / 5A (120 W)** dimensionnée pour fournir la pleine puissance à l'amplificateur stéréo 2×50 W (`PVDD = 24V`) avec télémétrie ADC (`ADC_VIN_SENSE`) |
-| **4. Batterie de secours (UPS 4S LiFePO4) & Conversions DC/DC** | `J2`, `U3`, `D2`, `U4`, `L1`, `U5`, `R3`, `R4` | `BQ24610` + `TPS54531` (5V 5A) + `AMS1117-3.3` | Batterie **4S LiFePO4 (12,8 V nominal / 14,4 V float)** (`J2`) choisie pour sa sécurité thermique absolue en chambre et sa durée de vie en maintien de charge 24/7 (> 10 ans), aiguillage sans coupure par triple diode Schottky OR-ing (`D1` Secteur 24V / `D2` Batterie 4S / `D3` PoE+ 24V → `PVDD`), buck `U4` (`5V / 5A`) et LDO `U5` (`3.3V / 1A`) |
-| **5. Amplificateur Stéréo ≥ 40W/canal (2×50W)** | `U6`, `L2..L5`, `C9..C14`, `J5` | `TAS5825M` (Texas Instruments) | Amplificateur Classe-D numérique **2×50 W @ 4 Ω sous 24V** (`PVDD`), entrée I²S directe + contrôle DSP I²C (`0x4C`), filtre LC de sortie 4 voies BTL (`L2..L5` 10 µH / 5A + `C11..C14` 680 nF) vers bornier haut-parleurs `J5` |
-| **6. Module LoRa 868 MHz** | `U7`, `J6` | `RFM95W-868S2` (SX1276) + `SMA` | Transceiver LoRa 868 MHz SPI (+20 dBm) compatible avec le bouton déporté `ACC-003` (protocole HMAC-SHA256), interruptions `LORA_DIO0/DIO1`, connecteur coaxial SMA 50 Ω (`J6`) |
-| **7. Ethernet 10/100Base-TX avec PoE+** | `J7`, `U8`, `U9`, `D3`, `C15` | `W5500` + `Ag9924M` (IEEE 802.3at) + `RJ45` | Connecteur RJ45 MagJack PoE (`J7`), module PD PoE+ isolé **24V / 30W** (`U9` Silvertel `Ag9924M`) injectant sur `PVDD` via `D3`, contrôleur Ethernet SPI hardware TCP/IP `W5500` (`U8`) |
-| **8. Matrice NeoPixel Haute Puissance (Simulation d'Aube)** | `U10`, `R9`, `C16`, `D4..D11`, `J8` | `SN74AHCT1G125` + 8× `SK6812` + `J8` | Level-shifter 3.3V→5V (`U10`), condensateur réservoir 1000 µF (`C16`), **matrice embarquée de 8 LEDs adressables `SK6812` RGBW (`D4..D11`)** + bornier haute intensité 5V/5A (`J8`) pour l'anneau lumineux / lampes d'aube externes |
+| **MCU principal** | `U1`, `SW1`, `SW2`, `J3`, `U11`, `J4` | `ESP32-S3-WROOM-1-N16R8` | Dual-core LX7 240 MHz, 16 Mo flash, 8 Mo PSRAM octale, Wi-Fi + BLE 5. AirPlay 2, maître I²S, SPI et I²C. USB-C natif (`J3`, protection ESD `U11` `USBLC6-2SC6`, CC 5,1 kΩ `R22`/`R23`), console UART0 sur `J4` |
+| **Co-processeur Bluetooth audio + aube** | `U2`, `J9`, `R25`, `R26`, `C29` | `ESP32-WROOM-32E` | Bluetooth Classic BR/EDR (A2DP sink, AVRCP), absent du S3. Esclave I²S de `U1` (`I2S_BCLK`, `I2S_LRCLK`), renvoie le flux A2DP sur `I2S_BT_DOUT`. Relié à `U1` par son UART0 ; `U1` pilote `BT_EN` et `BT_IO0` et peut le reflasher via le bootloader ROM. `J9` (`BT_PROG`) en parallèle pour la récupération manuelle. Génère aussi les 10 PWM de l'aube |
+| **Entrée secteur 24 V** | `J1`, `D1`, `C1` | Bornier 2 points + `SS54` | Entrée `+24V_MAINS`, OR-ing vers `PVDD_24V` par `D1` |
+| **UPS batterie 4S LiFePO4** | `J2`, `U3`, `Q1`, `L7`, `R15`, `R1`/`R2` | `BQ24610` + `CSD87350Q5D` | Chargeur buck synchrone depuis `+24V_MAINS`, shunt 10 mΩ, tension de fin de charge fixée par `R1`/`R2` (110 k / 20 k ≈ 13,6 V). `MAINS_OK` (/PG) et `CHG_STAT` (STAT1) vers `U1` |
+| **Boost batterie → PVDD** | `U10`, `L8`, `D2`, `R16`/`R17`, `D3` | `TPS55340` | Remonte `+VBAT` vers ≈ 23,4 V sur `PVDD_24V` (OR-ing `D2`), activé par `BOOST_EN`. `D3` relie directement `+VBAT` à `PVDD_24V` en dernier recours |
+| **Rails logiques** | `U4`, `L1`, `D5`, `U5`, `L6`, `D6` | `TPS54531` + `TPS54331` | Buck `PVDD_24V` → `+5V` (5 A, `R18`/`R19`), puis buck `+5V` → `+3V3` (3 A, `R20`/`R21`) |
+| **Ampli stéréo** | `U6`, `L2..L5`, `C11..C14`, `C9`, `J5`, `R10` | `TAS5825M` (HTSSOP-32) | Classe D sur `PVDD_24V`, entrée I²S (`I2S_DOUT`), contrôle I²C, adresse fixée par `R10` (4,7 kΩ sur `ADR`). Filtre LC BTL vers `J5` (4 points) |
+| **LoRa 868 MHz** | `U7`, `J6` | `Ai-Thinker Ra-01H` (SX1276) + SMA | Sur le SPI partagé, `LORA_CS`, `LORA_RST`, `LORA_DIO0`. Lien avec le bouton déporté `ACC-003` |
+| **Stockage** | `U8` | `W25N01GVZEIG` | NAND SPI 1 Gbit sur le SPI partagé (`NAND_CS`) |
+| **Horloge temps réel** | `U9`, `BT1` | `DS3231MZ` + CR1220 | I²C partagé avec l'ampli, alarme `RTC_INT_N` vers `U1`, sauvegarde par pile |
+| **Lampes d'aube (10 canaux)** | `U12..U21`, `L11..L20`, `D11..D20`, `R31..R40`, `J7`, `J8`, `J10` | 10 × `PT4115` | Drivers LED à courant constant (shunt 0,2 Ω ≈ 0,5 A) alimentés par `+24V_MAINS`, gradation par `PWM_CH1..10` depuis `U2`. Lampe 1 (`J7`) et lampe 2 (`J8`) : blanc chaud, blanc froid, ambre. Halo (`J10`) : R, G, B, ambre |
+| **LED de statut** | `D4`, `R9` | `SK6812` | Une LED adressable sur `+5V`, données `STATUS_LED_3V3` via 330 Ω |
 
 ---
 
-## 2. Mapping GPIO (`U1` — `ESP32-S3-WROOM-1-N16R8`)
+## 2. Mapping GPIO de `U1` (`ESP32-S3-WROOM-1-N16R8`)
 
-| Bus / Fonction | Signal Schéma | Broche `U1` | GPIO ESP32-S3 | Cible(s) connectée(s) |
+Généré à partir du netlist du schéma v1.1. Broches non listées : non connectées
+(IO3, IO45, IO46 ; IO35..IO37 sont réservées à la PSRAM octale).
+
+| Fonction | Net | Broche `U1` | GPIO | Cible(s) |
 | :--- | :--- | :---: | :--- | :--- |
-| **Alimentation / Reset** | `+3V3`, `GND`, `MCU_EN` | 2, 1/40/41, 3 | `3V3`, `GND`, `EN` | Pull-up `R5` (10 kΩ), `C7` (100 nF), bouton `SW1` (`RESET`) |
-| **Boot Mode** | `MCU_BOOT` | 27 | `GPIO0` | Bouton `SW2` (`BOOT`) |
-| **ADC Alimentation & UPS** | `ADC_VIN_SENSE` | 4 | `GPIO4` (ADC1_CH3) | Pont diviseur 24V (`R1` 100 kΩ / `R2` 15 kΩ) |
-| **ADC Batterie 4S** | `ADC_VBAT_SENSE` | 5 | `GPIO5` (ADC1_CH4) | Pont diviseur VBAT (`R3` 100 kΩ / `R4` 22 kΩ) |
-| **I²S Audio (50W Amp + BT)** | `I2S_BCLK` | 6 | `GPIO6` | `U6` (`TAS5825M` BCLK) + `U2` (`ESP32-WROOM-32E` IO26) |
-| **I²S Audio** | `I2S_LRCLK` | 7 | `GPIO7` | `U6` (`TAS5825M` LRCLK) + `U2` (`ESP32-WROOM-32E` IO25) |
-| **I²S Audio Sortie Amp** | `I2S_AMP_DIN` | 8 | `GPIO15` | `U6` (`TAS5825M` SDIN) |
-| **I²S Audio Entrée BT A2DP** | `I2S_BT_DOUT` | 9 | `GPIO16` | `U2` (`ESP32-WROOM-32E` IO22 — flux A2DP entrant) |
-| **Contrôle Ampli 2×50W** | `AMP_PDN` | 10 | `GPIO17` | `U6` (`TAS5825M` `/PDN`) |
-| **Défaut Ampli 2×50W** | `AMP_FAULT` | 11 | `GPIO18` | `U6` (`TAS5825M` `/FAULT`) |
-| **I²C Système (DSP Ampli)** | `I2C_SDA` | 12 | `GPIO8` | `U6` (`TAS5825M` SDA) + pull-up `R6` (4,7 kΩ) |
-| **I²C Système (DSP Ampli)** | `I2C_SCL` | 15 | `GPIO9` | `U6` (`TAS5825M` SCL) + pull-up `R7` (4,7 kΩ) |
-| **USB Natif / Debug** | `USB_DN`, `USB_DP` | 13, 14 | `GPIO19`, `GPIO20` | Connecteur `J3` (`USB_UART_DBG`) |
-| **SPI Partagé (LoRa + W5500)** | `SPI_MOSI` | 17 | `GPIO11` | `U7` (`RFM95W` MOSI) + `U8` (`W5500` MOSI) |
-| **SPI Partagé (LoRa + W5500)** | `SPI_SCK` | 18 | `GPIO12` | `U7` (`RFM95W` SCK) + `U8` (`W5500` SCLK) |
-| **SPI Partagé (LoRa + W5500)** | `SPI_MISO` | 19 | `GPIO13` | `U7` (`RFM95W` MISO) + `U8` (`W5500` MISO) |
-| **LoRa 868 MHz Control** | `LORA_CS` | 16 | `GPIO10` | `U7` (`RFM95W` NSS) |
-| **LoRa 868 MHz Reset/IRQ** | `LORA_RST`, `DIO0`, `DIO1` | 20, 21, 22 | `GPIO14`, `GPIO21`, `GPIO47` | `U7` (`RFM95W` RESET, DIO0, DIO1) |
-| **Ethernet W5500 Control** | `ETH_CS`, `ETH_INT`, `ETH_RST` | 23, 24, 25 | `GPIO48`, `GPIO45`, `GPIO38` | `U8` (`W5500` SCSn, INTn, RSTn) |
-| **Co-processeur BT UART + flash** | `BT_RXD0`, `BT_TXD0`, `BT_EN`, `BT_IO0` | 8, 9, 24, 25 | `GPIO15`, `GPIO16`, `GPIO47`, `GPIO48` | `U2` (`ESP32-WROOM-32E` RXD0, TXD0, EN, IO0) ; `BT_EN`/`BT_IO0` pilotés en open-drain, pull-ups `R25`/`R26` ; `J9` en parallèle (laisser `GPIO15` en entrée quand un adaptateur est branché) |
-| **Simulation d'Aube NeoPixel** | `NEOPIXEL_DIN_3V3` | 31 | `GPIO42` | `U10` (`SN74AHCT1G125` 3.3V→5V) → `D4..D11` (`SK6812`) → `J8` |
-| **Statut Chargeur UPS** | `UPS_PG`, `UPS_STAT` | 32, 35 | `GPIO2`, `GPIO1` | `U3` (`BQ24610` `/PG`, `/STAT`) |
-| **UART0 Console** | `MCU_TXD0`, `MCU_RXD0` | 37, 36 | `GPIO43`, `GPIO44` | Connecteur `J3` (`USB_UART_DBG`) |
+| Reset | `MCU_EN` | 3 | `EN` | `R24` 10 kΩ, `C7` 1 µF, bouton `SW1` |
+| Boot | `MCU_BOOT` | 27 | `GPIO0` | `R12` 10 kΩ, bouton `SW2` |
+| Présence secteur | `MAINS_OK` | 4 | `GPIO4` | `U3` /PG, pull-up `R8` |
+| Commande boost | `BOOST_EN` | 5 | `GPIO5` | `U10` EN, pull-down `R13` |
+| ADC batterie | `ADC_VBAT_SENSE` | 39 | `GPIO1` (ADC1_CH0) | Pont `R3` 100 kΩ / `R4` 15 kΩ sur `+VBAT` |
+| État charge | `CHG_STAT` | 38 | `GPIO2` | `U3` STAT1, pull-up `R5` |
+| I²S horloge bit | `I2S_BCLK` | 6 | `GPIO6` | `U6` SCLK + `U2` IO26 |
+| I²S horloge mot | `I2S_LRCLK` | 7 | `GPIO7` | `U6` LRCLK + `U2` IO25 |
+| I²S vers ampli | `I2S_DOUT` | 12 | `GPIO8` | `U6` SDIN |
+| I²S depuis BT | `I2S_BT_DOUT` | 33 | `GPIO40` | `U2` IO22 (flux A2DP) |
+| I²C données | `I2C_SDA` | 10 | `GPIO17` | `U6`, `U9`, pull-up `R6` 4,7 kΩ |
+| I²C horloge | `I2C_SCL` | 11 | `GPIO18` | `U6`, `U9`, pull-up `R7` 4,7 kΩ |
+| Ampli marche | `AMP_PDN` | 23 | `GPIO21` | `U6` /PDN |
+| Ampli défaut | `AMP_FAULT` | 31 | `GPIO38` | `U6` /FAULT, pull-up `R11` |
+| SPI horloge | `SPI_SCK` | 20 | `GPIO12` | `U7`, `U8` |
+| SPI MOSI | `SPI_MOSI` | 19 | `GPIO11` | `U7`, `U8` |
+| SPI MISO | `SPI_MISO` | 21 | `GPIO13` | `U7`, `U8` |
+| LoRa sélection | `LORA_CS` | 18 | `GPIO10` | `U7` NSS, pull-up `R27` |
+| LoRa reset | `LORA_RST` | 22 | `GPIO14` | `U7` RESET |
+| LoRa interruption | `LORA_DIO0` | 32 | `GPIO39` | `U7` DIO0 |
+| NAND sélection | `NAND_CS` | 17 | `GPIO9` | `U8` /CS, pull-up `R28` |
+| RTC alarme | `RTC_INT_N` | 34 | `GPIO41` | `U9` /INT, pull-up `R14` |
+| LED statut | `STATUS_LED_3V3` | 35 | `GPIO42` | `R9` 330 Ω → `D4` DIN |
+| Liaison BT (TX de `U1`) | `BT_RXD0` | 8 | `GPIO15` | `U2` RXD0, `J9` broche 3 |
+| Liaison BT (RX de `U1`) | `BT_TXD0` | 9 | `GPIO16` | `U2` TXD0, `J9` broche 2 |
+| Reset de `U2` | `BT_EN` | 24 | `GPIO47` | `U2` EN, `R25`, `C29`, `J9` broche 5 — en open-drain |
+| Boot de `U2` | `BT_IO0` | 25 | `GPIO48` | `U2` IO0, `R26`, `J9` broche 4 — en open-drain |
+| USB natif | `USB_DN`, `USB_DP` | 13, 14 | `GPIO19`, `GPIO20` | `U11` → `J3` |
+| Console | `UART0_TX`, `UART0_RX` | 37, 36 | `GPIO43`, `GPIO44` | `J4` |
+
+Quand un adaptateur est branché sur `J9`, laisser `GPIO15` en entrée : il est
+en parallèle de la sortie TX de l'adaptateur.
+
+## 3. Mapping GPIO de `U2` (`ESP32-WROOM-32E`)
+
+| Fonction | Net | GPIO | Cible |
+| :--- | :--- | :--- | :--- |
+| Liaison avec `U1` | `BT_RXD0`, `BT_TXD0` | `GPIO3`, `GPIO1` (UART0) | `U1` GPIO15, GPIO16 |
+| Reset, boot | `BT_EN`, `BT_IO0` | `EN`, `GPIO0` | `U1` GPIO47, GPIO48 |
+| I²S esclave | `I2S_BCLK`, `I2S_LRCLK` | `GPIO26`, `GPIO25` | horloges générées par `U1` |
+| Sortie A2DP | `I2S_BT_DOUT` | `GPIO22` | `U1` GPIO40 |
+| Lampe 1 blanc chaud, froid, ambre | `PWM_CH1..3` | `GPIO4`, `GPIO13`, `GPIO14` | `U12..U14` DIM |
+| Lampe 2 blanc chaud, froid, ambre | `PWM_CH4..6` | `GPIO18`, `GPIO19`, `GPIO21` | `U15..U17` DIM |
+| Halo R, G, B, ambre | `PWM_CH7..10` | `GPIO23`, `GPIO27`, `GPIO32`, `GPIO33` | `U18..U21` DIM |
 
 ---
 
-## 3. Vérifications Électriques & Physique (ERC / DRC)
+## 4. Vérifications
 
-- ERC et DRC passent (0 erreur), mais ils vérifient la cohérence des
-  symboles et empreintes **tels que dessinés** : ceux de U3, U4, U6, U8, U9,
-  U10, C1, C2, C9, C16 et L1 à L5 ne correspondent pas aux composants réels.
-- Dimensions 180 × 120 mm : trop grandes pour le compartiment électronique
-  de la barre (environ 166 × 176 × 126 mm intérieur, lampe comprise).
-- Le tableau GPIO ci-dessus ne correspond pas au schéma ; le schéma fait foi,
-  et GPIO45/46 y sont mal employés (voir la revue).
+- **ERC** : 0 violation. **DRC** : 0 violation, parité schéma ↔ PCB sans
+  écart ; 402 connexions restent à router.
+- ERC et DRC ne contrôlent que la cohérence des symboles et empreintes tels
+  que dessinés, pas leur conformité aux composants réels.
+
+### Points ouverts
+
+- **Routage** du PCB à faire, puis plans de masse et vias thermiques
+  (`U6` PowerPAD, buck, boost).
+- **Placement** : sur la vue 2D, des borniers et la zone d'antenne de `U1`
+  débordent du contour de la carte.
+- **Aube sur batterie** : les `PT4115` sont alimentés par `+24V_MAINS`, donc
+  les lampes s'éteignent en cas de coupure secteur. À confirmer si c'est
+  voulu.
+- **LED de statut** : la `SK6812` est en 5 V et reçoit des données en 3,3 V
+  sans level shifter ; le seuil haut (0,7 × VDD = 3,5 V) n'est pas garanti.
 
 ---
 
-## 4. Fichiers du Projet & Exports de Fabrication
+## 5. Fichiers
 
-- **Projet & Sources KiCad** :
-  - [`robine_board.kicad_pro`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/robine_board.kicad_pro) — Fichier projet KiCad 9
-  - [`robine_board.kicad_sch`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/robine_board.kicad_sch) — Schéma électronique complet (format A2, 6 zones fonctionnelles)
-  - [`robine_board.kicad_pcb`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/robine_board.kicad_pcb) — Layout PCB routé (180 × 120 mm) avec modèles 3D VRML associés
-  - [`Robine_Custom.kicad_sym`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/Robine_Custom.kicad_sym) — Bibliothèque de symboles dédiée (`TAS5825M`, `BQ24610`, `TPS54531`, `W5500`, `Ag9924M`, `SN74AHCT1G125`)
-  - [`3dmodels/`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/3dmodels) — Modèles 3D VRML 2.0 (`.wrl`) de tous les composants
-- **Exports Visuels & Fabrication (`exports/`)** :
-  - [`robine_board_schematic.pdf`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_schematic.pdf) & [`robine_board_schematic.png`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_schematic.png) — Schéma PDF vectoriel & PNG haute résolution
-  - [`robine_board_pcb.pdf`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_pcb.pdf) & [`robine_board_pcb_2d.png`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_pcb_2d.png) — Plan PCB 2D
-  - [`robine_board_3d_iso.png`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_3d_iso.png), [`robine_board_3d_top.png`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_3d_top.png), [`robine_board_3d_bottom.png`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_3d_bottom.png) — Rendus 3D Raytracing (vue isométrique, dessus, dessous)
-  - [`robine_board.step`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board.step) — Modèle CAO 3D STEP
-  - [`robine_board_bom.csv`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_bom.csv) — Nomenclature complète (BOM, 61 composants / 25 lignes groupées)
-  - [`robine_board_positions.csv`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/robine_board_positions.csv) — Fichier Pick-and-Place (CPL/POS)
-  - [`exports/gerbers/`](file:///home/guillaume/sources/robine-wake/hardware/robine_board/exports/gerbers) — Fichiers Gerber (`F.Cu`, `B.Cu`, `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.Silkscreen`, `B.Silkscreen`, `Edge.Cuts`) + perçage Excellon (`.drl`), **à ne pas commander en l'état**
+- **Sources KiCad**
+  - [`robine_board.kicad_pro`](robine_board.kicad_pro) — projet KiCad 9
+  - [`robine_board.kicad_sch`](robine_board.kicad_sch) — schéma
+  - [`robine_board.kicad_pcb`](robine_board.kicad_pcb) — PCB 120 × 90 mm, placé, non routé
+  - [`Robine_Custom.kicad_sym`](Robine_Custom.kicad_sym) — symboles dédiés
+  - [`3dmodels/`](3dmodels) — modèles 3D des composants
+- **Exports** (`exports/`, régénérés avec `kicad-cli` 9.0.8)
+  - [`robine_board_schematic.pdf`](exports/robine_board_schematic.pdf), [`robine_board_schematic.png`](exports/robine_board_schematic.png) — schéma
+  - [`robine_board_pcb.pdf`](exports/robine_board_pcb.pdf), [`robine_board_pcb.svg`](exports/robine_board_pcb.svg), [`robine_board_pcb_2d.png`](exports/robine_board_pcb_2d.png) — vue 2D (F.Cu, B.Cu, F.Silkscreen, Edge.Cuts)
+  - [`robine_board_3d_iso.png`](exports/robine_board_3d_iso.png), [`robine_board_3d_top.png`](exports/robine_board_3d_top.png), [`robine_board_3d_bottom.png`](exports/robine_board_3d_bottom.png) — rendus 3D
+  - [`robine_board.step`](exports/robine_board.step) — modèle 3D STEP
+  - [`robine_board_bom.csv`](exports/robine_board_bom.csv) — nomenclature (145 composants, 68 lignes groupées)
+  - [`robine_board_positions.csv`](exports/robine_board_positions.csv) — pick-and-place
+  - [`drc_report.json`](exports/drc_report.json) — rapport DRC avec parité schéma
+  - [`gerbers/`](exports/gerbers) — Gerber (cuivre, masque, pâte, sérigraphie, contour) et perçage Excellon, **non commandables tant que le PCB n'est pas routé**
