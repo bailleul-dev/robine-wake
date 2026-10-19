@@ -113,7 +113,8 @@ Buildroot-based system on custom hardware.
 
 ## Mobile app
 
-The iOS and Android application is the Expo / TypeScript project in
+The iOS and Android application is the Expo / React Native project, written in
+Gleam, in
 [`mobile/`](mobile/README.md). `make expo-iphone` installs it on a local iPhone,
 `make ios-beta` uploads it to TestFlight and `make play-store` to Google Play.
 

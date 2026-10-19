@@ -1,7 +1,7 @@
 {
   "name": "robine-wake-expo",
   "version": "0.2.1",
-  "main": "index.ts",
+  "main": "index.js",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.14",
     "@expo/ui": "~57.0.16",
@@ -25,21 +25,16 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-web": "^0.21.2"
   },
-  "devDependencies": {
-    "@types/node": "^24.3.0",
-    "@types/react": "~19.2.2",
-    "tsx": "^4.20.5",
-    "typescript": "~6.0.3"
-  },
   "scripts": {
-    "start": "expo start --dev-client",
-    "web": "expo start --web",
-    "web:export": "npm run typecheck && expo export --platform web --output-dir ../priv/web && bash ./scripts/cache-bust-favicon.sh",
-    "ios": "expo run:ios",
-    "android": "expo run:android",
+    "build": "gleam build --warnings-as-errors",
+    "start": "npm run build && expo start --dev-client",
+    "web": "npm run build && expo start --web",
+    "web:export": "npm run build && expo export --platform web --output-dir ../priv/web && bash ./scripts/cache-bust-favicon.sh",
+    "ios": "npm run build && expo run:ios",
+    "android": "npm run build && expo run:android",
     "prebuild": "expo prebuild",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/**/*.test.ts && tsc --noEmit"
+    "typecheck": "gleam build --warnings-as-errors",
+    "test": "gleam test"
   },
   "private": true
 }

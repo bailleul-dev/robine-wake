@@ -1,7 +1,7 @@
-# Robine Wake — Expo / TypeScript
+# Robine Wake — Expo / Gleam
 
-Application universelle Robine Wake écrite en TypeScript avec Expo SDK 57 et
-React Native. Elle s’organise en quatre espaces : Matin, Soir, Alarmes et
+Application universelle Robine Wake écrite en Gleam (cible JavaScript) avec
+Expo SDK 57 et React Native. Elle s’organise en quatre espaces : Matin, Soir, Alarmes et
 Réveil, ainsi que les transports Wi-Fi et Bluetooth du réveil.
 
 Sur iOS 26, les cartes et la navigation utilisent `expo-glass-effect`, tandis
@@ -26,8 +26,8 @@ make expo-web
 make expo-iphone
 ```
 
-- `expo-test` exécute les tests TypeScript, vérifie les types et contrôle la
-  configuration Expo.
+- `expo-test` exécute les tests Gleam, compile le projet sans avertissement et
+  contrôle la configuration Expo.
 - `expo-build` produit localement le bundle iOS de production dans
   `mobile/dist/ios`.
 - `expo-web` produit l’application web universelle dans `priv/web`. Le
@@ -77,6 +77,16 @@ npm start
 Le Bluetooth repose sur un module natif. L’app doit donc être ouverte avec le
 development build généré par Expo, pas avec Expo Go.
 
-Les sources métier et UI sont dans `src/`. Metro compile directement le point
-d’entrée `index.ts`. Les dossiers natifs `ios/` et `android/`, ainsi que les
+Les sources métier et UI sont en Gleam dans `src/` (`robine_wake.gleam` et
+`src/robine/`). `gleam build` les compile en JavaScript dans `build/dev/javascript`,
+que Metro regroupe depuis le point d’entrée `index.js` ; les scripts npm lancent
+cette compilation avant Expo. Pendant `npm start`, relancer `gleam build` après
+chaque modification pour que Metro recharge l’app.
+
+L’interface utilise directement les composants React Native et les modules Expo
+via de petits bindings (`native.gleam`, `platform.gleam` et leurs fichiers
+`*_ffi.mjs`), avec les hooks React de `redraw`. Les tests (`npm test`, soit
+`gleam test`) couvrent le protocole, les modèles, le flux SSE et les routes.
+
+Les dossiers natifs `ios/` et `android/`, ainsi que les
 bundles dans `dist/`, sont reconstruits localement et ignorés par Git.
