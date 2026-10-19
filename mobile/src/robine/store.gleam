@@ -3,71 +3,42 @@
 import gleam/list
 import gleam/option.{type Option, None}
 import redraw
+import robine/command.{type Failure}
+import robine/draft.{type Draft}
 import robine/global.{type Ref}
-
-import robine/types.{
-  type Alarm, type AlarmDraft, type DeviceState, type HueState, type HueTarget,
-  type RemoteButtonState, type SmartphoneDismiss, type Sound, type Tab,
-  type WakeSession, Morning,
-}
-
-pub type Connection {
-  Scanning
-  Connecting
-  Connected
-  Disconnected
-}
-
-pub type Transport {
-  Http
-  Bluetooth
-}
+import robine/link.{type Connection}
+import robine/routes.{type Tab, Morning}
+import robine/snapshot.{type Snapshot}
 
 pub type AppState {
   AppState(
     tab: Tab,
     connection: Connection,
-    transport: Option(Transport),
-    http_endpoint: Option(String),
+    /// The clock's Wi-Fi command endpoint, once known.
+    endpoint: Option(String),
+    /// A command is on its way.
     busy: Bool,
-    error: Option(String),
-    alarms: List(Alarm),
-    sounds: List(Sound),
-    device: Option(DeviceState),
-    recent_sessions: List(WakeSession),
-    active_session: Option(WakeSession),
-    smartphone_dismiss: SmartphoneDismiss,
-    hue: Option(HueState),
-    hue_targets: List(HueTarget),
-    remote_button: Option(RemoteButtonState),
-    breathing_synchronized_at: Option(Int),
-    editor: Option(AlarmDraft),
+    failure: Option(Failure),
+    clock: Snapshot,
+    /// When the clock last answered `state.get`, in milliseconds.
+    synced_at: Option(Int),
+    editor: Option(Draft),
+    /// The wake-up session whose challenge is open.
     challenge: Option(String),
-    last_updated: Option(Int),
   )
 }
 
 pub const initial_state =
   AppState(
     tab: Morning,
-    connection: Scanning,
-    transport: None,
-    http_endpoint: None,
+    connection: link.Searching,
+    endpoint: None,
     busy: False,
-    error: None,
-    alarms: [],
-    sounds: [],
-    device: None,
-    recent_sessions: [],
-    active_session: None,
-    smartphone_dismiss: types.default_smartphone_dismiss,
-    hue: None,
-    hue_targets: [],
-    remote_button: None,
-    breathing_synchronized_at: None,
+    failure: None,
+    clock: snapshot.empty,
+    synced_at: None,
     editor: None,
     challenge: None,
-    last_updated: None,
   )
 
 fn state_ref() -> Ref(AppState) {
@@ -109,6 +80,6 @@ pub fn use_app_state() -> AppState {
   redraw.use_sync_external_store(subscribe, get_state)
 }
 
-pub fn clear_error() -> Nil {
-  update(fn(state) { AppState(..state, error: None) })
+pub fn clear_failure() -> Nil {
+  update(fn(state) { AppState(..state, failure: None) })
 }

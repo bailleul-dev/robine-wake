@@ -1,7 +1,13 @@
 //// Paths of the web app, one per tab.
 
 import gleam/string
-import robine/types.{type Tab, Alarms, Evening, Morning, System}
+
+pub type Tab {
+  Morning
+  Evening
+  Alarms
+  System
+}
 
 pub fn normalize_path(path: String) -> String {
   case string.trim(path) {

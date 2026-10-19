@@ -83,10 +83,26 @@ que Metro regroupe depuis le point d’entrée `index.js` ; les scripts npm lanc
 cette compilation avant Expo. Pendant `npm start`, relancer `gleam build` après
 chaque modification pour que Metro recharge l’app.
 
+Le domaine est modélisé en types Gleam, sans I/O :
+
+- `alarm`, `calendar` : une alarme et ses réglages (jours au moins un,
+  heure valide, lumière qui garde sa pièce quand elle est éteinte) ;
+- `draft` : le brouillon de l’éditeur, validé en réglages acceptés par le
+  réveil ou en liste de problèmes affichés à l’utilisateur ;
+- `snapshot` : ce que le réveil rapporte (`state.get`), décodé une fois en
+  types précis (session, respiration, Hue, santé des composants) ;
+- `command` : les commandes du protocole v1, leurs réponses et leurs refus ;
+- `link` : la machine à états du transport (Wi-Fi, Bluetooth, flux
+  d’événements avec reprise, une commande à la fois). `link.update` est pure
+  et renvoie les effets que `transport` exécute avec les services du
+  téléphone ;
+- `challenge` : les défis à résoudre avant d’arrêter une alarme.
+
 L’interface utilise directement les composants React Native et les modules Expo
 via de petits bindings (`native.gleam`, `platform.gleam` et leurs fichiers
 `*_ffi.mjs`), avec les hooks React de `redraw`. Les tests (`npm test`, soit
-`gleam test`) couvrent le protocole, les modèles, le flux SSE et les routes.
+`gleam test`) couvrent ces modules, dont les scénarios du transport (bascule
+Wi-Fi → Bluetooth, reconnexion du flux, arrière-plan), sans téléphone ni réveil.
 
 Les dossiers natifs `ios/` et `android/`, ainsi que les
 bundles dans `dist/`, sont reconstruits localement et ignorés par Git.

@@ -3,19 +3,24 @@
 import gleam/float
 import gleam/int
 import gleam/list
-import gleam/option.{type Option, None, Some}
+import gleam/option
+import gleam/result
 import gleam/set
 import redraw.{type Element}
 import robine/actions
-import robine/models
+import robine/alarm
+import robine/calendar
+import robine/challenge
+import robine/command
+import robine/draft.{type Draft, type Origin, Draft} as alarm_draft
 import robine/native
+import robine/snapshot.{type HueTarget, type Sound}
 import robine/store
 import robine/style.{type Style} as s
 import robine/theme
-import robine/types.{type AlarmDraft, type HueTarget, type Sound, AlarmDraft}
 
 type SetDraft =
-  fn(fn(AlarmDraft) -> AlarmDraft) -> Nil
+  fn(fn(Draft) -> Draft) -> Nil
 
 fn pick(condition: Bool, when_true: a, when_false: a) -> a {
   case condition {
@@ -138,7 +143,7 @@ fn sound_picker(
   ])
 }
 
-fn time_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
+fn time_card(draft: Draft, set_draft: SetDraft) -> Element {
   theme.card(True, [], [
     column([s.align_items("center"), s.gap(12)], [
       theme.eyebrow("Quand commence le matin ?", theme.moon),
@@ -146,14 +151,14 @@ fn time_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
         True ->
           row([s.align_items("center"), s.gap(8)], [
             number_picker(draft.hour, 24, fn(hour) {
-              set_draft(fn(current) { AlarmDraft(..current, hour:) })
+              set_draft(fn(current) { Draft(..current, hour:) })
             }),
             label(
               [s.font_size(28), s.font_weight("700"), s.color(theme.moon)],
               ":",
             ),
             number_picker(draft.minute, 60, fn(minute) {
-              set_draft(fn(current) { AlarmDraft(..current, minute:) })
+              set_draft(fn(current) { Draft(..current, minute:) })
             }),
           ])
         False ->
@@ -164,7 +169,7 @@ fn time_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
             native.prop("themeVariant", "dark"),
             native.prop("minuteInterval", 1),
             native.on_time_change(fn(hour, minute) {
-              set_draft(fn(current) { AlarmDraft(..current, hour:, minute:) })
+              set_draft(fn(current) { Draft(..current, hour:, minute:) })
             }),
             native.style([s.height(126), s.width(260)]),
           ])
@@ -172,7 +177,7 @@ fn time_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
       native.text_input([
         native.prop("value", draft.label),
         native.prop("onChangeText", fn(label: String) {
-          set_draft(fn(current) { AlarmDraft(..current, label:) })
+          set_draft(fn(current) { Draft(..current, label:) })
         }),
         native.prop("placeholder", "Nom du réveil"),
         native.prop("placeholderTextColor", theme.muted),
@@ -196,7 +201,7 @@ fn time_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
           "Alarme active",
         ),
         theme.toggle(draft.enabled, "Alarme active", False, fn(enabled) {
-          set_draft(fn(current) { AlarmDraft(..current, enabled:) })
+          set_draft(fn(current) { Draft(..current, enabled:) })
         }),
       ]),
     ]),
@@ -212,32 +217,25 @@ fn number_picker(value: Int, count: Int, on_change: fn(Int) -> Nil) -> Element {
         theme.picker_style([s.width(104), s.font_size(18), s.font_weight("800")]),
       ),
     ],
-    list.map(models.indices(count), fn(number) {
-      #(number, models.two_digits(number))
+    list.map(challenge.indices(count), fn(number) {
+      #(number, calendar.two_digits(number))
     }),
   )
 }
 
-fn schedule_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
+fn schedule_card(draft: Draft, set_draft: SetDraft) -> Element {
   theme.card(False, [], [
     column([s.gap(16)], [
       heading("1", "Votre rythme", "Les jours où cette alarme revient"),
       row(
         [s.gap(7)],
-        list.map(models.weekdays, fn(day) {
-          let selected = set.contains(draft.days, day.id)
+        list.map(calendar.week, fn(day) {
+          let selected = set.contains(draft.days, day)
           native.pressable(
             [
-              native.key(int.to_string(day.id)),
-              native.label(day.name),
-              native.on_press(fn() {
-                set_draft(fn(current) {
-                  AlarmDraft(..current, days: case selected {
-                    True -> set.delete(current.days, day.id)
-                    False -> set.insert(current.days, day.id)
-                  })
-                })
-              }),
+              native.key(int.to_string(calendar.number(day))),
+              native.label(calendar.name(day)),
+              native.on_press(fn() { set_draft(alarm_draft.toggle_day(_, day)) }),
               native.style([
                 s.flex(1),
                 s.height(38),
@@ -258,7 +256,7 @@ fn schedule_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
                   s.font_weight("800"),
                   s.color(pick(selected, theme.night950, theme.muted)),
                 ],
-                day.short,
+                calendar.initial(day),
               ),
             ],
           )
@@ -270,7 +268,7 @@ fn schedule_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
 }
 
 fn sound_card(
-  draft: AlarmDraft,
+  draft: Draft,
   set_draft: SetDraft,
   sounds: List(Sound),
 ) -> Element {
@@ -278,26 +276,24 @@ fn sound_card(
     column([s.gap(16)], [
       heading("2", "Voyage sonore", "Doux d’abord, plus présent ensuite"),
       sound_picker(
-        draft.sound_id,
+        draft.sound,
         "Première lumière",
         "Commence en douceur",
         "sunny",
         theme.moon,
         sounds,
-        fn(sound_id) {
-          set_draft(fn(current) { AlarmDraft(..current, sound_id:) })
-        },
+        fn(sound) { set_draft(fn(current) { Draft(..current, sound:) }) },
       ),
       theme.divider(),
       sound_picker(
-        draft.strong_sound_id,
+        draft.strong_sound,
         "Renfort",
         "Prend le relais si nécessaire",
         "pulse",
         theme.rose,
         sounds,
-        fn(strong_sound_id) {
-          set_draft(fn(current) { AlarmDraft(..current, strong_sound_id:) })
+        fn(strong_sound) {
+          set_draft(fn(current) { Draft(..current, strong_sound:) })
         },
       ),
       label(
@@ -309,7 +305,7 @@ fn sound_card(
 }
 
 fn light_card(
-  draft: AlarmDraft,
+  draft: Draft,
   set_draft: SetDraft,
   targets: List(HueTarget),
   configured: Bool,
@@ -337,51 +333,25 @@ fn light_card(
               "Allumer progressivement",
             ),
             theme.toggle(
-              draft.light_enabled,
+              draft.light_on,
               "Allumer progressivement",
               False,
-              fn(light_enabled) {
-                set_draft(fn(current) {
-                  case light_enabled, current.light_target_id, targets {
-                    True, None, [first, ..] ->
-                      AlarmDraft(
-                        ..current,
-                        light_enabled:,
-                        light_target_id: Some(first.id),
-                        light_target_name: Some(first.name),
-                      )
-                    _, _, _ -> AlarmDraft(..current, light_enabled:)
-                  }
-                })
-              },
+              fn(on) { set_draft(alarm_draft.switch_light(_, on, targets)) },
             ),
           ]),
-          ..case draft.light_enabled {
+          ..case draft.light_on {
             False -> []
             True -> [
               native.picker(
                 [
                   native.prop(
                     "selectedValue",
-                    option.unwrap(draft.light_target_id, ""),
+                    draft.light_target
+                      |> option.map(alarm.target_id)
+                      |> option.unwrap(""),
                   ),
                   native.prop("onValueChange", fn(id: String) {
-                    let name = case
-                      list.find(targets, fn(target) { target.id == id })
-                    {
-                      Ok(target) -> Some(target.name)
-                      Error(Nil) -> None
-                    }
-                    set_draft(fn(current) {
-                      AlarmDraft(
-                        ..current,
-                        light_target_id: Some(id),
-                        light_target_name: option.or(
-                          name,
-                          current.light_target_name,
-                        ),
-                      )
-                    })
+                    set_draft(alarm_draft.choose_target(_, id, targets))
                   }),
                   native.prop("dropdownIconColor", theme.moon),
                   native.style(theme.picker_style([])),
@@ -390,28 +360,24 @@ fn light_card(
               ),
               value_slider(
                 "Première lueur",
-                draft.light_start_brightness,
+                draft.light_start,
                 1,
-                draft.light_end_brightness,
+                draft.light_end,
                 "%",
                 theme.moon,
                 fn(value) {
-                  set_draft(fn(current) {
-                    AlarmDraft(..current, light_start_brightness: value)
-                  })
+                  set_draft(fn(current) { Draft(..current, light_start: value) })
                 },
               ),
               value_slider(
                 "Lumière finale",
-                draft.light_end_brightness,
-                draft.light_start_brightness,
+                draft.light_end,
+                draft.light_start,
                 100,
                 "%",
                 theme.mint,
                 fn(value) {
-                  set_draft(fn(current) {
-                    AlarmDraft(..current, light_end_brightness: value)
-                  })
+                  set_draft(fn(current) { Draft(..current, light_end: value) })
                 },
               ),
               value_slider(
@@ -423,26 +389,35 @@ fn light_card(
                 theme.lavender,
                 fn(value) {
                   set_draft(fn(current) {
-                    AlarmDraft(..current, light_ramp_minutes: value)
+                    Draft(..current, light_ramp_minutes: value)
                   })
                 },
               ),
               native.picker(
                 [
-                  native.prop("selectedValue", draft.light_end_behavior),
-                  native.prop("onValueChange", fn(behavior: String) {
-                    set_draft(fn(current) {
-                      AlarmDraft(..current, light_end_behavior: behavior)
-                    })
+                  native.prop(
+                    "selectedValue",
+                    alarm.afterwards_code(draft.afterwards),
+                  ),
+                  native.prop("onValueChange", fn(code: String) {
+                    case alarm.afterwards_from_code(code) {
+                      Ok(afterwards) ->
+                        set_draft(fn(current) { Draft(..current, afterwards:) })
+                      Error(Nil) -> Nil
+                    }
                   }),
                   native.prop("dropdownIconColor", theme.moon),
                   native.style(theme.picker_style([])),
                 ],
-                [
-                  #("restore", "Après l’arrêt · Restaurer"),
-                  #("off", "Après l’arrêt · Éteindre"),
-                  #("leave", "Après l’arrêt · Laisser"),
-                ],
+                list.map(
+                  [alarm.Restore, alarm.TurnOff, alarm.Leave],
+                  fn(choice) {
+                    #(
+                      alarm.afterwards_code(choice),
+                      alarm.afterwards_label(choice),
+                    )
+                  },
+                ),
               ),
             ]
           }
@@ -452,7 +427,7 @@ fn light_card(
   ])
 }
 
-fn ramp_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
+fn ramp_card(draft: Draft, set_draft: SetDraft) -> Element {
   theme.card(False, [], [
     column([s.gap(18)], [
       heading(
@@ -468,7 +443,7 @@ fn ramp_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
         "%",
         theme.mint,
         fn(value) {
-          set_draft(fn(current) { AlarmDraft(..current, start_volume: value) })
+          set_draft(fn(current) { Draft(..current, start_volume: value) })
         },
       ),
       value_slider(
@@ -479,20 +454,18 @@ fn ramp_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
         "%",
         theme.rose,
         fn(value) {
-          set_draft(fn(current) { AlarmDraft(..current, ceiling_volume: value) })
+          set_draft(fn(current) { Draft(..current, ceiling_volume: value) })
         },
       ),
       value_slider(
         "Commencer avant l’heure",
-        draft.prewake_minutes,
+        draft.ramp_minutes,
         1,
         60,
         " min avant",
         theme.lavender,
         fn(value) {
-          set_draft(fn(current) {
-            AlarmDraft(..current, prewake_minutes: value)
-          })
+          set_draft(fn(current) { Draft(..current, ramp_minutes: value) })
         },
       ),
       value_slider(
@@ -503,7 +476,7 @@ fn ramp_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
         "%",
         theme.rose,
         fn(value) {
-          set_draft(fn(current) { AlarmDraft(..current, strong_volume: value) })
+          set_draft(fn(current) { Draft(..current, strong_volume: value) })
         },
       ),
       label(
@@ -512,7 +485,7 @@ fn ramp_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
       ),
       row(
         [s.height(24), s.align_items("flex-end"), s.gap(4)],
-        list.map(models.indices(12), fn(index) {
+        list.map(challenge.indices(12), fn(index) {
           native.view(
             [
               native.key(int.to_string(index)),
@@ -536,7 +509,7 @@ fn ramp_card(draft: AlarmDraft, set_draft: SetDraft) -> Element {
   ])
 }
 
-fn test_card(id: Option(String)) -> Element {
+fn test_card(id: String) -> Element {
   theme.card(False, [], [
     column([s.gap(14)], [
       row([s.align_items("center"), s.gap(13)], [
@@ -555,14 +528,14 @@ fn test_card(id: Option(String)) -> Element {
       row([s.gap(10)], [
         column([s.flex(1)], [
           theme.button("Réveil complet", fn() {
-            ignore(actions.trigger_alarm(id))
+            ignore(actions.send(command.TriggerAlarm(id)))
           })
           |> theme.grow
           |> theme.render,
         ]),
         column([s.flex(1)], [
           theme.button("Tester fort", fn() {
-            ignore(actions.trigger_strong(id))
+            ignore(actions.send(command.TriggerStrong(id)))
           })
           |> theme.primary
           |> theme.grow
@@ -573,33 +546,35 @@ fn test_card(id: Option(String)) -> Element {
   ])
 }
 
-fn confirm_delete(draft: AlarmDraft) -> Nil {
+fn confirm_delete(id: String, revision: Int) -> Nil {
   native.alert("Supprimer cette alarme ?", "", [
     #("Annuler", "cancel", fn() { Nil }),
-    #("Supprimer", "destructive", fn() {
-      actions.close_editor()
-      actions.delete_alarm(draft.id, draft.revision)
-    }),
+    #("Supprimer", "destructive", fn() { actions.delete_alarm(id, revision) }),
   ])
 }
 
-pub fn alarm_editor(initial_draft: AlarmDraft) -> Element {
+fn origin_key(origin: Origin) -> String {
+  case origin {
+    alarm_draft.Existing(id:, ..) -> id
+    alarm_draft.New -> "new"
+  }
+}
+
+pub fn alarm_editor(initial_draft: Draft) -> Element {
   native.keyed(
-    option.unwrap(initial_draft.id, "new"),
+    origin_key(initial_draft.origin),
     native.component("AlarmEditor", render_alarm_editor)(initial_draft),
   )
 }
 
-fn render_alarm_editor(initial_draft: AlarmDraft) -> Element {
+fn render_alarm_editor(initial_draft: Draft) -> Element {
   let #(draft, set_draft) = redraw.use_state_(initial_draft)
   let state = store.use_app_state()
   let desktop = theme.desktop_width(theme.use_viewport_width())
-  let editing = option.is_some(draft.id)
+  let editing = alarm_draft.editing(draft)
+  let checked = alarm_draft.validate(draft)
   let width = [s.width_pct("100%"), ..pick(desktop, [s.max_width(960)], [])]
-  let configured = case state.hue {
-    Some(hue) -> hue.configured
-    None -> False
-  }
+  let configured = snapshot.hue_paired(state.clock.hue)
   native.modal(
     [
       native.prop("visible", True),
@@ -653,24 +628,39 @@ fn render_alarm_editor(initial_draft: AlarmDraft) -> Element {
           [
             time_card(draft, set_draft),
             schedule_card(draft, set_draft),
-            sound_card(draft, set_draft, state.sounds),
-            light_card(draft, set_draft, state.hue_targets, configured),
+            sound_card(draft, set_draft, state.clock.sounds),
+            light_card(draft, set_draft, state.clock.hue_targets, configured),
             ramp_card(draft, set_draft),
-            native.when(editing, fn() { test_card(draft.id) }),
+            case draft.origin {
+              alarm_draft.Existing(id:, ..) -> test_card(id)
+              alarm_draft.New -> native.none()
+            },
             theme.button(
               pick(editing, "Enregistrer les changements", "Créer l’alarme"),
               fn() { actions.save_alarm(draft) },
             )
               |> theme.primary
               |> theme.grow
-              |> theme.disabled(!models.draft_valid(draft) || state.busy)
+              |> theme.disabled(result.is_error(checked) || state.busy)
               |> theme.render,
-            native.when(editing, fn() {
-              theme.button("Supprimer l’alarme", fn() { confirm_delete(draft) })
-              |> theme.danger
-              |> theme.grow
-              |> theme.render
-            }),
+            case checked {
+              Error([problem, ..]) ->
+                label(
+                  [s.font_size(12), s.text_align("center"), s.color(theme.rose)],
+                  alarm_draft.describe(problem),
+                )
+              _ -> native.none()
+            },
+            case draft.origin {
+              alarm_draft.Existing(id:, revision:) ->
+                theme.button("Supprimer l’alarme", fn() {
+                  confirm_delete(id, revision)
+                })
+                |> theme.danger
+                |> theme.grow
+                |> theme.render
+              alarm_draft.New -> native.none()
+            },
           ],
         ),
       ]),

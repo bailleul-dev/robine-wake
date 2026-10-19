@@ -10,16 +10,16 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 import redraw.{type Element}
 import robine/actions
-import robine/models
+import robine/alarm.{type Alarm}
+import robine/calendar
+import robine/command
+import robine/link
 import robine/native
 import robine/platform
-import robine/store.{
-  type AppState, AppState, Connected, Connecting, Disconnected, Http, Scanning,
-}
+import robine/snapshot.{type Breathing, type Session, Guided, Paired, Unpaired}
+import robine/store.{type AppState}
 import robine/style.{type Style} as s
 import robine/theme
-import robine/transport
-import robine/types.{type Alarm, type BreathingState, type WakeSession}
 
 const evening_volume_storage_key = "robineWake.eveningVolumePercent.v4"
 
@@ -155,15 +155,20 @@ fn wrap_overrides(desktop: Bool) -> List(Style) {
 
 pub fn connection_label(state: AppState) -> String {
   case state.connection {
-    Scanning -> "Recherche…"
-    Connecting -> "Connexion…"
-    Connected ->
-      case state.transport {
-        Some(Http) -> "Wi-Fi"
-        _ -> "À proximité"
-      }
-    Disconnected -> "Déconnecté"
+    link.Searching -> "Recherche…"
+    link.Joining -> "Connexion…"
+    link.Online(link.Wifi) -> "Wi-Fi"
+    link.Online(link.Nearby) -> "À proximité"
+    link.Offline -> "Déconnecté"
   }
+}
+
+fn time_of(entry: Alarm) -> String {
+  calendar.time_to_string(entry.settings.time)
+}
+
+fn schedule_of(entry: Alarm) -> String {
+  alarm.schedule_label(entry.settings.schedule)
 }
 
 fn row(styles: List(Style), children: List(Element)) -> Element {
@@ -189,7 +194,11 @@ fn header(eyebrow: Element, icon: Element) -> Element {
 fn connection_pill(state: AppState) -> Element {
   theme.status_pill(
     connection_label(state),
-    option.is_some(state.http_endpoint) || state.connection == Connected,
+    option.is_some(state.endpoint)
+      || case state.connection {
+      link.Online(_) -> True
+      _ -> False
+    },
     state.busy,
   )
 }
@@ -271,7 +280,7 @@ fn compact_alarm_row(alarm: Alarm) -> Element {
     [
       s.align_items("center"),
       s.gap(12),
-      s.opacity(pick(alarm.enabled, 1.0, 0.5)),
+      s.opacity(pick(alarm.settings.enabled, 1.0, 0.5)),
     ],
     [
       label(
@@ -281,16 +290,16 @@ fn compact_alarm_row(alarm: Alarm) -> Element {
           s.tabular_nums(),
           s.color(theme.text),
         ],
-        models.short_time(alarm.local_time),
+        time_of(alarm),
       ),
       column([s.flex(1)], [
         label(
           [s.font_size(14), s.font_weight("700"), s.color(theme.text)],
-          alarm.label,
+          alarm.settings.label,
         ),
         label(
           [s.font_size(12), s.margin_top(2), s.color(theme.muted)],
-          models.schedule_label(alarm.days_of_week),
+          schedule_of(alarm),
         ),
       ]),
       theme.icon("chevron-forward", 16, theme.muted),
@@ -298,13 +307,7 @@ fn compact_alarm_row(alarm: Alarm) -> Element {
   )
 }
 
-fn open_challenge(session: WakeSession) -> fn() -> Nil {
-  fn() {
-    store.update(fn(state) { AppState(..state, challenge: Some(session.id)) })
-  }
-}
-
-pub fn active_session_card(session: WakeSession) -> Element {
+pub fn active_session_card(session: Session) -> Element {
   theme.card(True, [], [
     column([s.gap(15)], [
       header(
@@ -313,22 +316,24 @@ pub fn active_session_card(session: WakeSession) -> Element {
       ),
       label(
         [s.font_size(20), s.font_weight("700"), s.color(theme.text)],
-        case session.audio_phase {
-          Some("strong") -> "Le son de renfort joue"
-          _ -> "La lumière sonore monte doucement"
+        case session.phase {
+          snapshot.StrongPhase -> "Le son de renfort joue"
+          snapshot.GentlePhase -> "La lumière sonore monte doucement"
         },
       ),
       row([s.flex_wrap("wrap"), s.gap(12)], [
         native.when(session.test_mode, fn() {
-          theme.button("Arrêt direct", fn() { ignore(actions.dismiss()) })
+          theme.button("Arrêt direct", fn() {
+            ignore(actions.send(command.Dismiss))
+          })
           |> theme.compact
           |> theme.render
         }),
-        case session.smartphone_dismiss_allowed {
+        case session.phone_may_dismiss {
           True ->
             theme.button(
               pick(session.test_mode, "Tester l’arrêt", "Je suis levé"),
-              open_challenge(session),
+              fn() { actions.open_challenge(session.id) },
             )
             |> theme.primary
             |> theme.render
@@ -360,7 +365,9 @@ fn clock_warning() -> Element {
           "Vérifiez l’heure avant d’activer un réveil.",
         ),
       ]),
-      theme.button("Confirmer", fn() { ignore(actions.confirm_clock()) })
+      theme.button("Confirmer", fn() {
+        ignore(actions.send(command.ConfirmClock))
+      })
         |> theme.compact
         |> theme.render,
     ]),
@@ -389,7 +396,7 @@ fn next_wake_card(alarm: Option(Alarm)) -> Element {
         ]),
       ])
     Some(alarm) -> {
-      let ramp = models.ramp_seconds(alarm)
+      let ramp = alarm.settings.ramp_seconds
       native.pressable([native.on_press(fn() { actions.edit_alarm(alarm) })], [
         theme.card(True, [], [
           column([s.gap(15)], [
@@ -407,7 +414,7 @@ fn next_wake_card(alarm: Option(Alarm)) -> Element {
                   s.tabular_nums(),
                   s.color(theme.text),
                 ],
-                models.short_time(alarm.local_time),
+                time_of(alarm),
               ),
               label(
                 [
@@ -415,13 +422,13 @@ fn next_wake_card(alarm: Option(Alarm)) -> Element {
                   s.font_weight("700"),
                   s.color(theme.moon_soft),
                 ],
-                alarm.label,
+                alarm.settings.label,
               ),
             ]),
             row([s.gap(17)], [
               label(
                 [s.font_size(12), s.color(theme.muted)],
-                "◫ " <> models.schedule_label(alarm.days_of_week),
+                "◫ " <> schedule_of(alarm),
               ),
               label(
                 [s.font_size(12), s.color(theme.muted)],
@@ -443,8 +450,8 @@ fn render_nap_card(alarms: List(Alarm)) -> Element {
   let busy = store.use_app_state().busy
   let #(minutes, set_minutes) = redraw.use_state(20)
   let now = use_now(15_000)
-  let wake_time = models.pending_nap_wake_time(alarms, now)
-  let ramp = int.min(models.nap_maximum_ramp_minutes, minutes)
+  let wake_time = alarm.pending_nap(alarms, now)
+  let ramp = int.min(alarm.nap_maximum_ramp_minutes, minutes)
   theme.card(False, [], [
     column([s.gap(14)], [
       header(
@@ -471,7 +478,7 @@ fn render_nap_card(alarms: List(Alarm)) -> Element {
               ),
             ]),
             theme.button("Annuler la sieste", fn() {
-              ignore(actions.cancel_nap())
+              ignore(actions.send(command.CancelNap))
             })
               |> theme.with_icon("stop")
               |> theme.grow
@@ -503,7 +510,7 @@ fn render_nap_card(alarms: List(Alarm)) -> Element {
               <> " dernières minutes.",
           ),
           theme.button("Lancer la sieste", fn() {
-            ignore(actions.start_nap(minutes))
+            ignore(actions.send(command.StartNap(minutes)))
           })
             |> theme.with_icon("play")
             |> theme.primary
@@ -590,14 +597,14 @@ pub fn morning_screen(desktop: Bool) -> Element {
 
 fn render_morning_screen(desktop: Bool) -> Element {
   let state = store.use_app_state()
-  let alarms = models.regular_alarms(state.alarms)
-  let next = models.next_alarm(alarms)
-  let session = case state.active_session {
+  let alarms = alarm.regular(state.clock.alarms)
+  let next = alarm.next(alarms)
+  let session = case state.clock.active_session {
     Some(session) -> active_session_card(session)
     None -> native.none()
   }
-  let warning = case state.device {
-    Some(types.DeviceState(clock_trusted: Some(False), ..)) -> clock_warning()
+  let warning = case state.clock.device {
+    Some(snapshot.Device(clock_trusted: False, ..)) -> clock_warning()
     _ -> native.none()
   }
   scroll_page(desktop, [], case desktop {
@@ -611,7 +618,7 @@ fn render_morning_screen(desktop: Bool) -> Element {
         ]),
         column([s.raw("flex", 1.18), s.gap(22)], [
           next_wake_card(next),
-          nap_card(state.alarms),
+          nap_card(state.clock.alarms),
           alarm_list_card(alarms),
         ]),
       ]),
@@ -622,7 +629,7 @@ fn render_morning_screen(desktop: Bool) -> Element {
       session,
       warning,
       next_wake_card(next),
-      nap_card(state.alarms),
+      nap_card(state.clock.alarms),
       alarm_list_card(alarms),
     ]
   })
@@ -631,16 +638,16 @@ fn render_morning_screen(desktop: Bool) -> Element {
 // Alarms ----------------------------------------------------------------------
 
 fn confirm_full_alarm(alarm: Alarm) -> Nil {
-  let ramp = models.ramp_seconds(alarm)
+  let ramp = alarm.settings.ramp_seconds
   native.alert(
-    "Lancer « " <> alarm.label <> " » comme demain matin ?",
+    "Lancer « " <> alarm.settings.label <> " » comme demain matin ?",
     "La séquence réelle démarre maintenant : montée pendant "
       <> int.to_string(ramp / 60)
       <> " minutes, plafond pendant 5 minutes, puis son de renfort.",
     [
       #("Annuler", "cancel", fn() { Nil }),
       #("Lancer le réveil complet", "default", fn() {
-        ignore(actions.trigger_alarm(Some(alarm.id)))
+        ignore(actions.send(command.TriggerAlarm(alarm.id)))
       }),
     ],
   )
@@ -648,12 +655,12 @@ fn confirm_full_alarm(alarm: Alarm) -> Nil {
 
 fn confirm_strong(alarm: Alarm) -> Nil {
   native.alert(
-    "Tester directement la phase forte de « " <> alarm.label <> " » ?",
+    "Tester directement la phase forte de « " <> alarm.settings.label <> " » ?",
     "Le son de renfort démarrera au volume maximal configuré et les couleurs alterneront toutes les 3 secondes.",
     [
       #("Annuler", "cancel", fn() { Nil }),
       #("Lancer la phase forte", "default", fn() {
-        ignore(actions.trigger_strong(Some(alarm.id)))
+        ignore(actions.send(command.TriggerStrong(alarm.id)))
       }),
     ],
   )
@@ -661,7 +668,7 @@ fn confirm_strong(alarm: Alarm) -> Nil {
 
 fn alarm_card(state: AppState, alarm: Alarm) -> Element {
   theme.card(False, [], [
-    column([s.gap(14), s.opacity(pick(alarm.enabled, 1.0, 0.55))], [
+    column([s.gap(14), s.opacity(pick(alarm.settings.enabled, 1.0, 0.55))], [
       row([s.align_items("flex-start")], [
         native.pressable(
           [
@@ -676,7 +683,7 @@ fn alarm_card(state: AppState, alarm: Alarm) -> Element {
                 s.tabular_nums(),
                 s.color(theme.text),
               ],
-              models.short_time(alarm.local_time),
+              time_of(alarm),
             ),
             label(
               [
@@ -685,17 +692,17 @@ fn alarm_card(state: AppState, alarm: Alarm) -> Element {
                 s.margin_top(4),
                 s.color(theme.text),
               ],
-              alarm.label,
+              alarm.settings.label,
             ),
             label(
               [s.font_size(14), s.margin_top(5), s.color(theme.muted)],
-              models.schedule_label(alarm.days_of_week),
+              schedule_of(alarm),
             ),
           ],
         ),
         theme.toggle(
-          alarm.enabled,
-          "Activer l’alarme " <> alarm.label,
+          alarm.settings.enabled,
+          "Activer l’alarme " <> alarm.settings.label,
           state.busy,
           fn(enabled) { actions.set_alarm_enabled(alarm, enabled) },
         ),
@@ -734,7 +741,7 @@ pub fn alarms_screen(desktop: Bool) -> Element {
 
 fn render_alarms_screen(desktop: Bool) -> Element {
   let state = store.use_app_state()
-  let alarms = models.regular_alarms(state.alarms)
+  let alarms = alarm.regular(state.clock.alarms)
   column([s.flex(1)], [
     theme.screen_title(
       "Alarmes",
@@ -830,26 +837,42 @@ fn phase_legend(color: String, title: String, detail: String) -> Element {
   )
 }
 
-fn breathing_guide(breathing: BreathingState) -> Element {
+fn breathing_guide(breathing: Breathing) -> Element {
   native.component("BreathingGuide", render_breathing_guide)(breathing)
 }
 
-fn render_breathing_guide(breathing: BreathingState) -> Element {
+fn render_breathing_guide(breathing: Breathing) -> Element {
   let tick = use_now(250)
-  let phase = option.unwrap(breathing.phase, "inhale")
-  let inhale = phase == "inhale"
-  let duration =
-    int.max(
-      1,
-      option.unwrap(breathing.phase_duration_ms, pick(inhale, 4000, 6000)),
-    )
-  let elapsed = case
-    option.then(breathing.phase_started_at, models.parse_time)
-  {
-    Some(started) -> int.max(0, tick - started)
-    None -> option.unwrap(breathing.phase_elapsed_ms, 0)
+  case breathing {
+    snapshot.Resting -> native.none()
+    Guided(..) as guided -> breathing_circle(guided, tick)
   }
-  let progress = float.min(1.0, int.to_float(elapsed) /. int.to_float(duration))
+}
+
+/// Progress of the phase in progress, from the time it started when known.
+fn phase_progress(breathing: Breathing, now: Int) -> Float {
+  case breathing {
+    snapshot.Resting -> 0.0
+    Guided(phase_ms:, phase_started_at:, phase_elapsed_ms:, ..) -> {
+      let elapsed = case phase_started_at {
+        Some(started) -> int.max(0, now - started)
+        None -> phase_elapsed_ms
+      }
+      float.min(1.0, int.to_float(elapsed) /. int.to_float(phase_ms))
+    }
+  }
+}
+
+fn breathing_circle(breathing: Breathing, tick: Int) -> Element {
+  let inhale = case breathing {
+    Guided(phase: snapshot.Exhale, ..) -> False
+    _ -> True
+  }
+  let remaining = case breathing {
+    Guided(remaining_seconds: Some(seconds), ..) -> int.to_string(seconds)
+    _ -> "—"
+  }
+  let progress = phase_progress(breathing, tick)
   let color =
     pick(inhale, theme.breathing_inhale_amber, theme.breathing_exhale_rose)
   let size = 118.0 +. 54.0 *. pick(inhale, progress, 1.0 -. progress)
@@ -890,14 +913,7 @@ fn render_breathing_guide(breathing: BreathingState) -> Element {
         ),
       ],
     ),
-    label(
-      [s.font_size(13), s.color(theme.muted)],
-      case breathing.remaining_seconds {
-        Some(seconds) -> int.to_string(seconds)
-        None -> "—"
-      }
-        <> " s restantes",
-    ),
+    label([s.font_size(13), s.color(theme.muted)], remaining <> " s restantes"),
   ])
 }
 
@@ -938,7 +954,7 @@ fn volume_control(
         set_volume,
         Some(fn(value) {
           case active {
-            True -> ignore(actions.breathing_volume(value))
+            True -> ignore(actions.send(command.SetBreathingVolume(value)))
             False -> Nil
           }
         }),
@@ -956,20 +972,22 @@ fn render_evening_screen(desktop: Bool) -> Element {
   let #(target_id, set_target_id) = redraw.use_state("")
   let #(duration, set_duration) = redraw.use_state(10)
   let #(volume, set_volume) = use_evening_volume()
-  let targets = state.hue_targets
-  let breathing = case state.hue {
-    Some(hue) -> hue.breathing
-    None -> types.no_breathing
+  let targets = state.clock.hue_targets
+  let breathing = state.clock.breathing
+  let #(active, guided_target, guided_volume, ambience) = case breathing {
+    Guided(target_id:, volume:, ambience:, ..) -> #(
+      True,
+      target_id,
+      volume,
+      ambience,
+    )
+    snapshot.Resting -> #(False, None, None, False)
   }
-  let active = breathing.active
-  let configured = case state.hue {
-    Some(hue) -> hue.configured
-    None -> False
-  }
+  let configured = snapshot.hue_paired(state.clock.hue)
   let selected = case list.any(targets, fn(target) { target.id == target_id }) {
     True -> target_id
     False ->
-      case breathing.target_id, targets {
+      case guided_target, targets {
         Some(id), _ -> id
         None, [first, ..] -> first.id
         None, [] -> ""
@@ -986,21 +1004,21 @@ fn render_evening_screen(desktop: Bool) -> Element {
   )
   redraw.use_effect(
     fn() {
-      case active, breathing.audio_volume_percent {
+      case active, guided_volume {
         True, Some(active_volume) if active_volume != volume ->
           set_volume(active_volume)
         _, _ -> Nil
       }
     },
-    #(active, breathing.audio_volume_percent, volume),
+    #(active, guided_volume, volume),
   )
   column([s.flex(1)], [
     theme.screen_title(
       "Le soir",
       theme.button("Actualiser", fn() {
         case configured {
-          True -> ignore(actions.refresh_hue())
-          False -> ignore(transport.refresh())
+          True -> ignore(actions.send(command.RefreshHue))
+          False -> ignore(actions.refresh())
         }
       })
         |> theme.with_icon("refresh")
@@ -1036,17 +1054,17 @@ fn render_evening_screen(desktop: Bool) -> Element {
                 [
                   s.font_size(12),
                   s.font_weight("700"),
-                  s.color(pick(breathing.audio_active, theme.mint, theme.rose)),
+                  s.color(pick(ambience, theme.mint, theme.rose)),
                 ],
                 pick(
-                  breathing.audio_active,
+                  ambience,
                   "🔊  Jardin sonore synchronisé avec la lumière",
                   "🔇  La lumière continue sans ambiance sonore",
                 ),
               ),
               volume_control(volume, True, set_volume),
               theme.button("Terminer et restaurer la lumière", fn() {
-                ignore(actions.stop_breathing())
+                ignore(actions.send(command.StopBreathing))
               })
                 |> theme.with_icon("stop")
                 |> theme.primary
@@ -1096,7 +1114,13 @@ fn render_evening_screen(desktop: Bool) -> Element {
               ),
               volume_control(volume, False, set_volume),
               theme.button("Commencer la séance", fn() {
-                ignore(actions.start_breathing(selected, duration, volume))
+                ignore(
+                  actions.send(command.StartBreathing(
+                    target_id: selected,
+                    minutes: duration,
+                    volume:,
+                  )),
+                )
               })
                 |> theme.with_icon("play")
                 |> theme.primary
@@ -1104,20 +1128,16 @@ fn render_evening_screen(desktop: Bool) -> Element {
                   state.busy || !configured || string.trim(selected) == "",
                 )
                 |> theme.render,
-              case state.hue {
-                Some(types.HueState(
-                  configured: True,
-                  state: Some("available"),
-                  ..,
-                )) -> native.none()
-                Some(types.HueState(configured: True, ..)) ->
+              case state.clock.hue {
+                Paired(reachable: True, ..) -> native.none()
+                Paired(..) ->
                   theme.button("Réessayer la connexion Hue", fn() {
-                    ignore(actions.refresh_hue())
+                    ignore(actions.send(command.RefreshHue))
                   })
                   |> theme.compact
                   |> theme.disabled(state.busy)
                   |> theme.render
-                _ ->
+                Unpaired ->
                   label(
                     [s.font_size(12), s.color(theme.rose)],
                     "💡 Configurez d’abord Philips Hue dans l’onglet Réveil.",
@@ -1133,24 +1153,8 @@ fn render_evening_screen(desktop: Bool) -> Element {
 
 // System ----------------------------------------------------------------------
 
-fn status_label(value: Option(String)) -> String {
+fn date_label(value: Option(Int)) -> String {
   case value {
-    Some("available") -> "Disponible"
-    Some("unavailable") -> "Indisponible"
-    Some("") | None -> "—"
-    Some(other) -> string.capitalise(other)
-  }
-}
-
-fn capitalise_first(value: String) -> String {
-  case string.pop_grapheme(value) {
-    Ok(#(first, rest)) -> string.uppercase(first) <> rest
-    Error(Nil) -> value
-  }
-}
-
-fn date_label(value: Option(String)) -> String {
-  case option.then(value, models.parse_time) {
     Some(ms) -> platform.format_date_time(ms)
     None -> "—"
   }
@@ -1198,10 +1202,7 @@ fn hue_card(
   set_discovery: fn(Discovery) -> Nil,
   desktop: Bool,
 ) -> Element {
-  let available = case state.hue {
-    Some(types.HueState(state: Some("available"), ..)) -> True
-    _ -> False
-  }
+  let available = snapshot.hue_ready(state.clock.hue)
   theme.card(available, dashboard_card_style(desktop), [
     column([s.gap(15)], [
       row([], [
@@ -1210,31 +1211,33 @@ fn hue_card(
         theme.icon("bulb", 22, theme.moon),
       ]),
       ..list.flatten([
-        case state.hue {
-          Some(types.HueState(configured: True, ..) as hue) -> [
+        case state.clock.hue {
+          Paired(bridge:, target_count:, ..) -> [
             theme.metric_row(
               "git-network",
               "Pont local",
-              option.unwrap(hue.bridge_host, "Connecté"),
+              pick(bridge == "", "Connecté", bridge),
               pick(available, theme.mint, theme.rose),
             ),
             theme.metric_row(
               "albums",
               "Pièces et zones",
-              int.to_string(hue.target_count) <> " disponibles",
+              int.to_string(target_count) <> " disponibles",
               theme.lavender,
             ),
             row([s.gap(10)], [
-              theme.button("Actualiser", fn() { ignore(actions.refresh_hue()) })
+              theme.button("Actualiser", fn() {
+                ignore(actions.send(command.RefreshHue))
+              })
                 |> theme.render,
               theme.button("Déconnecter", fn() {
-                ignore(actions.disconnect_hue())
+                ignore(actions.send(command.DisconnectHue))
               })
                 |> theme.danger
                 |> theme.render,
             ]),
           ]
-          _ ->
+          Unpaired ->
             list.flatten([
               [
                 label(
@@ -1256,7 +1259,7 @@ fn hue_card(
                         native.key(bridge.id),
                         native.on_press(fn() {
                           set_bridge_host(bridge.host)
-                          ignore(actions.pair_hue(bridge.host))
+                          ignore(actions.send(command.PairHue(bridge.host)))
                         }),
                       ],
                       [
@@ -1326,7 +1329,9 @@ fn hue_card(
                   native.style(theme.input_style([])),
                 ]),
                 theme.button("Connecter cette adresse", fn() {
-                  ignore(actions.pair_hue(string.trim(bridge_host)))
+                  ignore(
+                    actions.send(command.PairHue(string.trim(bridge_host))),
+                  )
                 })
                   |> theme.primary
                   |> theme.disabled(
@@ -1336,8 +1341,8 @@ fn hue_card(
               ],
             ])
         },
-        case state.hue {
-          Some(types.HueState(state: Some("unavailable"), ..)) -> [
+        case state.clock.hue {
+          Paired(reachable: False, ..) -> [
             label(
               [s.font_size(12), s.color(theme.rose)],
               "⚠ Le pont est enregistré mais momentanément inaccessible.",
@@ -1351,10 +1356,7 @@ fn hue_card(
 }
 
 fn remote_button_card(state: AppState, desktop: Bool) -> Element {
-  let #(pairing, buttons) = case state.remote_button {
-    Some(remote) -> #(remote.pairing_active, remote.buttons)
-    None -> #(False, [])
-  }
+  let snapshot.RemoteButtons(pairing:, buttons:) = state.clock.remote
   theme.card(pairing, dashboard_card_style(desktop), [
     column([s.gap(15)], [
       row([], [
@@ -1384,7 +1386,7 @@ fn remote_button_card(state: AppState, desktop: Bool) -> Element {
               ),
             ]),
             theme.button("Oublier", fn() {
-              ignore(actions.remove_button(button.id))
+              ignore(actions.send(command.RemoveButton(button.id)))
             })
               |> theme.danger
               |> theme.compact
@@ -1401,7 +1403,7 @@ fn remote_button_card(state: AppState, desktop: Bool) -> Element {
               )
             False ->
               theme.button("Associer un bouton", fn() {
-                ignore(actions.begin_button_pairing())
+                ignore(actions.send(command.BeginButtonPairing))
               })
               |> theme.primary
               |> theme.disabled(state.busy)
@@ -1414,9 +1416,9 @@ fn remote_button_card(state: AppState, desktop: Bool) -> Element {
 }
 
 fn smartphone_dismiss_card(state: AppState, desktop: Bool) -> Element {
-  let enabled = state.smartphone_dismiss.enabled
-  let locked =
-    state.smartphone_dismiss.locked || option.is_some(state.active_session)
+  let snapshot.SmartphoneDismiss(enabled:, locked:) =
+    state.clock.smartphone_dismiss
+  let locked = locked || option.is_some(state.clock.active_session)
   theme.card(!enabled, dashboard_card_style(desktop), [
     column([s.gap(13)], [
       header(
@@ -1425,7 +1427,9 @@ fn smartphone_dismiss_card(state: AppState, desktop: Bool) -> Element {
           enabled,
           "Autoriser l’arrêt de l’alarme depuis le smartphone",
           locked || state.busy,
-          fn(value) { ignore(actions.set_smartphone_dismiss(value)) },
+          fn(value) {
+            ignore(actions.send(command.SetSmartphoneDismiss(value)))
+          },
         ),
       ),
       label(
@@ -1469,8 +1473,8 @@ fn sounds_card(state: AppState, desktop: Bool) -> Element {
   theme.card(False, dashboard_card_style(desktop), [
     column([s.gap(15)], [
       theme.eyebrow("Bibliothèque sonore", theme.moon),
-      ..list.map(list.take(state.sounds, 8), fn(sound) {
-        let strong = sound.intensity == Some("strong")
+      ..list.map(list.take(state.clock.sounds, 8), fn(sound) {
+        let strong = snapshot.is_strong(sound)
         row([s.align_items("center"), s.gap(12)], [
           theme.icon(
             pick(strong, "pulse", "musical-notes"),
@@ -1483,14 +1487,14 @@ fn sounds_card(state: AppState, desktop: Bool) -> Element {
               sound.title,
             ),
             case sound.artist {
-              Some(artist) if artist != "" ->
+              Some(artist) ->
                 label([s.font_size(12), s.color(theme.muted)], artist)
-              _ -> native.none()
+              None -> native.none()
             },
           ]),
           label(
             [s.font_size(10), s.font_weight("800"), s.color(theme.muted)],
-            string.uppercase(option.unwrap(sound.intensity, "")),
+            string.uppercase(snapshot.intensity_label(sound.intensity)),
           ),
         ])
       })
@@ -1501,12 +1505,14 @@ fn sounds_card(state: AppState, desktop: Bool) -> Element {
 fn confirm_erase_history() -> Nil {
   native.alert("Effacer tout l’historique ?", "", [
     #("Annuler", "cancel", fn() { Nil }),
-    #("Effacer", "destructive", fn() { ignore(actions.erase_history()) }),
+    #("Effacer", "destructive", fn() {
+      ignore(actions.send(command.EraseHistory))
+    }),
   ])
 }
 
 fn history_card(state: AppState, desktop: Bool) -> Element {
-  case state.recent_sessions {
+  case state.clock.recent_sessions {
     [] -> native.none()
     sessions ->
       theme.card(False, dashboard_card_style(desktop), [
@@ -1519,13 +1525,10 @@ fn history_card(state: AppState, desktop: Bool) -> Element {
               |> theme.render,
           ),
           ..list.map(list.take(sessions, 5), fn(session) {
-            let dismissed = session.state == Some("dismissed")
+            let dismissed = session.state == snapshot.Dismissed
             theme.metric_row(
               pick(dismissed, "checkmark-circle", "time"),
-              case session.state {
-                Some(state) if state != "" -> capitalise_first(state)
-                _ -> "Session"
-              },
+              snapshot.state_label(session.state),
               date_label(session.ended_at),
               pick(dismissed, theme.mint, theme.lavender),
             )
@@ -1543,10 +1546,7 @@ fn render_system_screen(desktop: Bool) -> Element {
   let state = store.use_app_state()
   let #(bridge_host, set_bridge_host) = redraw.use_state("")
   let #(discovery, set_discovery) = redraw.use_state(Idle)
-  let configured = case state.hue {
-    Some(hue) -> hue.configured
-    None -> False
-  }
+  let configured = snapshot.hue_paired(state.clock.hue)
   redraw.use_effect(
     fn() {
       case configured, discovery {
@@ -1556,11 +1556,17 @@ fn render_system_screen(desktop: Bool) -> Element {
     },
     #(discovery == Idle, configured),
   )
-  let device = state.device
+  let device = state.clock.device
+  let health = fn(part: fn(snapshot.Device) -> snapshot.Health) {
+    case device {
+      Some(device) -> snapshot.health_label(part(device))
+      None -> "—"
+    }
+  }
   column([s.flex(1)], [
     theme.screen_title(
       "Le réveil",
-      theme.button("Actualiser", fn() { ignore(transport.refresh()) })
+      theme.button("Actualiser", fn() { ignore(actions.refresh()) })
         |> theme.with_icon("refresh")
         |> theme.disabled(state.busy),
       desktop,
@@ -1578,27 +1584,25 @@ fn render_system_screen(desktop: Bool) -> Element {
           theme.metric_row(
             "code-working",
             "API locale",
-            api_host(state.http_endpoint),
+            api_host(state.endpoint),
             theme.lavender,
           ),
           theme.metric_row(
             "wifi",
             "Réseau",
-            status_label(
-              option.then(device, fn(device) { device.network_state }),
-            ),
+            health(fn(device) { device.network }),
             theme.lavender,
           ),
           theme.metric_row(
             "volume-high",
             "Audio",
-            status_label(option.then(device, fn(device) { device.audio_state })),
+            health(fn(device) { device.audio }),
             theme.moon,
           ),
           theme.metric_row(
             "cube",
             "Logiciel",
-            option.then(device, fn(device) { device.firmware_version })
+            option.then(device, fn(device) { device.firmware })
               |> option.unwrap("—"),
             theme.lavender,
           ),

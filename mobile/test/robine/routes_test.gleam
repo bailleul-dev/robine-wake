@@ -1,5 +1,4 @@
-import robine/routes
-import robine/types.{Alarms, Evening, Morning, System}
+import robine/routes.{Alarms, Evening, Morning, System}
 
 pub fn maps_public_paths_to_tabs_test() {
   assert routes.tab_for_path("/") == Ok(Morning)

@@ -5,17 +5,16 @@ import gleam/list
 import gleam/option.{None, Some}
 import redraw.{type Element}
 import robine/actions
+import robine/command
 import robine/editor
 import robine/native
-import robine/routes
+import robine/routes.{type Tab, Alarms, Evening, Morning, System}
 import robine/screens
+import robine/snapshot.{type Session}
 import robine/store.{type AppState, AppState}
 import robine/style.{type Style} as s
 import robine/theme
 import robine/transport
-import robine/types.{
-  type Tab, type WakeSession, Alarms, Evening, Morning, System,
-}
 import robine/wake_challenge
 
 const tabs = [
@@ -137,7 +136,7 @@ fn tab_bar(state: AppState) -> Element {
 }
 
 fn desktop_sidebar(state: AppState) -> Element {
-  let ready = option.is_some(state.http_endpoint)
+  let ready = option.is_some(state.endpoint)
   native.view(
     [
       native.style([
@@ -302,7 +301,7 @@ fn desktop_sidebar(state: AppState) -> Element {
   )
 }
 
-fn global_alarm_controls(session: WakeSession, desktop: Bool) -> Element {
+fn global_alarm_controls(session: Session, desktop: Bool) -> Element {
   theme.glass_panel(
     theme.Glass(
       effect: "regular",
@@ -346,31 +345,24 @@ fn global_alarm_controls(session: WakeSession, desktop: Bool) -> Element {
           [s.font_size(14), s.font_weight("800"), s.color(theme.text)],
           "Alarme en cours",
         ),
-        label(
-          [s.font_size(12), s.color(theme.muted)],
-          case session.audio_phase {
-            Some("strong") -> "Son de renfort"
-            _ -> "Réveil progressif"
-          },
-        ),
+        label([s.font_size(12), s.color(theme.muted)], case session.phase {
+          snapshot.StrongPhase -> "Son de renfort"
+          snapshot.GentlePhase -> "Réveil progressif"
+        }),
       ]),
       native.when(session.test_mode, fn() {
         theme.button("Arrêt direct", fn() {
-          actions.dismiss()
+          actions.send(command.Dismiss)
           Nil
         })
         |> theme.compact
         |> theme.render
       }),
-      case session.smartphone_dismiss_allowed {
+      case session.phone_may_dismiss {
         True ->
           theme.button(
             pick(session.test_mode, "Tester l’arrêt", "Je suis levé"),
-            fn() {
-              store.update(fn(state) {
-                AppState(..state, challenge: Some(session.id))
-              })
-            },
+            fn() { actions.open_challenge(session.id) },
           )
           |> theme.with_icon("sunny")
           |> theme.primary
@@ -423,9 +415,9 @@ fn error_dialog(message: String) -> Element {
                   ]),
                 ],
                 [
-                  theme.button("Fermer", store.clear_error) |> theme.render,
+                  theme.button("Fermer", store.clear_failure) |> theme.render,
                   theme.button("Réessayer", fn() {
-                    store.clear_error()
+                    store.clear_failure()
                     transport.reconnect()
                   })
                     |> theme.primary
@@ -494,7 +486,7 @@ pub fn app(_props: Nil) -> Element {
           ],
         ),
         native.when(!desktop, fn() { tab_bar(state) }),
-        case state.active_session {
+        case state.clock.active_session {
           Some(session) -> global_alarm_controls(session, desktop)
           None -> native.none()
         },
@@ -506,8 +498,8 @@ pub fn app(_props: Nil) -> Element {
           option.is_some(state.challenge),
           wake_challenge.wake_challenge,
         ),
-        case state.error {
-          Some(message) -> error_dialog(message)
+        case state.failure {
+          Some(failure) -> error_dialog(command.describe(failure))
           None -> native.none()
         },
       ],

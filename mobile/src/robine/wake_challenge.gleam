@@ -8,10 +8,11 @@ import gleam/string
 import redraw.{type Element}
 import redraw/ref
 import robine/actions
-import robine/models.{type Challenge}
+import robine/challenge.{type Challenge}
+import robine/command
 import robine/native
 import robine/platform
-import robine/store.{AppState}
+import robine/store
 import robine/style.{type Style} as s
 import robine/theme
 
@@ -19,10 +20,10 @@ fn label(styles: List(Style), content: String) -> Element {
   native.text([native.style(styles)], content)
 }
 
-fn progress(step: Int) -> Element {
+fn progress_bar(step: Int) -> Element {
   native.view(
     [native.style([s.flex_direction("row"), s.gap(8)])],
-    list.map(models.indices(3), fn(index) {
+    list.map(challenge.indices(challenge.steps), fn(index) {
       native.view(
         [
           native.key(int.to_string(index)),
@@ -46,8 +47,8 @@ fn progress(step: Int) -> Element {
 fn complete() -> Nil {
   case store.get_state().challenge {
     Some(_) -> {
-      store.update(fn(state) { AppState(..state, challenge: None) })
-      actions.dismiss()
+      actions.close_challenge()
+      actions.send(command.Dismiss)
       Nil
     }
     None -> Nil
@@ -60,11 +61,7 @@ pub fn wake_challenge() -> Element {
 
 fn render_wake_challenge(_props: Nil) -> Element {
   let state = store.use_app_state()
-  let #(step, set_step) = redraw.use_state(0)
-  let #(challenge, set_challenge) =
-    redraw.use_lazy_state(fn() { models.make_challenge(0) })
-  let #(feedback, set_feedback): #(Option(Bool), fn(Option(Bool)) -> Nil) =
-    redraw.use_state(None)
+  let #(progress, set_progress) = redraw.use_lazy_state(challenge.start)
   let answering = redraw.use_ref_(False)
 
   let answer = fn(value: Int) {
@@ -72,40 +69,31 @@ fn render_wake_challenge(_props: Nil) -> Element {
       True -> Nil
       False -> {
         ref.assign(answering, True)
-        case value == challenge.answer {
-          True -> {
-            platform.haptic(True)
-            set_feedback(Some(True))
-            platform.set_timeout(550, fn() {
-              case step {
-                2 -> complete()
-                _ -> {
-                  let next_step = step + 1
-                  set_step(next_step)
-                  set_challenge(models.make_challenge(next_step))
-                  set_feedback(None)
-                  ref.assign(answering, False)
-                }
-              }
-            })
-            Nil
-          }
-          False -> {
-            platform.haptic(False)
-            set_feedback(Some(False))
-            platform.set_timeout(700, fn() {
-              set_challenge(models.make_challenge(step))
-              set_feedback(None)
+        let answered = challenge.answer(progress, value)
+        set_progress(answered)
+        platform.haptic(case answered {
+          challenge.Answered(correct:, ..) -> correct
+          challenge.Asking(..) -> False
+        })
+        platform.set_timeout(challenge.pause(answered), fn() {
+          case challenge.advance(answered) {
+            challenge.Solved -> complete()
+            challenge.Ask(next) -> {
+              set_progress(next)
               ref.assign(answering, False)
-            })
-            Nil
+            }
           }
-        }
+        })
+        Nil
       }
     }
   }
+  let feedback = case progress {
+    challenge.Answered(correct:, ..) -> Some(correct)
+    challenge.Asking(..) -> None
+  }
 
-  let test_mode = case state.active_session {
+  let test_mode = case state.clock.active_session {
     Some(session) -> session.test_mode
     None -> False
   }
@@ -144,11 +132,16 @@ fn render_wake_challenge(_props: Nil) -> Element {
               "Résolvez trois défis pour confirmer que vous êtes bien réveillé.",
             ),
             native.view([native.style([s.align_self("stretch")])], [
-              progress(step),
+              progress_bar(progress.step),
             ]),
           ]),
           native.view([native.style([s.flex(1), s.justify_content("center")])], [
-            challenge_card(challenge, feedback, ref.current(answering), answer),
+            challenge_card(
+              progress.puzzle,
+              feedback,
+              ref.current(answering),
+              answer,
+            ),
           ]),
           native.when(test_mode, fn() {
             theme.button("Arrêt direct", complete) |> theme.render
@@ -164,7 +157,7 @@ fn render_wake_challenge(_props: Nil) -> Element {
 }
 
 fn challenge_card(
-  challenge: Challenge,
+  puzzle: Challenge,
   feedback: Option(Bool),
   answering: Bool,
   answer: fn(Int) -> Nil,
@@ -189,7 +182,7 @@ fn challenge_card(
           s.letter_spacing(1.2),
           s.color(theme.rose),
         ],
-        "◉ " <> string.uppercase(models.kind_label(challenge.kind)),
+        "◉ " <> string.uppercase(challenge.kind_label(puzzle.kind)),
       ),
       label(
         [
@@ -199,11 +192,11 @@ fn challenge_card(
           s.font_weight("700"),
           s.color(theme.text),
         ],
-        challenge.prompt,
+        puzzle.prompt,
       ),
       label(
         [s.text_align("center"), s.font_size(14), s.color(theme.muted)],
-        challenge.instruction,
+        puzzle.instruction,
       ),
       native.view(
         [
@@ -213,7 +206,7 @@ fn challenge_card(
             s.gap(12),
           ]),
         ],
-        list.map(challenge.options, fn(option) {
+        list.map(puzzle.options, fn(option) {
           native.pressable(
             [
               native.key(int.to_string(option)),
