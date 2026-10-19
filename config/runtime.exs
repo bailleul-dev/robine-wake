@@ -32,6 +32,12 @@ config :robine_wake,
     System.get_env("ROBINE_ALSA_MIXER_CONTROL") ||
       Application.get_env(:robine_wake, :alsa_mixer_control, "Digital")
 
+# Guide light reached over Wi-Fi instead of the UART, e.g.
+# ROBINE_GUIDE_LIGHT_URL=http://robine-wake-a1b2c3.local:4000
+if url = System.get_env("ROBINE_GUIDE_LIGHT_URL") do
+  config :robine_wake, guide_light: [driver: RobineWake.GuideLight.Driver.HTTP, url: url]
+end
+
 if host_target? do
   config :robine_wake, RobineWakeDevWeb.Endpoint,
     http: [ip: {127, 0, 0, 1}, port: parse_integer.("ROBINE_DEV_PORT", 4111)]

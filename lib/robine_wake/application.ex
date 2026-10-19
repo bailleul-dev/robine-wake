@@ -21,6 +21,7 @@ defmodule RobineWake.Application do
       RobineWake.Bluetooth.Server,
       RobineWake.ClockQuality,
       RobineWake.Network,
+      RobineWake.GuideLight,
       RobineWake.Hue,
       RobineWake.AirPlay,
       RobineWake.BluetoothAudio,
@@ -33,7 +34,7 @@ defmodule RobineWake.Application do
 
     domain =
       if config[:camera_enabled] do
-        List.insert_at(domain, 14, RobineWake.Camera)
+        List.insert_at(domain, 15, RobineWake.Camera)
       else
         domain
       end

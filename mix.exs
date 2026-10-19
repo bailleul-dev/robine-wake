@@ -61,6 +61,7 @@ defmodule RobineWake.MixProject do
       {:nerves_runtime, "~> 0.13.12"},
       {:nerves_pack, "~> 0.7.1", targets: @all_targets},
       {:circuits_spi, "~> 2.0", targets: @all_targets},
+      {:circuits_uart, "~> 1.5", targets: @all_targets},
       {:blue_heron, "~> 0.5.4", targets: @all_targets, runtime: false},
       {:nerves_system_rpi3,
        path: "nerves_system_rpi3", nerves: [compile: true], runtime: false, targets: :rpi3}

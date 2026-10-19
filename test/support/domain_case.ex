@@ -2,6 +2,7 @@ defmodule RobineWake.DomainCase do
   @moduledoc false
   use ExUnit.CaseTemplate
 
+  alias RobineWake.GuideLight.Driver.Test, as: GuideLightDriver
   alias RobineWake.Hue.Driver.Test, as: HueDriver
 
   using do
@@ -37,6 +38,9 @@ defmodule RobineWake.DomainCase do
     :ok = RobineWake.Settings.reset()
     :ok = RobineWake.Hue.reset()
     :ok = HueDriver.reset()
+    # Flush casts queued by the reset above before clearing their record.
+    _ = RobineWake.GuideLight.status()
+    :ok = GuideLightDriver.reset()
     _ = RobineWake.Scheduler.refresh()
 
     if RobineWake.WakeSession.active() do

@@ -36,6 +36,21 @@ La durée est choisie parmi 3, 5, 10, 15, 20 ou 30 minutes. Un minuteur monotone
 par le Raspberry Pi arrête automatiquement la session, effectue le fondu audio
 et restaure la lumière, même lorsque l’app iOS n’est plus connectée.
 
+## Veilleuse NeoPixel de l’ESP32
+
+Une Adafruit Flora RGB Smart NeoPixel, reliée à l’ESP32, double la lumière
+Hue. Le Raspberry Pi, maître de l’audio, garde l’horloge : à chaque frontière
+de phase, au même instant que l’enveloppe audio, `RobineWake.GuideLight` envoie
+une commande `light.set` (couleur, intensité, transition `smoothstep` de
+4 000 ou 6 000 ms) que l’ESP32 interpole. Ambre doré `(255, 120, 12)` à 30 %,
+rose crépusculaire `(255, 40, 70)` à 2 % ; fondu au noir en 1,5 s à l’arrêt,
+à la fin de la durée ou à la préemption par une alarme.
+
+Le transport est un driver : UART sur les GPIO 14/15 du Pi (lignes JSON,
+enveloppe API-002) par défaut, HTTP possible. Une panne de la veilleuse est
+journalisée une fois (`guide_light_failed`) et la séance continue
+(BRTH-007). Le démarrage d’une séance exige toujours une cible Hue.
+
 ## Contrôle iOS
 
 L’écran `Soir` permet de choisir une pièce ou zone, la durée, de démarrer la session et

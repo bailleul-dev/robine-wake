@@ -79,6 +79,8 @@ config :robine_wake,
   # the BlueHeron BLE control service is disabled and not started.
   bluetooth_enabled: false,
   bluetooth_driver: RobineWake.Bluetooth.Driver.BlueHeron,
+  # NeoPixel guide light on the ESP32, wired to GPIO 14/15 (mini UART).
+  guide_light: [driver: RobineWake.GuideLight.Driver.UART, device: "ttyS0"],
   lora_enabled: true,
   lora_driver: RobineWake.LoRa.Driver.SX1276,
   lora_options: [

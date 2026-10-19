@@ -18,6 +18,8 @@ config :robine_wake,
   network_driver: RobineWake.Network.Driver.Host,
   hue_driver: RobineWake.Hue.Driver.HTTP,
   hue_request_timeout_ms: 5_000,
+  # ESP32 NeoPixel guide light; nil when none is wired (RobineWake.GuideLight).
+  guide_light: nil,
   data_path: "data/robine_wake.json",
   auth_path: "data/robine_wake_auth.json",
   web_enabled: true,

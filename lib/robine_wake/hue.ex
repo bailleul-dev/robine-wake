@@ -4,7 +4,7 @@ defmodule RobineWake.Hue do
   use GenServer
   require Logger
 
-  alias RobineWake.{Audio, Clock, EventLog, EventStream, Id, Settings}
+  alias RobineWake.{Audio, Clock, EventLog, EventStream, GuideLight, Id, Settings}
 
   @breathing_low_brightness 1
   @breathing_high_brightness 30
@@ -19,6 +19,11 @@ defmodule RobineWake.Hue do
   @breathing_latency_alpha 0.25
   @breathing_default_duration_minutes 10
   @breathing_durations [3, 5, 10, 15, 20, 30]
+  # ESP32 NeoPixel: same golden amber / twilight rose as Hue, 2 % to 30 %,
+  # eased like the audio gain so light and sound breathe together.
+  @guide_inhale %{color: %{r: 255, g: 120, b: 12}, brightness: 30}
+  @guide_exhale %{color: %{r: 255, g: 40, b: 70}, brightness: 2}
+  @guide_fade_out_ms 1_500
   @strong_wake_interval_ms 3_000
   @strong_wake_transition_ms 650
   @strong_wake_colors [
@@ -577,6 +582,8 @@ defmodule RobineWake.Hue do
         now = System.monotonic_time(:millisecond)
         duration_ms = duration_minutes * 60_000
         deadline_ms = now + 4_000
+        GuideLight.set(Map.put(@guide_exhale, :transition_ms, 0))
+        GuideLight.set(guide_phase(:inhale))
 
         breathing = %{
           token: token,
@@ -635,6 +642,7 @@ defmodule RobineWake.Hue do
       end
 
     deadline_ms = breathing.deadline_ms + duration
+    GuideLight.set(guide_phase(phase))
 
     next_breathing = %{
       breathing
@@ -781,6 +789,12 @@ defmodule RobineWake.Hue do
     }
   end
 
+  defp guide_phase(:inhale),
+    do: Map.merge(@guide_inhale, %{transition_ms: 4_000, easing: :smoothstep})
+
+  defp guide_phase(:exhale),
+    do: Map.merge(@guide_exhale, %{transition_ms: 6_000, easing: :smoothstep})
+
   defp opposite_phase(:inhale), do: :exhale
   defp opposite_phase(:exhale), do: :inhale
 
@@ -791,6 +805,7 @@ defmodule RobineWake.Hue do
     if breathing.light_timer, do: Process.cancel_timer(breathing.light_timer)
     if breathing.completion_timer, do: Process.cancel_timer(breathing.completion_timer)
     if breathing.audio_timer, do: Process.cancel_timer(breathing.audio_timer)
+    GuideLight.off(@guide_fade_out_ms)
     stop_breathing_audio(breathing)
 
     state = %{state | breathing: nil}
@@ -1011,7 +1026,8 @@ defmodule RobineWake.Hue do
         low_gain: breathing.audio_low_gain,
         high_gain: breathing.audio_high_gain,
         error: error_text(breathing.audio_error)
-      }
+      },
+      guide_light: %{configured: GuideLight.configured?()}
     }
   end
 
