@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banc de dev Robine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout : fiche d'atelier — un diagramme pleine largeur, puis les fils groupés par bus, puis les vérifications. */
+:root {
+  --bg: #f5f6f3;
+  --panel: #ffffff;
+  --fg: #1c211d;
+  --muted: #5d665f;
+  --rule: #d7dcd5;
+  --board: #e9eee6;
+  --board-edge: #8d9a8f;
+  --w-uart: #2563c9;
+  --w-i2s: #8a3fc2;
+  --w-i2c: #1f8a4c;
+  --w-ctrl: #c2780a;
+  --w-spi: #0f8a8a;
+  --w-pwr: #c8322b;
+  --w-gnd: #3f4741;
+  --warn-bg: #fff3dc;
+  --warn-fg: #7a4a00;
+  --font-body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131714; --panel: #1b201c; --fg: #e4e9e3; --muted: #9aa59c; --rule: #2e3630;
+    --board: #1f2a22; --board-edge: #5f7064;
+    --w-uart: #6f9ff0; --w-i2s: #c08ae8; --w-i2c: #5cc98a; --w-ctrl: #f0ad45; --w-spi: #4fc7c7; --w-pwr: #f0706a; --w-gnd: #aab4ac;
+    --warn-bg: #3a2c12; --warn-fg: #f3cf8e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131714; --panel: #1b201c; --fg: #e4e9e3; --muted: #9aa59c; --rule: #2e3630;
+  --board: #1f2a22; --board-edge: #5f7064;
+  --w-uart: #6f9ff0; --w-i2s: #c08ae8; --w-i2c: #5cc98a; --w-ctrl: #f0ad45; --w-spi: #4fc7c7; --w-pwr: #f0706a; --w-gnd: #aab4ac;
+  --warn-bg: #3a2c12; --warn-fg: #f3cf8e;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+main { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.3rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+p { margin: 0; max-width: 70ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 10px; }
+section { display: flex; flex-direction: column; gap: 16px; }
+
+.bom { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.bom div { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.bom b { display: block; font-weight: 600; }
+.bom span { color: var(--muted); font-size: 0.88rem; }
+
+.diagram { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow-x: auto; }
+.diagram svg { display: block; min-width: 900px; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.85rem; color: var(--muted); }
+.legend i { display: inline-block; width: 22px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr.group td { background: var(--board); font-weight: 600; padding-block: 6px; }
+tr.group td span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: -1px; }
+tbody tr:last-child td { border-bottom: 0; }
+td.net { font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+td.pin { font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+td.note { color: var(--muted); }
+
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card ol, .card ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+.warn { background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+.warn p { max-width: none; }
+
+svg text { font-family: var(--font-mono); }
+.svg-board { fill: var(--board); stroke: var(--board-edge); stroke-width: 1.5; }
+.svg-title { fill: var(--fg); font-family: var(--font-body); font-weight: 700; font-size: 15px; }
+.svg-sub { fill: var(--muted); font-family: var(--font-body); font-size: 11px; }
+.svg-pin { fill: var(--fg); font-size: 11px; }
+.svg-net { font-size: 9.5px; font-weight: 600; }
+.svg-note { fill: var(--muted); font-size: 10px; font-family: var(--font-body); }
+.wire { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.dot { stroke: none; }
+.part { fill: var(--panel); stroke: var(--fg); stroke-width: 1.3; }
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  body { padding-block: 0; font-size: 12px; }
+  main { gap: 24px; }
+  .diagram, .table-wrap { overflow: visible; }
+  .diagram svg, table { min-width: 0; }
+  .diagram, .warn, .card, tr { break-inside: avoid; }
+}
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">robine-wake · prototype sur breadboard · fils Dupont</div>
+    <h1>Banc de dev Robine</h1>
+    <p>Câblage des deux devkits, de l'ampli InnoMaker, du RFM95W et de la LED SK6812. Les GPIO et les noms de nets sont ceux de <code>robine_board</code> v1.1 : le firmware écrit sur ce banc tourne sans modification sur la carte, sauf le pilote de l'ampli.</p>
+  </header>
+
+  <section>
+    <h2>Matériel</h2>
+    <div class="bom">
+      <div><b>ESP32-S3-DevKitC-1 (N16R8)</b><span>U1 : maître, AirPlay, I²S maître, LoRa, LED</span></div>
+      <div><b>ESP32-DevKitC (WROOM-32E)</b><span>U2 : récepteur A2DP, I²S esclave</span></div>
+      <div><b>InnoMaker HiFi AMP Pro Mini</b><span>MA12070P, I²S esclave, I²C 0x20, alim 9–24 V</span></div>
+      <div><b>RFM95W 868 MHz</b><span>3,3 V uniquement, antenne obligatoire</span></div>
+      <div><b>LED SK6812</b><span>une seule, alimentée en 5 V via une diode</span></div>
+      <div><b>Petits composants</b><span>2 × 4,7 kΩ, 1 × 330 Ω, 1N4148, 100 nF, 10 µF</span></div>
+      <div><b>Alimentation ampli</b><span>19–20 V, ≥ 3 A, jack 5,5 mm</span></div>
+      <div><b>Haut-parleurs</b><span>4–8 Ω, en pont (BTL)</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Schéma de câblage</h2>
+    <div class="legend">
+      <span><i style="background:var(--w-uart)"></i>UART et flash de U2</span>
+      <span><i style="background:var(--w-i2s)"></i>I²S</span>
+      <span><i style="background:var(--w-i2c)"></i>I²C</span>
+      <span><i style="background:var(--w-ctrl)"></i>Contrôle ampli</span>
+      <span><i style="background:var(--w-spi)"></i>SPI LoRa</span>
+      <span><i style="background:var(--w-pwr)"></i>Alimentation</span>
+      <span>● = jonction (même rangée de breadboard)</span>
+    </div>
+    <div class="diagram"><svg id="wiring" viewBox="0 0 1060 720" role="img" aria-label="Schéma de câblage du banc de dev"></svg></div>
+  </section>
+
+  <div class="warn">
+    <h3>L'ampli n'est pas celui de la carte</h3>
+    <p>La InnoMaker utilise un <b>Infineon MA12070P</b>, alors que robine_board v1.1 a un <b>TAS5825M</b>. Le bus est le même (I²S en esclave, I²C pour le contrôle) : tout le chemin audio AirPlay et A2DP se valide sur ce banc. Seul le pilote de l'ampli (registres, séquence de démarrage, volume) est à écrire deux fois.</p>
+  </div>
+
+  <section>
+    <h2>Fil à fil</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Net</th><th>Départ</th><th>Arrivée</th><th>Remarque</th></tr></thead>
+        <tbody>
+          <tr class="group"><td colspan="4"><span style="background:var(--w-uart)"></span>Liaison S3 ↔ ESP32 et flash de U2</td></tr>
+          <tr><td class="net">BT_RXD0</td><td class="pin">S3 IO15 (TX)</td><td class="pin">ESP32 RX (IO3)</td><td class="note">Débrancher ce fil quand tu utilises le moniteur série USB de l'ESP32 : son convertisseur USB pilote aussi IO3.</td></tr>
+          <tr><td class="net">BT_TXD0</td><td class="pin">ESP32 TX (IO1)</td><td class="pin">S3 IO16 (RX)</td><td class="note">Logs ROM de l'ESP32 au démarrage, à ignorer côté S3.</td></tr>
+          <tr><td class="net">BT_EN</td><td class="pin">S3 IO47</td><td class="pin">ESP32 EN</td><td class="note">Open-drain côté S3. Le devkit a déjà son pull-up et son condensateur.</td></tr>
+          <tr><td class="net">BT_IO0</td><td class="pin">S3 IO48</td><td class="pin">ESP32 IO0</td><td class="note">Open-drain. Sur un DevKitC-1 v1.0, IO48 pilote aussi la LED RGB de la carte : sans conséquence.</td></tr>
+
+          <tr class="group"><td colspan="4"><span style="background:var(--w-i2s)"></span>I²S (le S3 génère les horloges)</td></tr>
+          <tr><td class="net">I2S_BCLK</td><td class="pin">S3 IO6</td><td class="pin">HAT broche 12 + ESP32 IO26</td><td class="note">Un fil du S3 vers une rangée de breadboard, puis un fil vers chaque destination.</td></tr>
+          <tr><td class="net">I2S_LRCLK</td><td class="pin">S3 IO7</td><td class="pin">HAT broche 35 + ESP32 IO25</td><td class="note">Même principe que BCLK.</td></tr>
+          <tr><td class="net">I2S_DOUT</td><td class="pin">S3 IO8</td><td class="pin">HAT broche 40</td><td class="note">Données vers l'ampli.</td></tr>
+          <tr><td class="net">I2S_BT_DOUT</td><td class="pin">ESP32 IO22</td><td class="pin">S3 IO40</td><td class="note">Audio A2DP de l'ESP32 vers le S3, qui choisit la source.</td></tr>
+
+          <tr class="group"><td colspan="4"><span style="background:var(--w-i2c)"></span>I²C ampli (adresse 0x20)</td></tr>
+          <tr><td class="net">I2C_SDA</td><td class="pin">S3 IO17</td><td class="pin">HAT broche 3</td><td class="note">Pull-up 4,7 kΩ vers 3V3, la carte ampli comptant sur ceux du Raspberry Pi.</td></tr>
+          <tr><td class="net">I2C_SCL</td><td class="pin">S3 IO18</td><td class="pin">HAT broche 5</td><td class="note">Pull-up 4,7 kΩ vers 3V3.</td></tr>
+
+          <tr class="group"><td colspan="4"><span style="background:var(--w-ctrl)"></span>Contrôle ampli (à vérifier au multimètre, voir plus bas)</td></tr>
+          <tr><td class="net">AMP_PDN</td><td class="pin">S3 IO21</td><td class="pin">HAT broche 8 (GPIO14, enable)</td><td class="note">Brochage tiré de l'overlay Linux <code>merus-amp</code>.</td></tr>
+          <tr><td class="net">AMP_MUTE</td><td class="pin">S3 IO41</td><td class="pin">HAT broche 10 (GPIO15, mute)</td><td class="note">Spécifique au banc : pas de mute séparé sur la carte.</td></tr>
+          <tr><td class="net">AMP_FAULT</td><td class="pin">HAT broche 16 (GPIO23, erreur)</td><td class="pin">S3 IO38</td><td class="note">Entrée avec pull-up interne. Sur un DevKitC-1 v1.1, la LED RGB de la carte est aussi sur IO38 : sans conséquence.</td></tr>
+
+          <tr class="group"><td colspan="4"><span style="background:var(--w-spi)"></span>LoRa RFM95W</td></tr>
+          <tr><td class="net">SPI_SCK</td><td class="pin">S3 IO12</td><td class="pin">RFM95W SCK</td><td class="note"></td></tr>
+          <tr><td class="net">SPI_MOSI</td><td class="pin">S3 IO11</td><td class="pin">RFM95W MOSI</td><td class="note"></td></tr>
+          <tr><td class="net">SPI_MISO</td><td class="pin">RFM95W MISO</td><td class="pin">S3 IO13</td><td class="note"></td></tr>
+          <tr><td class="net">LORA_CS</td><td class="pin">S3 IO10</td><td class="pin">RFM95W NSS</td><td class="note"></td></tr>
+          <tr><td class="net">LORA_RST</td><td class="pin">S3 IO14</td><td class="pin">RFM95W RESET</td><td class="note"></td></tr>
+          <tr><td class="net">LORA_DIO0</td><td class="pin">RFM95W DIO0</td><td class="pin">S3 IO39</td><td class="note">Interruption fin d'émission et réception.</td></tr>
+          <tr><td class="net">+3V3</td><td class="pin">S3 3V3</td><td class="pin">RFM95W 3.3V</td><td class="note">10 µF + 100 nF au plus près du module (pointe à ~120 mA en émission). Jamais de 5 V.</td></tr>
+
+          <tr class="group"><td colspan="4"><span style="background:var(--w-pwr)"></span>LED SK6812 et alimentations</td></tr>
+          <tr><td class="net">STATUS_LED</td><td class="pin">S3 IO42</td><td class="pin">330 Ω → SK6812 DIN</td><td class="note">La résistance limite les rebonds sur un fil long.</td></tr>
+          <tr><td class="net">LED_VDD</td><td class="pin">S3 5V</td><td class="pin">1N4148 → SK6812 VDD</td><td class="note">La diode ramène VDD vers 4,3 V : le seuil de DIN descend à ~3 V et le 3,3 V du S3 suffit sans level shifter. 100 nF entre VDD et GND.</td></tr>
+          <tr><td class="net">GND</td><td class="pin">S3 GND</td><td class="pin">ESP32, HAT (broche 6), RFM95W, LED</td><td class="note">Une rangée de masse commune sur la breadboard. Indispensable.</td></tr>
+          <tr><td class="net">+3V3 HAT</td><td class="pin">S3 3V3</td><td class="pin">HAT broche 1</td><td class="note">Seulement après la vérification n° 2.</td></tr>
+          <tr><td class="net">+5V HAT</td><td class="pin">HAT broches 2, 4</td><td class="pin">rien</td><td class="note">Ne pas brancher : la carte ampli sort du 5 V (elle alimente normalement le Pi), il se battrait avec l'USB des devkits.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Avant la première mise sous tension</h2>
+    <div class="checks">
+      <div class="card">
+        <h3>Sur la carte ampli seule</h3>
+        <ol>
+          <li>Repère la broche 1 du connecteur 40 broches (pastille carrée, coin du « 3V3 »). Les numéros suivent ceux du Raspberry Pi : impairs d'un côté, pairs de l'autre.</li>
+          <li>Alimente la carte ampli seule et mesure la broche 1. S'il y a ~3,3 V, la carte produit son propre 3,3 V : <b>ne relie pas</b> le 3V3 du S3. S'il n'y a rien, relie-le.</li>
+          <li>Toujours seule et alimentée, mesure SDA et SCL (broches 3 et 5). Il faut 0 V ou 3,3 V, <b>jamais 5 V</b>.</li>
+          <li>Hors tension, vérifie au bip que les broches 8, 10 et 16 vont bien à la puce MA12070P (enable, mute, erreur). Sinon, laisse les fils orange de côté.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Ordre de branchement</h3>
+        <ol>
+          <li>Tous les fils en place, masses communes d'abord.</li>
+          <li>Haut-parleurs branchés, en pont : le − d'un haut-parleur n'est jamais relié à GND.</li>
+          <li>Antenne sur le RFM95W avant toute émission.</li>
+          <li>USB des deux devkits.</li>
+          <li>Jack de l'ampli branché, <b>puis</b> le bloc secteur allumé. Pas de branchement à chaud côté ampli.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Deux façons de flasher l'ESP32</h3>
+        <ul>
+          <li><b>Par son propre USB</b> (au quotidien) : débranche le fil <code>BT_RXD0</code> et laisse le S3 au repos, ses broches IO47 et IO48 en entrée.</li>
+          <li><b>Par le S3</b> (test du mécanisme de la carte) : remets <code>BT_RXD0</code>, ferme tout moniteur série sur l'ESP32. Le S3 tire IO0 à 0, fait un reset via EN, puis parle le protocole du bootloader ROM sur son UART.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const svg = document.getElementById('wiring');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  };
+  const color = c => `var(--w-${c})`;
+
+  // Modules : x, y, largeur, hauteur, titre, sous-titre
+  const boards = [
+    { x: 40,  y: 40,  w: 190, h: 290, t: 'ESP32-DevKitC', s: 'U2 · WROOM-32E · A2DP' },
+    { x: 40,  y: 370, w: 190, h: 310, t: 'InnoMaker AMP Pro Mini', s: 'MA12070P · broches du Pi' },
+    { x: 450, y: 40,  w: 180, h: 640, t: 'ESP32-S3-DevKitC-1', s: 'U1 · N16R8 · maître' },
+    { x: 840, y: 300, w: 180, h: 280, t: 'RFM95W', s: '868 MHz · 3,3 V' },
+    { x: 840, y: 60,  w: 180, h: 160, t: 'SK6812', s: 'LED de statut' },
+  ];
+  for (const b of boards) {
+    el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 8, class: 'svg-board' });
+    el('text', { x: b.x + 12, y: b.y + 22, class: 'svg-title' }, b.t);
+    el('text', { x: b.x + 12, y: b.y + 38, class: 'svg-sub' }, b.s);
+  }
+
+  // Broches : [x du bord, y, libellé, côté]  côté 'r' = libellé à gauche du bord droit
+  const pins = [
+    // ESP32 (bord droit x=230)
+    [230, 80, 'RX · IO3', 'r'], [230, 110, 'TX · IO1', 'r'], [230, 140, 'EN', 'r'], [230, 170, 'IO0', 'r'],
+    [230, 200, 'IO22', 'r'], [230, 240, 'IO26', 'r'], [230, 270, 'IO25', 'r'], [230, 310, 'GND', 'r'],
+    // HAT (bord droit x=230)
+    [230, 420, 'pin 12 · BCLK', 'r'], [230, 445, 'pin 35 · LRCLK', 'r'], [230, 470, 'pin 40 · DIN', 'r'],
+    [230, 510, 'pin 3 · SDA', 'r'], [230, 535, 'pin 5 · SCL', 'r'], [230, 575, 'pin 8 · EN', 'r'],
+    [230, 600, 'pin 10 · MUTE', 'r'], [230, 625, 'pin 16 · ERR', 'r'], [230, 655, 'pin 6 · GND', 'r'],
+    // S3 bord gauche x=450
+    [450, 80, 'IO15', 'l'], [450, 110, 'IO16', 'l'], [450, 140, 'IO47', 'l'], [450, 170, 'IO48', 'l'],
+    [450, 200, 'IO40', 'l'], [450, 340, 'IO6', 'l'], [450, 365, 'IO7', 'l'], [450, 470, 'IO8', 'l'],
+    [450, 510, 'IO17', 'l'], [450, 535, 'IO18', 'l'], [450, 575, 'IO21', 'l'], [450, 600, 'IO41', 'l'],
+    [450, 625, 'IO38', 'l'], [450, 655, 'GND', 'l'],
+    // S3 bord droit x=630
+    [630, 110, 'IO42', 'r'], [630, 170, '5V', 'r'], [630, 360, '3V3', 'r'], [630, 390, 'IO10', 'r'],
+    [630, 415, 'IO12', 'r'], [630, 440, 'IO11', 'r'], [630, 465, 'IO13', 'r'], [630, 490, 'IO14', 'r'],
+    [630, 515, 'IO39', 'r'], [630, 555, 'GND', 'r'],
+    // RFM95W bord gauche x=840
+    [840, 360, '3.3V', 'l'], [840, 390, 'NSS', 'l'], [840, 415, 'SCK', 'l'], [840, 440, 'MOSI', 'l'],
+    [840, 465, 'MISO', 'l'], [840, 490, 'RESET', 'l'], [840, 515, 'DIO0', 'l'], [840, 555, 'GND', 'l'],
+    // SK6812 bord gauche x=840
+    [840, 110, 'DIN', 'l'], [840, 140, 'GND', 'l'], [840, 170, 'VDD', 'l'],
+  ];
+  for (const [x, y, label, side] of pins) {
+    el('circle', { cx: x, cy: y, r: 3, fill: 'var(--board-edge)', class: 'dot' });
+    el('text', { x: side === 'r' ? x - 8 : x + 8, y: y + 4, 'text-anchor': side === 'r' ? 'end' : 'start', class: 'svg-pin' }, label);
+  }
+
+  // Fils : [couleur, points, libellé du net, x du libellé, y du libellé]
+  const wires = [
+    ['uart', [[450, 80], [230, 80]], 'BT_RXD0 →', 340, 75],
+    ['uart', [[230, 110], [450, 110]], '← BT_TXD0', 340, 105],
+    ['uart', [[450, 140], [230, 140]], 'BT_EN', 340, 135],
+    ['uart', [[450, 170], [230, 170]], 'BT_IO0', 340, 165],
+    ['i2s', [[230, 200], [450, 200]], 'I2S_BT_DOUT →', 340, 195],
+    // bus BCLK (x=320) et LRCLK (x=360)
+    ['i2s', [[230, 240], [320, 240], [320, 420], [230, 420]], 'I2S_BCLK', 262, 235],
+    ['i2s', [[320, 340], [450, 340]], 'I2S_BCLK', 400, 335],
+    ['i2s', [[230, 270], [360, 270], [360, 445], [230, 445]], 'I2S_LRCLK', 262, 265],
+    ['i2s', [[360, 365], [450, 365]], 'I2S_LRCLK', 408, 360],
+    ['i2s', [[450, 470], [230, 470]], 'I2S_DOUT', 380, 465],
+    ['i2c', [[450, 510], [230, 510]], 'I2C_SDA', 270, 505],
+    ['i2c', [[450, 535], [230, 535]], 'I2C_SCL', 270, 530],
+    ['ctrl', [[450, 575], [230, 575]], 'AMP_PDN', 340, 570],
+    ['ctrl', [[450, 600], [230, 600]], 'AMP_MUTE', 340, 595],
+    ['ctrl', [[230, 625], [450, 625]], '← AMP_FAULT', 340, 620],
+    ['gnd', [[230, 655], [450, 655]], 'GND', 340, 650],
+    ['spi', [[630, 390], [840, 390]], 'LORA_CS', 735, 385],
+    ['spi', [[630, 415], [840, 415]], 'SPI_SCK', 735, 410],
+    ['spi', [[630, 440], [840, 440]], 'SPI_MOSI', 735, 435],
+    ['spi', [[840, 465], [630, 465]], '← SPI_MISO', 735, 460],
+    ['spi', [[630, 490], [840, 490]], 'LORA_RST', 735, 485],
+    ['spi', [[840, 515], [630, 515]], '← LORA_DIO0', 735, 510],
+    ['pwr', [[630, 360], [840, 360]], '+3V3', 690, 355],
+    ['gnd', [[630, 555], [840, 555]], 'GND', 735, 550],
+    ['pwr', [[630, 110], [700, 110]], 'STATUS_LED', 668, 102],
+    ['pwr', [[740, 110], [840, 110]], '', 0, 0],
+    ['pwr', [[630, 170], [705, 170]], '5V', 650, 165],
+    ['pwr', [[735, 170], [840, 170]], '≈ 4,3 V', 790, 165],
+  ];
+  for (const [c, pts, label, lx, ly] of wires) {
+    el('polyline', { points: pts.map(p => p.join(',')).join(' '), class: 'wire', stroke: color(c) });
+    if (label) el('text', { x: lx, y: ly, 'text-anchor': 'middle', class: 'svg-net', fill: color(c) }, label);
+  }
+
+  // Jonctions (même rangée de breadboard)
+  for (const [x, y, c] of [[320, 340, 'i2s'], [360, 365, 'i2s']]) {
+    el('circle', { cx: x, cy: y, r: 4.5, fill: color(c), class: 'dot' });
+  }
+
+  // Symboles de masse : toutes les masses sont reliées entre elles
+  const ground = (x, y, dir) => {
+    const x2 = x + dir * 26;
+    el('line', { x1: x, y1: y, x2, y2: y, stroke: color('gnd'), 'stroke-width': 2.4 });
+    el('line', { x1: x2, y1: y - 8, x2, y2: y + 8, stroke: color('gnd'), 'stroke-width': 2.4 });
+    el('line', { x1: x2 + dir * 5, y1: y - 5, x2: x2 + dir * 5, y2: y + 5, stroke: color('gnd'), 'stroke-width': 2 });
+    el('line', { x1: x2 + dir * 10, y1: y - 2, x2: x2 + dir * 10, y2: y + 2, stroke: color('gnd'), 'stroke-width': 2 });
+  };
+  ground(230, 310, 1);
+  ground(840, 140, -1);
+
+  // Résistance 330 Ω sur DIN
+  el('rect', { x: 700, y: 103, width: 40, height: 14, rx: 2, class: 'part' });
+  el('text', { x: 720, y: 96, 'text-anchor': 'middle', class: 'svg-note' }, '330 Ω');
+  // Diode 1N4148 sur VDD (anode côté 5V)
+  el('polygon', { points: '705,162 705,178 727,170', class: 'part' });
+  el('line', { x1: 729, y1: 161, x2: 729, y2: 179, stroke: 'var(--fg)', 'stroke-width': 2 });
+  el('line', { x1: 727, y1: 170, x2: 735, y2: 170, stroke: 'var(--w-pwr)', 'stroke-width': 2.4 });
+  el('text', { x: 720, y: 196, 'text-anchor': 'middle', class: 'svg-note' }, '1N4148');
+
+  // Pull-ups I²C
+  for (const [x, y] of [[400, 510], [425, 535]]) {
+    el('circle', { cx: x, cy: y, r: 4.5, fill: color('i2c'), class: 'dot' });
+  }
+  el('text', { x: 412, y: 553, 'text-anchor': 'middle', class: 'svg-note' }, '2 × 4,7 kΩ → 3V3');
+
+  // Notes
+  el('text', { x: 255, y: 700, class: 'svg-note' }, 'Broches 2 et 4 (5 V) de la carte ampli : non branchées.');
+  el('text', { x: 840, y: 600, class: 'svg-note' }, '10 µF + 100 nF sur 3.3V');
+  el('text', { x: 840, y: 615, class: 'svg-note' }, 'Antenne 868 MHz obligatoire');
+  el('text', { x: 840, y: 240, class: 'svg-note' }, '100 nF entre VDD et GND');
+  el('text', { x: 52, y: 368 - 6, class: 'svg-note' }, 'Alim ampli : jack 19–20 V');
+})();
+</script>
+
+</html>
