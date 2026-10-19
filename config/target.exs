@@ -102,5 +102,6 @@ config :robine_wake,
   auth_path: "/data/robine_wake_auth.json",
   firmware_public_key_path: "/etc/robine-wake/fwup-key.pub",
   default_sound_path: "/data/sounds/default.wav",
+  airplay_data_dir: "/data/airplay",
   alsa_device: "auto",
   web_ip: {0, 0, 0, 0}

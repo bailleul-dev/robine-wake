@@ -1,22 +1,35 @@
 defmodule RobineWake.AirPlay do
   @moduledoc """
-  Supervises the target's Shairport Sync receiver and arbitrates access to ALSA.
+  Supervises the target's AirPlay 2 receiver and arbitrates access to ALSA.
 
-  Wake audio has hard priority: `suspend/0` stops the receiver before an alarm
-  opens the HiFiBerry device, and `resume/0` advertises it again afterwards.
+  Wake audio has hard priority: `suspend/0` frees the HiFiBerry device before
+  an alarm opens it, and `resume/0` gives it back afterwards.
 
-  AirPlay 2 needs two helpers, kept running next to the receiver, including
-  while it is suspended: Avahi advertises the service (on the system D-Bus
-  started by `RobineWake.BluetoothAudio`) and NQPTP provides the timing.
+  Two receivers, chosen by `:airplay_receiver`:
+
+    * `:shairport` — Shairport Sync, stopped on suspend. AirPlay 2 needs two
+      helpers, kept running next to it, including while it is suspended:
+      Avahi advertises the service (on the system D-Bus started by
+      `RobineWake.BluetoothAudio`) and NQPTP provides the timing.
+    * `:robine` — `robine-airplayd`, the project's own receiver, which
+      advertises itself and follows PTP alone. It is driven through a port
+      (JSON lines, see its README): on suspend it keeps its session and only
+      releases ALSA, and it exits when the port closes.
   """
 
   use GenServer
 
   require Logger
 
+  # A receiver that does not free ALSA within this delay is killed: it must
+  # never hold up an alarm.
+  @suspend_timeout_ms 1_000
+  @max_line 8_192
+
   @type status :: %{
           enabled: boolean(),
           state: :disabled | :starting | :available | :suspended | :unavailable,
+          receiver: :shairport | :robine,
           name: String.t(),
           protocol: :airplay_2,
           reason: nil | term()
@@ -41,8 +54,13 @@ defmodule RobineWake.AirPlay do
 
     state = %{
       enabled: enabled,
+      receiver: Application.get_env(:robine_wake, :airplay_receiver, :shairport),
       suspended: false,
       daemon: nil,
+      port: nil,
+      partial_line: "",
+      session: nil,
+      volume_db: nil,
       ptp: nil,
       mdns: nil,
       restart_timer: nil,
@@ -60,12 +78,34 @@ defmodule RobineWake.AirPlay do
   @impl true
   def handle_call(:suspend, _from, %{enabled: false} = state), do: {:reply, :ok, state}
 
+  def handle_call(:suspend, _from, %{port: port} = state) when is_port(port) do
+    state = cancel_restart(state)
+    send_command(port, "suspend")
+
+    state =
+      case await_event(state, "suspended", @suspend_timeout_ms) do
+        {:ok, state} ->
+          state
+
+        {:error, state} ->
+          Logger.warning("robine-airplayd did not release ALSA in time; stopping it")
+          stop_receiver(state)
+      end
+
+    {:reply, :ok, %{state | suspended: true, reason: nil}}
+  end
+
   def handle_call(:suspend, _from, state) do
     state = state |> cancel_restart() |> stop_receiver()
     {:reply, :ok, %{state | suspended: true, reason: nil}}
   end
 
   def handle_call(:resume, _from, %{enabled: false} = state), do: {:reply, :ok, state}
+
+  def handle_call(:resume, _from, %{suspended: true, port: port} = state) when is_port(port) do
+    send_command(port, "resume")
+    {:reply, :ok, %{state | suspended: false}}
+  end
 
   def handle_call(:resume, _from, %{suspended: true} = state) do
     next = start_receiver(%{state | suspended: false})
@@ -79,12 +119,22 @@ defmodule RobineWake.AirPlay do
       cond do
         not state.enabled -> :disabled
         state.suspended -> :suspended
+        is_port(state.port) -> :available
         is_pid(state.daemon) and Process.alive?(state.daemon) -> :available
         is_reference(state.restart_timer) -> :starting
         true -> :unavailable
       end
 
-    {:reply, base_status(public_state, state.reason), state}
+    status =
+      public_state
+      |> base_status(state.reason)
+      |> Map.merge(%{
+        receiver: state.receiver,
+        session: state.session,
+        volume_db: state.volume_db
+      })
+
+    {:reply, status, state}
   end
 
   @impl true
@@ -112,6 +162,20 @@ defmodule RobineWake.AirPlay do
     {:noreply, schedule_restart(%{next | mdns: nil, reason: {:mdns_exit, reason}})}
   end
 
+  def handle_info({port, {:data, data}}, %{port: port} = state),
+    do: {:noreply, receive_data(state, data)}
+
+  def handle_info({port, {:exit_status, status}}, %{port: port} = state) do
+    next = %{state | port: nil, partial_line: "", session: nil, reason: {:receiver_exit, status}}
+
+    if state.suspended do
+      {:noreply, next}
+    else
+      Logger.warning("robine-airplayd exited with status #{status}; scheduling restart")
+      {:noreply, schedule_restart(next)}
+    end
+  end
+
   def handle_info(:restart_ptp, state), do: {:noreply, ensure_ptp(state)}
 
   def handle_info(:restart, state) do
@@ -131,6 +195,7 @@ defmodule RobineWake.AirPlay do
   defp start_receiver(%{enabled: false} = state), do: state
   defp start_receiver(%{suspended: true} = state), do: state
   defp start_receiver(%{daemon: daemon} = state) when is_pid(daemon), do: state
+  defp start_receiver(%{port: port} = state) when is_port(port), do: state
 
   defp start_receiver(state) do
     if network_available?() do
@@ -139,6 +204,41 @@ defmodule RobineWake.AirPlay do
       Logger.info("AirPlay receiver is waiting for the network")
       schedule_restart(%{state | reason: :network_unavailable})
     end
+  end
+
+  defp start_receiver_on_network(%{receiver: :robine} = state) do
+    executable = Application.fetch_env!(:robine_wake, :airplay_robine_executable)
+
+    if File.exists?(executable) do
+      args = [
+        "--name",
+        airplay_name(),
+        "--device",
+        Application.fetch_env!(:robine_wake, :airplay_device),
+        "--data-dir",
+        Application.fetch_env!(:robine_wake, :airplay_data_dir)
+      ]
+
+      port =
+        Port.open({:spawn_executable, executable}, [
+          :binary,
+          :exit_status,
+          :use_stdio,
+          :stderr_to_stdout,
+          {:line, @max_line},
+          {:args, args}
+        ])
+
+      Logger.info("AirPlay receiver #{airplay_name()} started (robine-airplayd)")
+      %{state | port: port, reason: nil}
+    else
+      Logger.error("AirPlay receiver is unavailable: #{executable} was not found")
+      schedule_restart(%{state | reason: :executable_not_found})
+    end
+  rescue
+    exception ->
+      Logger.error("Unable to start robine-airplayd: #{Exception.message(exception)}")
+      schedule_restart(%{state | reason: {:start_failed, Exception.message(exception)}})
   end
 
   defp start_receiver_on_network(state) do
@@ -227,6 +327,22 @@ defmodule RobineWake.AirPlay do
     :exit, _reason -> false
   end
 
+  defp stop_receiver(%{port: port} = state) when is_port(port) do
+    # Closing stdin makes it exit; the kill, when available, covers a hung
+    # process. Its `aplay` child then sees the end of its input and exits.
+    with {:os_pid, pid} <- Port.info(port, :os_pid) do
+      Port.close(port)
+
+      if kill = System.find_executable("kill"),
+        do: System.cmd(kill, ["-9", to_string(pid)], stderr_to_stdout: true)
+    end
+
+    %{state | port: nil, partial_line: "", session: nil}
+  rescue
+    # The port closed on its own in the meantime.
+    ArgumentError -> %{state | port: nil, partial_line: "", session: nil}
+  end
+
   defp stop_receiver(%{daemon: nil} = state), do: state
 
   defp stop_receiver(%{daemon: daemon} = state) do
@@ -261,10 +377,73 @@ defmodule RobineWake.AirPlay do
     end
   end
 
+  defp send_command(port, command) do
+    Port.command(port, [Jason.encode!(%{"cmd" => command}), "\n"])
+  end
+
+  # Handles the port output until `event` arrives or the timeout expires.
+  defp await_event(state, event, timeout_ms) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    port = state.port
+
+    receive do
+      {^port, {:data, data}} ->
+        {state, events} = collect_lines(state, data)
+        state = Enum.reduce(events, state, &handle_event/2)
+
+        if Enum.any?(events, &(&1["event"] == event)),
+          do: {:ok, state},
+          else: await_event(state, event, max(deadline - System.monotonic_time(:millisecond), 0))
+    after
+      timeout_ms -> {:error, state}
+    end
+  end
+
+  defp receive_data(state, data) do
+    {state, events} = collect_lines(state, data)
+    Enum.reduce(events, state, &handle_event/2)
+  end
+
+  # Complete JSON lines are events; anything else is a log line.
+  defp collect_lines(state, {:noeol, part}),
+    do: {%{state | partial_line: state.partial_line <> part}, []}
+
+  defp collect_lines(state, {:eol, part}) do
+    line = state.partial_line <> part
+    state = %{state | partial_line: ""}
+
+    case Jason.decode(line) do
+      {:ok, %{"event" => _} = event} ->
+        {state, [event]}
+
+      _ ->
+        Logger.debug("robine-airplayd: " <> line)
+        {state, []}
+    end
+  end
+
+  defp handle_event(%{"event" => "session", "state" => session}, state),
+    do: %{state | session: session}
+
+  defp handle_event(%{"event" => "volume", "db" => db}, state), do: %{state | volume_db: db}
+
+  defp handle_event(%{"event" => "error"} = event, state) do
+    Logger.warning("robine-airplayd: #{inspect(Map.delete(event, "event"))}")
+    state
+  end
+
+  defp handle_event(%{"event" => "stats"} = event, state) do
+    Logger.debug("robine-airplayd stats: #{inspect(Map.delete(event, "event"))}")
+    state
+  end
+
+  defp handle_event(_event, state), do: state
+
   defp base_status(state, reason) do
     %{
       enabled: Application.get_env(:robine_wake, :airplay_enabled, false),
       state: state,
+      receiver: Application.get_env(:robine_wake, :airplay_receiver, :shairport),
       name: airplay_name(),
       protocol: :airplay_2,
       reason: reason

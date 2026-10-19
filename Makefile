@@ -30,11 +30,21 @@ DEMO_REGISTRY ?= registry.bailleul.dev/robine-wake-demo
 DEMO_PLATFORM ?= linux/amd64
 VERSION ?= $(shell git rev-parse --short=12 HEAD)
 
-.PHONY: firmware burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
+# robine-airplayd (experimental/robine-wake-rs), built static for the Pi 3
+# and shipped in the root filesystem; selected by `airplay_receiver: :robine`.
+AIRPLAYD_DIR := experimental/robine-wake-rs
+AIRPLAYD_TARGET := arm-unknown-linux-musleabihf
+AIRPLAYD := rootfs_overlay/usr/bin/robine-airplayd
 
-firmware:
+.PHONY: firmware airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
+
+firmware: airplayd
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix firmware
+
+airplayd:
+	cd $(AIRPLAYD_DIR) && cargo build --release --locked --target $(AIRPLAYD_TARGET) -p robine-airplayd
+	install -D -m 0755 $(AIRPLAYD_DIR)/target/$(AIRPLAYD_TARGET)/release/robine-airplayd $(AIRPLAYD)
 
 dsp:
 	@command -v afplay >/dev/null 2>&1 || { echo "afplay is required (macOS only)" >&2; exit 1; }

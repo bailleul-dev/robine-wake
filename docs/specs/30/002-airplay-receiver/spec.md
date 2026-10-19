@@ -33,6 +33,39 @@ This selection matches the hardware-validated HiFiBerry card for the current
 single-board product profile and must be revisited if another ALSA card is
 added.
 
+## Alternative receiver: robine-airplayd
+
+`airplay_receiver: :robine` replaces Shairport Sync, NQPTP and Avahi with
+`robine-airplayd` (`experimental/robine-wake-rs/crates/robine-airplayd`), a
+1.4 MB static binary on the project's own AirPlay 2 core, the one the ESP32
+runs. `make airplayd` (a prerequisite of `make firmware`) builds it into
+`rootfs_overlay/usr/bin`. Shairport Sync stays the default until the
+receiver is validated.
+
+`RobineWake.AirPlay` owns it through an Erlang port, one JSON message per
+line. It advertises itself over mDNS as `robine-wake-airplay.local`,
+follows the sender's PTP clock on ports 319/320, plays through `aplay` in
+S32_LE on `plughw:0` with the same software volume, and keeps its identity
+in `/data/airplay`. The process exits when the port closes.
+
+Alarm priority is kept with a lighter suspend: the receiver keeps its
+session, releases ALSA and confirms with `suspended`. If that confirmation
+does not arrive within one second, the receiver is stopped like Shairport
+Sync. On resume it plays again without reconnecting the sender. Its decoded
+PCM is available to the tactile extension below.
+
+Both streams play on the sender's clock: buffered ones from their
+`SETRATEANCHORTIME` anchor, realtime ones from the sync packets of the
+control port, with lost packets requested again. The output is written
+continuously at the DAC's pace; sync errors beyond 50 ms are corrected at
+once, smaller ones and the sender/DAC clock drift by dropping or repeating
+an occasional frame. `/info` proposes the last volume to new sessions,
+back to -7.5 dB after an hour idle at -3 dB or more.
+
+Before it becomes the default: a long listening validation on the Pi,
+including the realtime anchor correction taken from Shairport Sync and the
+output latency estimate.
+
 ## Tactile music extension — specified, pending implementation
 
 When music vibration is enabled, derive a smoothed bass-energy or accent envelope

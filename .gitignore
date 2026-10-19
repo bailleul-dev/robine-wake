@@ -13,6 +13,8 @@ erl_crash.dump
 .env.*
 !.env.dist
 /data/
+# Built by `make airplayd`.
+/rootfs_overlay/usr/bin/robine-airplayd
 /tmp/
 /hardware/remote_button/.pio/
 /hardware/remote_button/include/local_config.h
