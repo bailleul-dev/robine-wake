@@ -2,266 +2,548 @@
   (version 20241209)
   (generator "kicad-mcp")
   (generator_version "9.0")
-  (symbol "TAS5825M_Stereo_Amp"
+  (symbol "TAS5825M_HTSSOP32"
     (exclude_from_sim no)
     (in_bom yes)
     (on_board yes)
     (property "Reference" "U"
-      (at 2.54 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
+      (at 0 27.94 0)
+      (effects (font (size 1.27 1.27)))
     )
-    (property "Value" "TAS5825M_Stereo_Amp"
-      (at 0 -2.54 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
+    (property "Value" "TAS5825M_HTSSOP32"
+      (at 0 -27.94 0)
+      (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "Package_SO:SOIC-16_3.9x9.9mm_P1.27mm"
+    (property "Footprint" "Package_SO:HTSSOP-32-1EP_6.1x11mm_P0.65mm_EP5.2x11mm_Mask4.11x4.36mm"
       (at 0 -5.08 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
     (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tas5825m.pdf"
       (at 0 -7.62 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "Description" "2x50W Digital I2S Stereo Class-D Audio Amplifier (24V PVDD, I2S + I2C)"
+    (property "Description" "2x40W Digital I2S Stereo Class-D Audio Amplifier HTSSOP-32 with PowerPAD"
       (at 0 -10.16 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "ki_keywords" "audio amplifier class-d stereo i2s 50W tas5825m"
+    (property "ki_keywords" "audio amplifier class-d stereo i2s tas5825m htssop32"
       (at 0 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (symbol "TAS5825M_Stereo_Amp_0_1"
+    (symbol "TAS5825M_HTSSOP32_0_1"
       (rectangle
-        (start -10.16 -12.7)
-        (end 10.16 12.7)
+        (start -12.70 -25.40)
+        (end 12.70 25.40)
         (stroke (width 0.254) (type default))
         (fill (type background))
       )
     )
-    (symbol "TAS5825M_Stereo_Amp_1_1"
+    (symbol "TAS5825M_HTSSOP32_1_1"
       (pin passive line
-        (at -12.7 10.16 0)
+        (at -15.24 22.86 0)
         (length 2.54)
-        (name "PVDD_A"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "1"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "DGND" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at -12.7 7.62 0)
+        (at -15.24 20.32 0)
         (length 2.54)
-        (name "PVDD_B"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "2"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "DVDD" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -15.24 17.78 0)
+        (length 2.54)
+        (name "ADR" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at -12.7 5.08 0)
+        (at -15.24 15.24 0)
         (length 2.54)
-        (name "DVDD"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "3"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "VR_DIG" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at -12.7 2.54 0)
+        (at -15.24 12.70 0)
         (length 2.54)
-        (name "I2S_BCLK"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "4"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "SDIN" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at -12.7 0 0)
+        (at -15.24 10.16 0)
         (length 2.54)
-        (name "I2S_LRCLK"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "5"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "SCLK" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at -12.7 -2.54 0)
+        (at -15.24 7.62 0)
         (length 2.54)
-        (name "I2S_SDIN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "6"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "LRCLK" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
       )
       (pin bidirectional line
-        (at -12.7 -5.08 0)
+        (at -15.24 5.08 0)
         (length 2.54)
-        (name "I2C_SDA"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "7"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "GPIO0" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at -15.24 2.54 0)
+        (length 2.54)
+        (name "GPIO1" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at -15.24 0.00 0)
+        (length 2.54)
+        (name "GPIO2" (effects (font (size 1.27 1.27))))
+        (number "10" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at -15.24 -2.54 0)
+        (length 2.54)
+        (name "SDA" (effects (font (size 1.27 1.27))))
+        (number "11" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at -12.7 -7.62 0)
+        (at -15.24 -5.08 0)
         (length 2.54)
-        (name "I2C_SCL"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "8"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "SCL" (effects (font (size 1.27 1.27))))
+        (number "12" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at 12.7 -7.62 180)
+        (at -15.24 -7.62 0)
         (length 2.54)
-        (name "PDN_N"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "9"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "PDN_N" (effects (font (size 1.27 1.27))))
+        (number "13" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 12.7 -5.08 180)
+        (at -15.24 -10.16 0)
         (length 2.54)
-        (name "FAULT_N"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "10"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "FAULT_N" (effects (font (size 1.27 1.27))))
+        (number "14" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 12.7 -2.54 180)
+        (at -15.24 -12.70 0)
         (length 2.54)
-        (name "PGND_A"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "11"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "AVDD" (effects (font (size 1.27 1.27))))
+        (number "31" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 12.7 0 180)
+        (at -15.24 -15.24 0)
         (length 2.54)
-        (name "PGND_B"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "12"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "AGND" (effects (font (size 1.27 1.27))))
+        (number "30" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -15.24 -17.78 0)
+        (length 2.54)
+        (name "GVDD" (effects (font (size 1.27 1.27))))
+        (number "29" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 22.86 180)
+        (length 2.54)
+        (name "PVDD_A1" (effects (font (size 1.27 1.27))))
+        (number "17" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 20.32 180)
+        (length 2.54)
+        (name "PVDD_A2" (effects (font (size 1.27 1.27))))
+        (number "18" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 17.78 180)
+        (length 2.54)
+        (name "PVDD_B1" (effects (font (size 1.27 1.27))))
+        (number "25" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 15.24 180)
+        (length 2.54)
+        (name "PVDD_B2" (effects (font (size 1.27 1.27))))
+        (number "26" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 12.70 180)
+        (length 2.54)
+        (name "BST_A1" (effects (font (size 1.27 1.27))))
+        (number "15" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 12.7 2.54 180)
+        (at 15.24 10.16 180)
         (length 2.54)
-        (name "OUT_RN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "13"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "OUT_A1" (effects (font (size 1.27 1.27))))
+        (number "16" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 12.7 5.08 180)
+        (at 15.24 7.62 180)
         (length 2.54)
-        (name "OUT_RP"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "14"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "OUT_A2" (effects (font (size 1.27 1.27))))
+        (number "20" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 5.08 180)
+        (length 2.54)
+        (name "BST_A2" (effects (font (size 1.27 1.27))))
+        (number "21" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 2.54 180)
+        (length 2.54)
+        (name "BST_B1" (effects (font (size 1.27 1.27))))
+        (number "28" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 12.7 7.62 180)
+        (at 15.24 0.00 180)
         (length 2.54)
-        (name "OUT_LN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "15"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "OUT_B1" (effects (font (size 1.27 1.27))))
+        (number "27" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 12.7 10.16 180)
+        (at 15.24 -2.54 180)
         (length 2.54)
-        (name "OUT_LP"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "16"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "OUT_B2" (effects (font (size 1.27 1.27))))
+        (number "23" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 -5.08 180)
+        (length 2.54)
+        (name "BST_B2" (effects (font (size 1.27 1.27))))
+        (number "22" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 -7.62 180)
+        (length 2.54)
+        (name "PGND_A" (effects (font (size 1.27 1.27))))
+        (number "19" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 -10.16 180)
+        (length 2.54)
+        (name "PGND_B" (effects (font (size 1.27 1.27))))
+        (number "24" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 -12.70 180)
+        (length 2.54)
+        (name "GGND" (effects (font (size 1.27 1.27))))
+        (number "32" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 -15.24 180)
+        (length 2.54)
+        (name "EPAD" (effects (font (size 1.27 1.27))))
+        (number "33" (effects (font (size 1.27 1.27))))
       )
     )
   )
-  (symbol "W5500_ETH_Controller"
+  (symbol "BQ24610_VQFN24"
     (exclude_from_sim no)
     (in_bom yes)
     (on_board yes)
     (property "Reference" "U"
-      (at 2.54 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
+      (at 0 22.86 0)
+      (effects (font (size 1.27 1.27)))
     )
-    (property "Value" "W5500_ETH_Controller"
-      (at 0 -2.54 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
+    (property "Value" "BQ24610_VQFN24"
+      (at 0 -22.86 0)
+      (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm"
+    (property "Footprint" "Package_DFN_QFN:HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm"
       (at 0 -5.08 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "Datasheet" "https://www.wiznet.io/wp-content/uploads/wiznethome/Chip/W5500/Document/W5500_ds_v110e.pdf"
+    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/bq24610.pdf"
       (at 0 -7.62 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "Description" "10/100Base-TX SPI Ethernet Controller with Hardwired TCP/IP Stack"
+    (property "Description" "Stand-Alone Synchronous Switch-Mode Li-Ion/LiFePO4 Battery Charger VQFN-24"
       (at 0 -10.16 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "ki_keywords" "ethernet spi w5500 tcpip lan"
+    (property "ki_keywords" "battery charger ups lifepo4 bq24610 vqfn24"
       (at 0 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "BQ24610_VQFN24_0_1"
+      (rectangle
+        (start -12.70 -20.32)
+        (end 12.70 20.32)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
       )
     )
-    (symbol "W5500_ETH_Controller_0_1"
+    (symbol "BQ24610_VQFN24_1_1"
+      (pin passive line
+        (at -15.24 17.78 0)
+        (length 2.54)
+        (name "ACN" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -15.24 15.24 0)
+        (length 2.54)
+        (name "ACP" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -15.24 12.70 0)
+        (length 2.54)
+        (name "CMSRC" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at -15.24 10.16 0)
+        (length 2.54)
+        (name "ACDRV" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -15.24 7.62 0)
+        (length 2.54)
+        (name "CE" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -15.24 5.08 0)
+        (length 2.54)
+        (name "TS" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -15.24 2.54 0)
+        (length 2.54)
+        (name "TTC" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -15.24 0.00 0)
+        (length 2.54)
+        (name "VREF" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at -15.24 -2.54 0)
+        (length 2.54)
+        (name "STAT1" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at -15.24 -5.08 0)
+        (length 2.54)
+        (name "STAT2" (effects (font (size 1.27 1.27))))
+        (number "10" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -15.24 -7.62 0)
+        (length 2.54)
+        (name "ISET1" (effects (font (size 1.27 1.27))))
+        (number "11" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -15.24 -10.16 0)
+        (length 2.54)
+        (name "ISET2" (effects (font (size 1.27 1.27))))
+        (number "12" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -15.24 -12.70 0)
+        (length 2.54)
+        (name "ACSET" (effects (font (size 1.27 1.27))))
+        (number "13" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 17.78 180)
+        (length 2.54)
+        (name "VCC" (effects (font (size 1.27 1.27))))
+        (number "24" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 15.24 180)
+        (length 2.54)
+        (name "BTST" (effects (font (size 1.27 1.27))))
+        (number "23" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at 15.24 12.70 180)
+        (length 2.54)
+        (name "HIDRV" (effects (font (size 1.27 1.27))))
+        (number "22" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 10.16 180)
+        (length 2.54)
+        (name "PH" (effects (font (size 1.27 1.27))))
+        (number "21" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at 15.24 7.62 180)
+        (length 2.54)
+        (name "LODRV" (effects (font (size 1.27 1.27))))
+        (number "20" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 5.08 180)
+        (length 2.54)
+        (name "REGN" (effects (font (size 1.27 1.27))))
+        (number "19" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 2.54 180)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "18" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at 15.24 0.00 180)
+        (length 2.54)
+        (name "PG" (effects (font (size 1.27 1.27))))
+        (number "17" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 15.24 -2.54 180)
+        (length 2.54)
+        (name "SRP" (effects (font (size 1.27 1.27))))
+        (number "16" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 15.24 -5.08 180)
+        (length 2.54)
+        (name "SRN" (effects (font (size 1.27 1.27))))
+        (number "15" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 15.24 -7.62 180)
+        (length 2.54)
+        (name "VFB" (effects (font (size 1.27 1.27))))
+        (number "14" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 15.24 -10.16 180)
+        (length 2.54)
+        (name "EPAD" (effects (font (size 1.27 1.27))))
+        (number "25" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "CSD87350Q5D_SOIC8"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "Q"
+      (at 0 10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "CSD87350Q5D_SOIC8"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/csd87350q5d.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "Dual N-Channel Synchronous Buck Power Block MOSFET"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "mosfet dual nmos buck charger"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "CSD87350Q5D_SOIC8_0_1"
+      (rectangle
+        (start -10.16 -7.62)
+        (end 10.16 7.62)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "CSD87350Q5D_SOIC8_1_1"
+      (pin passive line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "VIN_D1A" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "VIN_D1B" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -12.70 0.00 0)
+        (length 2.54)
+        (name "TG_G1" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -12.70 -2.54 0)
+        (length 2.54)
+        (name "BG_G2" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "SW_S1" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "SW_D2A" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "SW_D2B" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -2.54 180)
+        (length 2.54)
+        (name "PGND_S2" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "TPS54531_SOIC8_EP"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 12.70 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "TPS54531_SOIC8_EP"
+      (at 0 -12.70 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_SO:SOIC-8-1EP_3.9x4.9mm_P1.27mm_EP2.29x3mm"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps54531.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "28V 5A Step-Down DC-DC Converter SOIC-8 PowerPAD"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "buck dcdc 5v 3v3 tps54531 tps54331 soic8-ep"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "TPS54531_SOIC8_EP_0_1"
       (rectangle
         (start -10.16 -10.16)
         (end 10.16 10.16)
@@ -269,686 +551,747 @@
         (fill (type background))
       )
     )
-    (symbol "W5500_ETH_Controller_1_1"
+    (symbol "TPS54531_SOIC8_EP_1_1"
       (pin passive line
-        (at -12.7 7.62 0)
+        (at -12.70 7.62 0)
         (length 2.54)
-        (name "VDD3V3"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "1"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "VIN" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at -12.7 5.08 0)
+        (at -12.70 5.08 0)
         (length 2.54)
-        (name "SPI_SCK"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "2"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin input line
-        (at -12.7 2.54 0)
-        (length 2.54)
-        (name "SPI_MOSI"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "3"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin bidirectional line
-        (at -12.7 0 0)
-        (length 2.54)
-        (name "SPI_MISO"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "4"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin input line
-        (at -12.7 -2.54 0)
-        (length 2.54)
-        (name "SPI_CSN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "5"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin input line
-        (at -12.7 -5.08 0)
-        (length 2.54)
-        (name "RSTN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "6"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin output line
-        (at -12.7 -7.62 0)
-        (length 2.54)
-        (name "INTN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "7"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "EN" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 12.7 -7.62 180)
+        (at -12.70 2.54 0)
         (length 2.54)
-        (name "GND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "8"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "SS" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 12.7 -5.08 180)
+        (at -12.70 0.00 0)
         (length 2.54)
-        (name "AGND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "9"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 12.7 -2.54 180)
-        (length 2.54)
-        (name "AVDD"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "10"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin bidirectional line
-        (at 12.7 0 180)
-        (length 2.54)
-        (name "RXN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "11"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin bidirectional line
-        (at 12.7 2.54 180)
-        (length 2.54)
-        (name "RXP"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "12"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin bidirectional line
-        (at 12.7 5.08 180)
-        (length 2.54)
-        (name "TXN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "13"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin bidirectional line
-        (at 12.7 7.62 180)
-        (length 2.54)
-        (name "TXP"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "14"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-    )
-  )
-  (symbol "Ag9924M_PoE_PD"
-    (exclude_from_sim no)
-    (in_bom yes)
-    (on_board yes)
-    (property "Reference" "U"
-      (at 2.54 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
-    )
-    (property "Value" "Ag9924M_PoE_PD"
-      (at 0 -2.54 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
-    )
-    (property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
-      (at 0 -5.08 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "Datasheet" "https://silvertel.com/images/datasheets/Ag9900-datasheet-isolated-PoE-plus-module.pdf"
-      (at 0 -7.62 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "Description" "IEEE 802.3at PoE+ Isolated Powered Device (PD) Module 24V 30W"
-      (at 0 -10.16 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "ki_keywords" "poe poe+ ieee802.3at 24v pd silvertel ag9924m"
-      (at 0 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (symbol "Ag9924M_PoE_PD_0_1"
-      (rectangle
-        (start -7.62 -7.62)
-        (end 7.62 7.62)
-        (stroke (width 0.254) (type default))
-        (fill (type background))
-      )
-    )
-    (symbol "Ag9924M_PoE_PD_1_1"
-      (pin passive line
-        (at -10.16 5.08 0)
-        (length 2.54)
-        (name "VA1_12"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "1"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at -10.16 2.54 0)
-        (length 2.54)
-        (name "VA2_36"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "2"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at -10.16 -2.54 0)
-        (length 2.54)
-        (name "VB1_45"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "3"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at -10.16 -5.08 0)
-        (length 2.54)
-        (name "VB2_78"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "4"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 10.16 -5.08 180)
-        (length 2.54)
-        (name "GND_OUT"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "5"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 10.16 -2.54 180)
-        (length 2.54)
-        (name "GND_AUX"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "6"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin output line
-        (at 10.16 2.54 180)
-        (length 2.54)
-        (name "POE_OK"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "7"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 10.16 5.08 180)
-        (length 2.54)
-        (name "VOUT_24V"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "8"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-    )
-  )
-  (symbol "BQ24610_UPS_Charger"
-    (exclude_from_sim no)
-    (in_bom yes)
-    (on_board yes)
-    (property "Reference" "U"
-      (at 2.54 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
-    )
-    (property "Value" "BQ24610_UPS_Charger"
-      (at 0 -2.54 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
-    )
-    (property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
-      (at 0 -5.08 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/bq24610.pdf"
-      (at 0 -7.62 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "Description" "24V-to-4S Li-Ion/LiFePO4 Buck Battery Charger and UPS Power-Path Controller"
-      (at 0 -10.16 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "ki_keywords" "battery charger ups lifepo4 li-ion bq24610"
-      (at 0 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (symbol "BQ24610_UPS_Charger_0_1"
-      (rectangle
-        (start -7.62 -7.62)
-        (end 7.62 7.62)
-        (stroke (width 0.254) (type default))
-        (fill (type background))
-      )
-    )
-    (symbol "BQ24610_UPS_Charger_1_1"
-      (pin passive line
-        (at -10.16 5.08 0)
-        (length 2.54)
-        (name "VIN_24V"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "1"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin input line
-        (at -10.16 2.54 0)
-        (length 2.54)
-        (name "CHG_EN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "2"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin output line
-        (at -10.16 -2.54 0)
-        (length 2.54)
-        (name "ACOK"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "3"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at -10.16 -5.08 0)
-        (length 2.54)
-        (name "GND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "4"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 10.16 -5.08 180)
-        (length 2.54)
-        (name "PGND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "5"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin output line
-        (at 10.16 -2.54 180)
-        (length 2.54)
-        (name "STAT"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "6"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 10.16 2.54 180)
-        (length 2.54)
-        (name "VSYS_OUT"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "7"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at 10.16 5.08 180)
-        (length 2.54)
-        (name "VBAT_CHG"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "8"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-    )
-  )
-  (symbol "TPS54531_Buck_5V"
-    (exclude_from_sim no)
-    (in_bom yes)
-    (on_board yes)
-    (property "Reference" "U"
-      (at 2.54 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
-    )
-    (property "Value" "TPS54531_Buck_5V"
-      (at 0 -2.54 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
-    )
-    (property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
-      (at 0 -5.08 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps54531.pdf"
-      (at 0 -7.62 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "Description" "28V 5A Synchronous Step-Down DC-DC Converter (5V 5A Output for NeoPixel Dawn Array)"
-      (at 0 -10.16 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (property "ki_keywords" "buck dcdc 5v 5a tps54531 neopixel power"
-      (at 0 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
-    )
-    (symbol "TPS54531_Buck_5V_0_1"
-      (rectangle
-        (start -7.62 -7.62)
-        (end 7.62 7.62)
-        (stroke (width 0.254) (type default))
-        (fill (type background))
-      )
-    )
-    (symbol "TPS54531_Buck_5V_1_1"
-      (pin passive line
-        (at -10.16 5.08 0)
-        (length 2.54)
-        (name "PVDD_IN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "1"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin input line
-        (at -10.16 2.54 0)
-        (length 2.54)
-        (name "EN"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "2"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin passive line
-        (at -10.16 -2.54 0)
-        (length 2.54)
-        (name "SS"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "3"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "COMP" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
       )
       (pin power_out line
-        (at -10.16 -5.08 0)
+        (at -12.70 -2.54 0)
         (length 2.54)
-        (name "GND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "4"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 10.16 -5.08 180)
+        (at 12.70 7.62 180)
         (length 2.54)
-        (name "PGND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "5"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "BOOT" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "PH" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at 10.16 -2.54 180)
+        (at 12.70 2.54 180)
         (length 2.54)
-        (name "FB"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "6"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "VSENSE" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 10.16 2.54 180)
+        (at 12.70 0.00 180)
         (length 2.54)
-        (name "SW"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "7"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin power_out line
-        (at 10.16 5.08 180)
-        (length 2.54)
-        (name "VOUT_5V"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "8"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "EPAD" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
       )
     )
   )
-  (symbol "SN74AHCT1G125_LevelShifter"
+  (symbol "TPS54331_SOIC8_EP"
     (exclude_from_sim no)
     (in_bom yes)
     (on_board yes)
     (property "Reference" "U"
-      (at 2.54 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
+      (at 0 12.70 0)
+      (effects (font (size 1.27 1.27)))
     )
-    (property "Value" "SN74AHCT1G125_LevelShifter"
-      (at 0 -2.54 0)
-      (effects
-        (font (size 1.27 1.27))
-      )
+    (property "Value" "TPS54331_SOIC8_EP"
+      (at 0 -12.70 0)
+      (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
+    (property "Footprint" "Package_SO:SOIC-8-1EP_3.9x4.9mm_P1.27mm_EP2.29x3mm"
       (at 0 -5.08 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74ahct125.pdf"
+    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps54331.pdf"
       (at 0 -7.62 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "Description" "3.3V-to-5V TTL-Input CMOS-Output Buffer/Level Shifter for High-Power NeoPixel Array"
+    (property "Description" "28V 3A Step-Down DC-DC Converter SOIC-8 PowerPAD"
       (at 0 -10.16 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (property "ki_keywords" "level shifter buffer 5v neopixel 74ahct125"
+    (property "ki_keywords" "buck dcdc 3v3 3a tps54331 soic8-ep"
       (at 0 0 0)
-      (effects
-        (font (size 1.27 1.27))
-      	(hide yes)
-      )
+      (effects (font (size 1.27 1.27)) (hide yes))
     )
-    (symbol "SN74AHCT1G125_LevelShifter_0_1"
+    (symbol "TPS54331_SOIC8_EP_0_1"
       (rectangle
-        (start -7.62 -7.62)
-        (end 7.62 7.62)
+        (start -10.16 -10.16)
+        (end 10.16 10.16)
         (stroke (width 0.254) (type default))
         (fill (type background))
       )
     )
-    (symbol "SN74AHCT1G125_LevelShifter_1_1"
+    (symbol "TPS54331_SOIC8_EP_1_1"
       (pin passive line
-        (at -10.16 5.08 0)
+        (at -12.70 7.62 0)
         (length 2.54)
-        (name "VCC_5V"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "1"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "VIN" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
       )
       (pin input line
-        (at -10.16 2.54 0)
+        (at -12.70 5.08 0)
         (length 2.54)
-        (name "OE_N"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "2"
-          (effects (font (size 1.27 1.27)))
-        )
-      )
-      (pin input line
-        (at -10.16 -2.54 0)
-        (length 2.54)
-        (name "DIN_3V3"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "3"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "EN" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at -10.16 -5.08 0)
+        (at -12.70 2.54 0)
         (length 2.54)
-        (name "GND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "4"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "SS" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
       )
       (pin passive line
-        (at 10.16 -5.08 180)
+        (at -12.70 0.00 0)
         (length 2.54)
-        (name "PGND"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "5"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "COMP" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
       )
-      (pin input line
-        (at 10.16 -2.54 180)
+      (pin passive line
+        (at -12.70 -2.54 0)
         (length 2.54)
-        (name "HALO_IN_3V3"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "6"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 7.62 180)
+        (length 2.54)
+        (name "BOOT" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 10.16 2.54 180)
+        (at 12.70 5.08 180)
         (length 2.54)
-        (name "HALO_OUT_5V"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "7"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "PH" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "VSENSE" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "EPAD" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "TPS55340_HTSSOP14"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 15.24 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "TPS55340_HTSSOP14"
+      (at 0 -15.24 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_SO:Texas_HTSSOP-14-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask3.155x3.255mm"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tps55340.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "5A 40V Integrated Switch Boost DC-DC Converter HTSSOP-14 PowerPAD"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "boost dcdc 24v 5a tps55340 htssop14"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "TPS55340_HTSSOP14_0_1"
+      (rectangle
+        (start -10.16 -12.70)
+        (end 10.16 12.70)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "TPS55340_HTSSOP14_1_1"
+      (pin passive line
+        (at -12.70 10.16 0)
+        (length 2.54)
+        (name "VIN" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -12.70 7.62 0)
+        (length 2.54)
+        (name "EN" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "SS" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "SYNC" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 0.00 0)
+        (length 2.54)
+        (name "FREQ" (effects (font (size 1.27 1.27))))
+        (number "11" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 -2.54 0)
+        (length 2.54)
+        (name "AGND" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 -5.08 0)
+        (length 2.54)
+        (name "PGND1" (effects (font (size 1.27 1.27))))
+        (number "13" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 -7.62 0)
+        (length 2.54)
+        (name "PGND2" (effects (font (size 1.27 1.27))))
+        (number "14" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 10.16 180)
+        (length 2.54)
+        (name "SW1" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 7.62 180)
+        (length 2.54)
+        (name "SW2" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "SW3" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "COMP" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "FB" (effects (font (size 1.27 1.27))))
+        (number "10" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -2.54 180)
+        (length 2.54)
+        (name "NC" (effects (font (size 1.27 1.27))))
+        (number "12" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -5.08 180)
+        (length 2.54)
+        (name "EPAD" (effects (font (size 1.27 1.27))))
+        (number "15" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "W25N01GV_WSON8"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 12.70 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "W25N01GV_WSON8"
+      (at 0 -12.70 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_SON:WSON-8-1EP_8x6mm_P1.27mm_EP3.4x4.3mm"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.winbond.com/resource-files/w25n01gv%20revl%20050918%20unsecured.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "1Gbit (128MB) 3V SPI NAND Flash Memory WSON-8 8x6mm"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "nand flash spi 1gbit w25n01gv wson8"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "W25N01GV_WSON8_0_1"
+      (rectangle
+        (start -10.16 -10.16)
+        (end 10.16 10.16)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "W25N01GV_WSON8_1_1"
+      (pin input line
+        (at -12.70 7.62 0)
+        (length 2.54)
+        (name "CS_N" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "DO_IO1" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "WP_N" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 0.00 0)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin power_out line
+        (at 12.70 7.62 180)
+        (length 2.54)
+        (name "VCC" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "HOLD_N" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "CLK" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "DI_IO0" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -2.54 180)
+        (length 2.54)
+        (name "EPAD" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "DS3231MZ_SOIC8"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "DS3231MZ_SOIC8"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231M.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "I2C Real-Time Clock with MEMS Resonator and Battery Backup SOIC-8"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "rtc i2c ds3231m soic8"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "DS3231MZ_SOIC8_0_1"
+      (rectangle
+        (start -10.16 -7.62)
+        (end 10.16 7.62)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "DS3231MZ_SOIC8_1_1"
+      (pin passive line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "VCC" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "VBAT" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
       )
       (pin output line
-        (at 10.16 5.08 180)
+        (at -12.70 0.00 0)
         (length 2.54)
-        (name "DOUT_5V"
-          (effects (font (size 1.27 1.27)))
-        )
-        (number "8"
-          (effects (font (size 1.27 1.27)))
-        )
+        (name "32KHZ" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 -2.54 0)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "SDA" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "SCL" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "INT_N" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 -2.54 180)
+        (length 2.54)
+        (name "RST_N" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "USB_C_16P"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "J"
+      (at 0 17.78 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "USB_C_16P"
+      (at 0 -17.78 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Connector_USB:USB_C_Receptacle_GCT_USB4085"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.usb.org/sites/default/files/USB%20Type-C%20Spec%20R2.0%20-%20August%202019.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "USB 2.0 Type-C 16-Pin Receptacle"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "usb type-c 16p connector"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "USB_C_16P_0_1"
+      (rectangle
+        (start -10.16 -15.24)
+        (end 10.16 15.24)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "USB_C_16P_1_1"
+      (pin passive line
+        (at -12.70 12.70 0)
+        (length 2.54)
+        (name "VBUS_A4" (effects (font (size 1.27 1.27))))
+        (number "A4" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 10.16 0)
+        (length 2.54)
+        (name "VBUS_A9" (effects (font (size 1.27 1.27))))
+        (number "A9" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 7.62 0)
+        (length 2.54)
+        (name "VBUS_B4" (effects (font (size 1.27 1.27))))
+        (number "B4" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "VBUS_B9" (effects (font (size 1.27 1.27))))
+        (number "B9" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "CC1" (effects (font (size 1.27 1.27))))
+        (number "A5" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 0.00 0)
+        (length 2.54)
+        (name "CC2" (effects (font (size 1.27 1.27))))
+        (number "B5" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 -2.54 0)
+        (length 2.54)
+        (name "SBU1" (effects (font (size 1.27 1.27))))
+        (number "A8" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 -5.08 0)
+        (length 2.54)
+        (name "SBU2" (effects (font (size 1.27 1.27))))
+        (number "B8" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 12.70 180)
+        (length 2.54)
+        (name "DP1" (effects (font (size 1.27 1.27))))
+        (number "A6" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 10.16 180)
+        (length 2.54)
+        (name "DP2" (effects (font (size 1.27 1.27))))
+        (number "B6" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 7.62 180)
+        (length 2.54)
+        (name "DN1" (effects (font (size 1.27 1.27))))
+        (number "A7" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "DN2" (effects (font (size 1.27 1.27))))
+        (number "B7" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "GND_A1" (effects (font (size 1.27 1.27))))
+        (number "A1" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "GND_A12" (effects (font (size 1.27 1.27))))
+        (number "A12" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -2.54 180)
+        (length 2.54)
+        (name "GND_B1" (effects (font (size 1.27 1.27))))
+        (number "B1" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -5.08 180)
+        (length 2.54)
+        (name "GND_B12" (effects (font (size 1.27 1.27))))
+        (number "B12" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 -7.62 180)
+        (length 2.54)
+        (name "SHIELD" (effects (font (size 1.27 1.27))))
+        (number "S1" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "USBLC6_2SC6"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "USBLC6_2SC6"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "https://www.st.com/resource/en/datasheet/usblc6-2.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "Very Low Capacitance ESD Protection for USB 2.0 High Speed SOT-23-6"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "usb esd tvs usblc6 sot23-6"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "USBLC6_2SC6_0_1"
+      (rectangle
+        (start -10.16 -7.62)
+        (end 10.16 7.62)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "USBLC6_2SC6_1_1"
+      (pin bidirectional line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "IO1_IN" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "IO2_IN" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 0.00 0)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin power_out line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "VBUS" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "IO1_OUT" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin bidirectional line
+        (at 12.70 0.00 180)
+        (length 2.54)
+        (name "IO2_OUT" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+  (symbol "PT4115_SOT89_5"
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "U"
+      (at 0 10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "PT4115_SOT89_5"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Package_TO_SOT_SMD:SOT-89-5"
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Datasheet" "http://www.powtech.com.cn/docs/PT4115E.pdf"
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "Description" "30V 1.2A Continuous Conduction Mode Inductive Step-Down LED Driver SOT-89-5"
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (property "ki_keywords" "led driver constant current buck pt4115 sot89-5"
+      (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (hide yes))
+    )
+    (symbol "PT4115_SOT89_5_0_1"
+      (rectangle
+        (start -10.16 -7.62)
+        (end 10.16 7.62)
+        (stroke (width 0.254) (type default))
+        (fill (type background))
+      )
+    )
+    (symbol "PT4115_SOT89_5_1_1"
+      (pin passive line
+        (at -12.70 5.08 0)
+        (length 2.54)
+        (name "VIN" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin input line
+        (at -12.70 2.54 0)
+        (length 2.54)
+        (name "DIM" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at -12.70 0.00 0)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin passive line
+        (at 12.70 5.08 180)
+        (length 2.54)
+        (name "CSN" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin output line
+        (at 12.70 2.54 180)
+        (length 2.54)
+        (name "SW" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
       )
     )
   )
