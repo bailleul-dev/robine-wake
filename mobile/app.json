@@ -52,7 +52,7 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-font",
-      "./plugins/with-scene-lifecycle"
+      "expo-status-bar"
     ]
   }
 }
