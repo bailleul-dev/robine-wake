@@ -46,6 +46,10 @@ defmodule RobineWake.GuideLight do
   def program(body) when is_map(body),
     do: GenServer.call(__MODULE__, {:request, "light.program", body}, 5_000)
 
+  @doc "What the strip shows (`light.get`): the program, its progress and each pixel."
+  @spec read() :: {:ok, map()} | {:error, term()}
+  def read, do: GenServer.call(__MODULE__, {:request, "light.get", %{}}, 5_000)
+
   @doc "Queues a `light.program` like `program/1`; returns immediately."
   @spec start_program(map()) :: :ok
   def start_program(body) when is_map(body), do: GenServer.cast(__MODULE__, {:program, body})
@@ -55,7 +59,12 @@ defmodule RobineWake.GuideLight do
   def configured?, do: is_list(Application.get_env(:robine_wake, :guide_light))
 
   @impl true
-  def init(_opts), do: {:ok, %{conn: nil, sequence: 0, last_error: nil}}
+  def init(_opts) do
+    # The ESP32 remembers request ids across our restarts: a new prefix per
+    # boot keeps a fresh request from being answered as a repeated one.
+    boot = Base.encode16(:crypto.strong_rand_bytes(4), case: :lower)
+    {:ok, %{conn: nil, boot: boot, sequence: 0, last_error: nil}}
+  end
 
   @impl true
   def handle_cast({:set, level}, state) do
@@ -106,7 +115,7 @@ defmodule RobineWake.GuideLight do
 
   defp send_request(state, config, operation, body) do
     {driver, options} = Keyword.pop!(config, :driver)
-    id = "guide-light-#{state.sequence + 1}"
+    id = "guide-light-#{state.boot}-#{state.sequence + 1}"
     state = %{state | sequence: state.sequence + 1}
     request = Jason.encode!(%{"v" => 1, "id" => id, "op" => operation, "body" => body})
 

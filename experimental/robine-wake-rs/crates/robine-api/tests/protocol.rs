@@ -15,6 +15,7 @@ fn platform() -> Platform {
         remote_dismiss_enabled: false,
         audio_available: false,
         light: None,
+        light_pixels: 0,
     }
 }
 

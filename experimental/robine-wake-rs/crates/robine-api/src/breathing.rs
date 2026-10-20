@@ -5,6 +5,9 @@
 //! It stays dim at its peak so it does not
 //! keep the sleeper awake.
 
+use alloc::format;
+use alloc::string::String;
+
 use crate::light::Rgb;
 
 /// Red level of the glow, empty lungs and full lungs, out of 255: barely on,
@@ -43,6 +46,21 @@ impl Cadence {
             exhale_ms: parts.next()??,
         };
         (parts.next().is_none() && cadence.inhale_ms > 0 && cadence.exhale_ms > 0).then_some(cadence)
+    }
+
+    /// The cadence as `parse` reads it: `0-4-0-6`, `0-4.5-0-5.5`.
+    pub fn text(&self) -> String {
+        let seconds = |ms: u64| match ms % 1000 {
+            0 => format!("{}", ms / 1000),
+            rest => format!("{}.{:03}", ms / 1000, rest).trim_end_matches('0').into(),
+        };
+        format!(
+            "{}-{}-{}-{}",
+            seconds(self.hold_empty_ms),
+            seconds(self.inhale_ms),
+            seconds(self.hold_full_ms),
+            seconds(self.exhale_ms)
+        )
     }
 
     pub fn breath_ms(&self) -> u64 {

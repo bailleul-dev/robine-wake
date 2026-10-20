@@ -242,7 +242,7 @@ fn settle(id: String, result: Result(Reply, Failure)) -> Nil {
       store.update(fn(state) {
         AppState(..state, clock: Snapshot(..state.clock, active_session:))
       })
-    Ok(command.Done) | Error(_) -> Nil
+    Ok(command.LightReply(_)) | Ok(command.Done) | Error(_) -> Nil
   }
   let waiters = current().waiters
   case dict.get(waiters, id) {
@@ -375,6 +375,11 @@ fn request(msg: Msg(Device)) -> Promise(Result(Reply, Failure)) {
 
 pub fn send(command: Command) -> Promise(Result(Reply, Failure)) {
   request(link.Send(command))
+}
+
+/// Like `send`, for what the app asks on its own.
+pub fn read(command: Command) -> Promise(Result(Reply, Failure)) {
+  request(link.Read(command))
 }
 
 pub fn refresh() -> Promise(Result(Reply, Failure)) {

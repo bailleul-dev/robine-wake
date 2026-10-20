@@ -60,6 +60,11 @@ defmodule RobineWakeDev.DemoTest do
 
     refute Hardware.snapshot().lights["lamp_left"].on
 
+    assert {:ok, %{"program" => "dawn", "duration_ms" => 60_000, "pixels" => pixels}} =
+             RobineWake.GuideLight.read()
+
+    assert byte_size(pixels) == 60 * 6
+
     assert {:error, {:guide_light_rejected, "invalid_program"}} =
              RobineWake.GuideLight.program(%{"program" => "disco"})
   end

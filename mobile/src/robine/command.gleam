@@ -33,6 +33,8 @@ pub type Command {
   SetBreathingVolume(Percent)
   StopBreathing
   StartLightProgram(light.Program)
+  /// What the strip shows, pixel by pixel.
+  GetLight
   BeginButtonPairing
   RemoveButton(Id(RemoteButton))
 }
@@ -40,6 +42,8 @@ pub type Command {
 pub type Reply {
   StateReply(Snapshot)
   SessionReply(Option(Active))
+  /// What the strip shows, after a light command.
+  LightReply(light.Reading)
   /// The clock did it; a later `state.get` shows the result.
   Done
 }
@@ -76,7 +80,7 @@ pub type Refusal {
 /// Whether the clock's state may differ after the command.
 pub fn changes_state(command: Command) -> Bool {
   case command {
-    GetState | GetSession -> False
+    GetState | GetSession | GetLight -> False
     _ -> True
   }
 }
@@ -100,6 +104,7 @@ pub fn operation(command: Command) -> String {
     SetBreathingVolume(..) -> "breathing.volume"
     StopBreathing -> "breathing.stop"
     StartLightProgram(..) -> "light.program"
+    GetLight -> "light.get"
     BeginButtonPairing -> "remote_button.pairing.begin"
     RemoveButton(..) -> "remote_button.remove"
   }
@@ -113,7 +118,8 @@ pub fn body(command: Command) -> Json {
     | Dismiss
     | ConfirmClock
     | EraseHistory
-    | StopBreathing -> json.object([])
+    | StopBreathing
+    | GetLight -> json.object([])
     CreateAlarm(settings) ->
       json.object([#("alarm", alarm.encode(settings, option.None))])
     UpdateAlarm(alarm:, settings:) ->
@@ -212,6 +218,10 @@ pub fn reply(
         GetSession ->
           decode.run(body, snapshot.active_session_decoder())
           |> result.map(SessionReply)
+          |> result.replace_error(Unreadable)
+        GetLight | StartLightProgram(..) ->
+          decode.run(body, light.reading_decoder())
+          |> result.map(LightReply)
           |> result.replace_error(Unreadable)
         _ -> Ok(Done)
       }

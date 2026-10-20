@@ -32,6 +32,7 @@ static PLATFORM: Platform = Platform {
     remote_dismiss_enabled: false,
     audio_available: false,
     light: Some("WS2812B strip"),
+    light_pixels: guide_light::PIXELS,
 };
 
 /// Pseudo-random without the radio: only command ids depend on it.

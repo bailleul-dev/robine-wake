@@ -40,6 +40,21 @@ defmodule RobineWake.GuideLightTest do
     assert %{state: :available} = GuideLight.status()
   end
 
+  test "a restart numbers requests afresh, which the ESP32 must not take for repeats" do
+    :ok = GuideLight.start_program(%{"program" => "off"})
+    _ = GuideLight.status()
+    # The driver's table may belong to the process restarted here.
+    before = List.last(GuideLightDriver.ids())
+    :ok = Supervisor.terminate_child(RobineWake.Supervisor, GuideLight)
+    {:ok, _pid} = Supervisor.restart_child(RobineWake.Supervisor, GuideLight)
+    :ok = GuideLight.start_program(%{"program" => "off"})
+    _ = GuideLight.status()
+
+    now = List.last(GuideLightDriver.ids())
+    assert now =~ ~r/^guide-light-[0-9a-f]{8}-1$/
+    refute now == before
+  end
+
   describe "light programs for the web UI" do
     alias RobineWake.Bluetooth.Command
 
@@ -56,6 +71,18 @@ defmodule RobineWake.GuideLightTest do
 
       assert [{"light.program", %{program: "dawn", duration_ms: 1_800_000}}] =
                GuideLightDriver.requests()
+    end
+
+    test "read the strip pixel by pixel" do
+      GuideLightDriver.set_result(
+        {:response,
+         %{v: 1, status: "ok", body: %{program: "breathing", pixels: "0a0000", elapsed_ms: 4_000}}}
+      )
+
+      assert %{"status" => "ok", "body" => %{"program" => "breathing", "pixels" => "0a0000"}} =
+               Command.execute(%{"v" => 1, "op" => "light.get", "body" => %{}})
+
+      assert [{"light.get", %{}}] = GuideLightDriver.requests()
     end
 
     test "pass the ESP32's validation error through" do
@@ -87,12 +114,14 @@ defmodule RobineWake.GuideLightTest do
       end
 
       assert "light.program" in operations.()
+      assert "light.get" in operations.()
 
       previous = Application.get_env(:robine_wake, :guide_light)
       Application.put_env(:robine_wake, :guide_light, nil)
       on_exit(fn -> Application.put_env(:robine_wake, :guide_light, previous) end)
 
       refute "light.program" in operations.()
+      refute "light.get" in operations.()
 
       assert %{"error" => %{"code" => "capability_unavailable"}} =
                program(%{"program" => "off"})

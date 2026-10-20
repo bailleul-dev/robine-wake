@@ -44,6 +44,7 @@ defmodule RobineWake.Bluetooth.Command do
     "breathing.volume",
     "breathing.stop",
     "light.program",
+    "light.get",
     "remote_button.status",
     "remote_button.pairing.begin",
     "remote_button.pair",
@@ -191,14 +192,11 @@ defmodule RobineWake.Bluetooth.Command do
   defp dispatch("breathing.stop", _body), do: Breathing.stop()
 
   # Forwarded to the ESP32, which renders the program on its LED strip.
-  defp dispatch("light.program", body) when is_map(body) do
-    case GuideLight.program(body) do
-      {:ok, status} -> {:ok, status}
-      {:error, {:guide_light_rejected, code}} -> {:error, code}
-      {:error, :capability_unavailable} -> {:error, :capability_unavailable}
-      {:error, _unreachable} -> {:error, :light_unavailable}
-    end
-  end
+  defp dispatch("light.program", body) when is_map(body),
+    do: light_reply(GuideLight.program(body))
+
+  # What the strip shows, pixel by pixel, as the ESP32 renders it.
+  defp dispatch("light.get", _body), do: light_reply(GuideLight.read())
 
   defp dispatch("remote_button.status", _body), do: {:ok, RemoteButton.status()}
 
@@ -300,12 +298,18 @@ defmodule RobineWake.Bluetooth.Command do
     }
   end
 
+  defp light_reply({:ok, status}), do: {:ok, status}
+  defp light_reply({:error, {:guide_light_rejected, code}}), do: {:error, code}
+  defp light_reply({:error, :capability_unavailable}), do: {:error, :capability_unavailable}
+  defp light_reply({:error, _unreachable}), do: {:error, :light_unavailable}
+
   defp camera_enabled?, do: Application.get_env(:robine_wake, :camera_enabled, true)
 
   defp available_operations do
     @operations
     |> drop_unless(camera_enabled?(), "camera.calibrate")
     |> drop_unless(GuideLight.configured?(), "light.program")
+    |> drop_unless(GuideLight.configured?(), "light.get")
   end
 
   defp drop_unless(operations, true, _operation), do: operations

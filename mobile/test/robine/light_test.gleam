@@ -1,5 +1,6 @@
 import gleam/json
 import gleam/list
+import gleam/option.{Some}
 import gleam/result
 import robine/command
 import robine/light
@@ -36,4 +37,37 @@ pub fn the_program_is_sent_as_light_program_test() {
     "{\"v\":1,\"id\":\"a\",\"status\":\"error\",\"error\":{\"code\":\"light_unavailable\"}}"
   assert command.reply(command.StartLightProgram(light.Off), "a", refused)
     == Error(command.Refused(command.LightUnavailable))
+}
+
+pub fn a_reading_shows_each_pixel_and_the_program_test() {
+  let answer = fn(body) {
+    "{\"v\":1,\"id\":\"r\",\"status\":\"ok\",\"body\":" <> body <> "}"
+  }
+  let assert Ok(command.LightReply(light.Reading(showing:, pixels:))) =
+    command.reply(
+      command.GetLight,
+      "r",
+      answer(
+        "{\"program\":\"breathing\",\"cadence\":\"0-4-0-6\",\"elapsed_ms\":4000,\"duration_ms\":300000,\"pixels\":\"0a0000ff8800\"}",
+      ),
+    )
+  assert pixels == ["#0a0000", "#ff8800"]
+  assert showing
+    == light.Running(
+      program: "breathing",
+      cadence: Some("0-4-0-6"),
+      elapsed_ms: 4000,
+      duration_ms: 300_000,
+    )
+  assert light.describe(showing) == "Respiration 0-4-0-6"
+
+  // The answer to a program is a reading too.
+  let assert Ok(command.LightReply(light.Reading(showing: light.Dark, ..))) =
+    command.reply(
+      command.StartLightProgram(light.Off),
+      "r",
+      answer("{\"program\":null,\"pixels\":\"000000000000\"}"),
+    )
+  let assert Ok(command.LightReply(light.Reading(showing: light.Steady, ..))) =
+    command.reply(command.GetLight, "r", answer("{\"pixels\":\"102030\"}"))
 }

@@ -17,6 +17,7 @@ fn platform(light: Option<&'static str>) -> Platform {
         remote_dismiss_enabled: false,
         audio_available: false,
         light,
+        light_pixels: 3,
     }
 }
 
@@ -171,6 +172,28 @@ fn a_transition_replaces_a_program_starting_from_dark() {
     ok(command(&mut device, 1_000, "light.set", json!({ "color": color(AMBER), "brightness": 30, "transition_ms": 1_000 })));
     assert_eq!(fade(&device).from.brightness, 0.0);
     assert_eq!(ok(command(&mut device, 1_000, "light.get", json!({})))["program"], serde_json::Value::Null);
+}
+
+#[test]
+fn reports_each_pixel_and_how_far_the_program_is() {
+    let mut device = device();
+    let status = ok(command(&mut device, 0, "light.get", json!({})));
+    assert_eq!(status["pixels"], "000000000000000000");
+    assert_eq!((status["elapsed_ms"].clone(), status["duration_ms"].clone()), (Value::Null, Value::Null));
+
+    ok(command(&mut device, 1_000, "light.program", json!({ "program": "breathing", "cadence": "4-4.5-0-6", "duration_ms": 60_000 })));
+    let status = ok(command(&mut device, 9_000, "light.get", json!({})));
+    assert_eq!(status["cadence"], "4-4.5-0-6");
+    // 60 s rounded up to whole breaths of 14.5 s.
+    assert_eq!((status["elapsed_ms"].clone(), status["duration_ms"].clone()), (json!(8_000), json!(72_500)));
+    let Some(LightScene::Breathing(breathing)) = device.light() else { panic!() };
+    let centre = breathing.pixel_at(9_000, 1, 3);
+    assert_eq!(&status["pixels"].as_str().unwrap()[6..12], format!("{:02x}{:02x}{:02x}", centre.r, centre.g, centre.b));
+
+    ok(command(&mut device, 10_000, "light.program", json!({ "program": "dawn", "duration_ms": 60_000 })));
+    let status = ok(command(&mut device, 40_000, "light.get", json!({})));
+    assert_eq!((status["program"].clone(), status["cadence"].clone()), (json!("dawn"), Value::Null));
+    assert_eq!((status["elapsed_ms"].clone(), status["duration_ms"].clone()), (json!(30_000), json!(60_000)));
 }
 
 #[test]

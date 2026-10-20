@@ -98,6 +98,8 @@ pub type Msg(device) {
   /// The endpoint kept from the last launch, if any.
   Started(stored: Option(String))
   Send(Command)
+  /// Sent on the app's own initiative: its failures are not reported.
+  Read(Command)
   Refresh
   Reconnect
   WifiAnswered(id: String, result: Result(String, String))
@@ -223,6 +225,7 @@ pub fn update(link: Link(device), msg: Msg(device)) -> Step(device) {
         Phone(_), None -> scan(link)
       }
     Send(command) -> send(link, command, User)
+    Read(command) -> send(link, command, Automatic)
     Refresh ->
       case link.request {
         Some(_) ->

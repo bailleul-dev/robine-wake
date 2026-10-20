@@ -60,6 +60,8 @@ pub struct Platform {
     /// Name of a light wired to the device, which enables `light.set` and
     /// `light.get`.
     pub light: Option<&'static str>,
+    /// Pixels of that light, which `light.get` reports one by one.
+    pub light_pixels: usize,
 }
 
 /// Per-call view of the outside world.

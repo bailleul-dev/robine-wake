@@ -25,6 +25,17 @@ defmodule RobineWake.GuideLight.Driver.Test do
     |> Enum.map(&elem(&1, 1))
   end
 
+  @doc "Request ids, in order."
+  def ids do
+    table()
+
+    @table
+    |> :ets.tab2list()
+    |> Enum.filter(fn {key, _value} -> match?({:id, _}, key) end)
+    |> Enum.sort()
+    |> Enum.map(&elem(&1, 1))
+  end
+
   def set_result(result) do
     table()
     :ets.insert(@table, {:result, result})
@@ -55,7 +66,7 @@ defmodule RobineWake.GuideLight.Driver.Test do
   def request(:test_link, id, request) do
     %{v: 1, id: ^id, op: operation, body: body} = Jason.decode!(request, keys: :atoms)
     sequence = :erlang.unique_integer([:positive, :monotonic])
-    :ets.insert(table(), {{:command, sequence}, {operation, body}})
+    :ets.insert(table(), [{{:command, sequence}, {operation, body}}, {{:id, sequence}, id}])
 
     case :ets.lookup(table(), :result) do
       [{:result, {:error, _reason} = error}] -> error

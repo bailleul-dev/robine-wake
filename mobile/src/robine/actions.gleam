@@ -18,6 +18,11 @@ pub fn send(command: Command) -> Sent {
   transport.send(command)
 }
 
+/// Asks without reporting a failure: for what the user did not ask.
+pub fn read(command: Command) -> Sent {
+  transport.read(command)
+}
+
 pub fn refresh() -> Sent {
   transport.refresh()
 }

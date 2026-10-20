@@ -59,6 +59,7 @@ static PLATFORM: Platform = Platform {
     remote_dismiss_enabled: false,
     audio_available: false,
     light: Some("WS2812B strip"),
+    light_pixels: guide_light::PIXELS,
 };
 
 /// Raised by the NTP task when the wall clock is set.

@@ -1154,9 +1154,38 @@ fn light_card(desktop: Bool) -> Element {
 fn render_light_card(desktop: Bool) -> Element {
   let busy = store.use_app_state().busy
   let #(minutes, set_minutes) = redraw.use_state(30)
+  // The last reading, and when it arrived.
+  let #(reading, set_reading) = redraw.use_state(None)
+  let #(problem, set_problem) = redraw.use_state(None)
+  let now = use_now(1000)
   let length = light.length(minutes)
+  let settle = fn(sent: actions.Sent) {
+    ignore(
+      promise.map(sent, fn(result) {
+        case result {
+          Ok(command.LightReply(read)) -> {
+            set_reading(Some(#(read, platform.now())))
+            set_problem(None)
+          }
+          // Another command was on its way: the next reading will do.
+          Error(command.Busy) -> Nil
+          Error(failure) -> set_problem(Some(command.describe(failure)))
+          Ok(_) -> Nil
+        }
+      }),
+    )
+  }
+  let read = fn() { settle(actions.read(command.GetLight)) }
+  redraw.use_effect_(
+    fn() {
+      read()
+      let timer = platform.set_interval(10_000, read)
+      fn() { platform.clear_interval(timer) }
+    },
+    #(),
+  )
   let start = fn(program) {
-    ignore(actions.send(command.StartLightProgram(program)))
+    settle(actions.send(command.StartLightProgram(program)))
   }
   theme.card(False, dashboard_card_style(desktop), [
     column([s.gap(14)], [
@@ -1164,6 +1193,7 @@ fn render_light_card(desktop: Bool) -> Element {
         theme.eyebrow("Ruban lumineux", theme.moon),
         theme.icon("sunny", 20, theme.moon),
       ),
+      strip_reading(reading, problem, now, read),
       minutes_slider("Durée", minutes, 60, set_minutes),
       row([s.gap(10)], [
         theme.button("Lever de soleil", fn() { start(light.Dawn(length)) })
@@ -1183,6 +1213,115 @@ fn render_light_card(desktop: Bool) -> Element {
         |> theme.render,
     ]),
   ])
+}
+
+/// The strip as the ESP32 last rendered it, one swatch a pixel, with the
+/// program and how far it went since.
+fn strip_reading(
+  reading: Option(#(light.Reading, Timestamp)),
+  problem: Option(String),
+  now: Timestamp,
+  read: fn() -> Nil,
+) -> Element {
+  let #(pixels, title, detail, done) = case reading {
+    None -> #(
+      [],
+      pick(option.is_some(problem), "Ruban non relevé", "Lecture du ruban…"),
+      "",
+      None,
+    )
+    Some(#(light.Reading(showing:, pixels:), read_at)) -> {
+      let age = int.max(0, breathing.elapsed_ms(read_at, now))
+      let #(detail, done) = case showing {
+        light.Running(program:, elapsed_ms:, duration_ms:, ..) -> {
+          let elapsed = int.min(elapsed_ms + age, duration_ms)
+          let detail = case elapsed >= duration_ms, program {
+            True, "dawn" -> "Plein jour, jusqu’à la prochaine commande"
+            True, _ -> "Terminé"
+            False, _ ->
+              clock_label(elapsed) <> " / " <> clock_label(duration_ms)
+          }
+          #(
+            detail,
+            Some(int.to_float(elapsed) /. int.to_float(int.max(duration_ms, 1))),
+          )
+        }
+        _ -> #("", None)
+      }
+      let read_label = "Relevé il y a " <> int.to_string(age / 1000) <> " s"
+      #(
+        pixels,
+        light.describe(showing),
+        case detail {
+          "" -> read_label
+          detail -> detail <> " · " <> read_label
+        },
+        done,
+      )
+    }
+  }
+  column([s.gap(8)], [
+    row([s.align_items("center"), s.gap(10)], [
+      column([s.flex(1), s.gap(2)], [
+        label(
+          [s.font_size(15), s.font_weight("700"), s.color(theme.text)],
+          title,
+        ),
+        label([s.font_size(12), s.color(theme.muted), s.tabular_nums()], detail),
+      ]),
+      theme.button("Relever", read)
+        |> theme.with_icon("refresh")
+        |> theme.render,
+    ]),
+    row(
+      [
+        s.height(18),
+        s.border_radius(6),
+        s.overflow("hidden"),
+        s.border_width(1),
+        s.border_color(theme.night800),
+        s.background_color(theme.night950),
+      ],
+      list.map(pixels, fn(colour) {
+        native.view([native.style([s.flex(1), s.background_color(colour)])], [])
+      }),
+    ),
+    case done {
+      Some(done) ->
+        row(
+          [s.height(4), s.border_radius(2), s.background_color(theme.night800)],
+          [
+            native.view(
+              [
+                native.style([
+                  s.width_pct(float.to_string(done *. 100.0) <> "%"),
+                  s.border_radius(2),
+                  s.background_color(theme.moon),
+                ]),
+              ],
+              [],
+            ),
+          ],
+        )
+      None -> native.none()
+    },
+    case problem {
+      Some(problem) ->
+        label(
+          [s.font_size(12), s.font_weight("700"), s.color(theme.rose)],
+          "💡  " <> problem,
+        )
+      None -> native.none()
+    },
+  ])
+}
+
+/// `m:ss`.
+fn clock_label(ms: Int) -> String {
+  let seconds = ms / 1000
+  int.to_string(seconds / 60)
+  <> ":"
+  <> string.pad_start(int.to_string(seconds % 60), 2, "0")
 }
 
 // System ----------------------------------------------------------------------

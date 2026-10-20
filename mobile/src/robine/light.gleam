@@ -2,12 +2,15 @@
 //// or nothing. A breathing session also plays the ambience: it is a
 //// `breathing.start` command, at a cadence of this module.
 
+import gleam/dynamic/decode.{type Decoder}
 import gleam/float
 import gleam/int
 import gleam/json.{type Json}
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
+import robine/decoding.{defaulted, number, optional}
 
 pub type Program {
   Dawn(Length)
@@ -82,4 +85,64 @@ fn timed(program: String, length: Length) -> Json {
     #("program", json.string(program)),
     #("duration_ms", json.int(length.minutes * 60_000)),
   ])
+}
+
+// Reading -----------------------------------------------------------------------
+
+/// What the strip showed when it was read (`light.get`, and the answer to
+/// `light.program`).
+pub type Reading {
+  Reading(showing: Showing, pixels: List(String))
+}
+
+pub type Showing {
+  Dark
+  /// A plain colour, set by `light.set`.
+  Steady
+  Running(
+    program: String,
+    cadence: Option(String),
+    elapsed_ms: Int,
+    duration_ms: Int,
+  )
+}
+
+pub fn reading_decoder() -> Decoder(Reading) {
+  use program <- optional("program", decode.string)
+  use cadence <- optional("cadence", decode.string)
+  use elapsed_ms <- defaulted("elapsed_ms", 0, number())
+  use duration_ms <- defaulted("duration_ms", 0, number())
+  use pixels <- defaulted("pixels", "", decode.string)
+  let pixels = colours(pixels, [])
+  let showing = case program {
+    Some(program) -> Running(program:, cadence:, elapsed_ms:, duration_ms:)
+    None ->
+      case list.all(pixels, fn(pixel) { pixel == "#000000" }) {
+        True -> Dark
+        False -> Steady
+      }
+  }
+  decode.success(Reading(showing:, pixels:))
+}
+
+/// `rrggbb` after `rrggbb`, as CSS colours.
+fn colours(hex: String, acc: List(String)) -> List(String) {
+  case string.length(hex) >= 6 {
+    True ->
+      colours(string.drop_start(hex, 6), ["#" <> string.slice(hex, 0, 6), ..acc])
+    False -> list.reverse(acc)
+  }
+}
+
+pub fn describe(showing: Showing) -> String {
+  case showing {
+    Dark -> "Éteint"
+    Steady -> "Couleur fixe"
+    Running(program: "dawn", ..) -> "Lever de soleil"
+    Running(program: "sunset", ..) -> "Coucher de soleil"
+    Running(program: "breathing", cadence: Some(cadence), ..) ->
+      "Respiration " <> cadence
+    Running(program: "breathing", ..) -> "Respiration"
+    Running(program:, ..) -> program
+  }
 }

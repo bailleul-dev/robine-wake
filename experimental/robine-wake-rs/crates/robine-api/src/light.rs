@@ -132,6 +132,18 @@ impl LightScene {
         }
     }
 
+    /// How far a program is, and how long it lasts; `None` for a
+    /// transition. A breathing session lasts its whole breaths.
+    fn progress(&self, monotonic_ms: u64) -> Option<(u64, u64)> {
+        let (started_ms, duration_ms) = match self {
+            LightScene::Fade(_) => return None,
+            LightScene::Dawn(dawn) => (dawn.started_ms, dawn.duration_ms),
+            LightScene::Sunset(sunset) => (sunset.started_ms, sunset.duration_ms),
+            LightScene::Breathing(breathing) => (breathing.started_ms, breathing.session_ms()),
+        };
+        Some((monotonic_ms.saturating_sub(started_ms), duration_ms))
+    }
+
     fn program(&self) -> Option<&'static str> {
         match self {
             LightScene::Fade(_) => None,
@@ -236,6 +248,11 @@ impl Device {
             let end = fade.started_ms + fade.duration_ms;
             (end.saturating_sub(ctx.monotonic_ms), fade.easing)
         });
+        let progress = self.light.and_then(|scene| scene.progress(ctx.monotonic_ms));
+        let cadence = match self.light {
+            Some(LightScene::Breathing(breathing)) => Some(breathing.cadence.text()),
+            _ => None,
+        };
         json!({
             "name": self.platform.light,
             "program": self.light.and_then(|scene| scene.program()),
@@ -245,7 +262,26 @@ impl Device {
             "transition_remaining_ms": remaining_ms,
             "easing": easing.as_str(),
             "monotonic_ms": ctx.monotonic_ms,
+            "elapsed_ms": progress.map(|(elapsed, _)| elapsed),
+            "duration_ms": progress.map(|(_, duration)| duration),
+            "cadence": cadence,
+            "pixels": self.pixels_hex(ctx.monotonic_ms),
         })
+    }
+
+    /// What each pixel shows now, `rrggbb` after `rrggbb`, as the strip
+    /// renders it.
+    fn pixels_hex(&self, monotonic_ms: u64) -> String {
+        let count = self.platform.light_pixels;
+        let mut hex = String::with_capacity(count * 6);
+        for index in 0..count {
+            let color = self.light.map_or(Rgb::OFF, |scene| scene.pixel_at(monotonic_ms, index, count));
+            for byte in [color.r, color.g, color.b] {
+                hex.push(char::from(HEX[usize::from(byte >> 4)]));
+                hex.push(char::from(HEX[usize::from(byte & 0x0f)]));
+            }
+        }
+        hex
     }
 
     fn fade(&self) -> Option<LightFade> {
@@ -269,6 +305,8 @@ fn parse_color(value: &Value) -> Option<Rgb> {
         b: channel("b")?,
     })
 }
+
+const HEX: &[u8; 16] = b"0123456789abcdef";
 
 fn color_json(color: Rgb) -> Value {
     json!({ "r": color.r, "g": color.g, "b": color.b })
