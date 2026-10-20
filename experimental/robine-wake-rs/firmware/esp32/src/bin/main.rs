@@ -128,13 +128,17 @@ async fn main(spawner: Spawner) -> ! {
     // Heltec WiFi Kit 32 V1: white LED on GPIO 25.
     let led = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
 
-    // Flora NeoPixel of the breathing guide: data on GPIO 13.
+    // WS2812B strip of the breathing guide: data on GPIO 13.
     let rmt = Rmt::new(peripherals.RMT, Rate::from_mhz(guide_light::RMT_FREQUENCY_MHZ))
         .expect("RMT")
         .into_async();
     let guide = rmt
         .channel0
-        .configure_tx(&TxChannelConfig::default().with_clk_divider(1))
+        .configure_tx(
+            &TxChannelConfig::default()
+                .with_clk_divider(1)
+                .with_memsize(guide_light::RMT_MEMSIZE),
+        )
         .expect("RMT channel")
         .with_pin(peripherals.GPIO13);
 

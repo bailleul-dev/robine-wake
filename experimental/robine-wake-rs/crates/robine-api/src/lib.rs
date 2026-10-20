@@ -16,6 +16,7 @@ extern crate alloc;
 extern crate std;
 
 mod command;
+mod dawn;
 mod device;
 mod dto;
 mod light;
@@ -24,6 +25,7 @@ pub mod sounds;
 use alloc::vec::Vec;
 use chrono::{DateTime, Utc};
 
+pub use dawn::Dawn;
 pub use device::{AudioOutput, Device, SnapshotError};
 pub use light::{Easing, LightFade, LightLevel, Rgb, MAX_TRANSITION_MS};
 pub use sounds::Sound;

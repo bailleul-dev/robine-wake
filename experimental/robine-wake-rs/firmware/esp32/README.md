@@ -56,6 +56,30 @@ l'ESP32 : pas de level shifter. Elle éclaire un peu moins fort qu'en 5 V,
 sans importance la nuit. Le signal est produit par le RMT : le Wi-Fi ne
 peut pas déformer les bits.
 
+## Ruban LED et aube
+
+La même sortie (GPIO 13) pilote un ruban WS2812B de 60 LED : une
+transition `light.set` met tout le ruban de la même couleur.
+`guide_light::start_dawn(duree_ms)` lance une aube artificielle
+([00-002](../../../../docs/specs/00/002-gentle-awakening-mechanisms/spec.md)),
+calculée LED par LED par `robine_api::Dawn` : une LED orange faible au
+centre (≈ 1800 K) qui s'étend en dégradé, monte et se refroidit, puis tout
+le ruban en blanc de jour uniforme (≈ 5500 K), plafonné à 60 % pour une
+petite alimentation 5 V. Elle reste allumée jusqu'à la commande suivante.
+
+| Ruban | |
+|---|---|
+| `Din` (côté des flèches qui partent vers le ruban) | GPIO 13, via 330 Ω |
+| `+5V`, `GND` (fils d'injection) | alimentation 5 V séparée |
+| `GND` | GND de la carte : sans masse commune, le signal se brouille |
+
+Démos de banc, sans Wi-Fi ni Pi :
+
+```sh
+cargo run --release --bin dawn_demo     # aube compressée à 1 minute
+cargo run --release --bin strip_probe   # identifie le protocole d'un ruban inconnu
+```
+
 ## Liaison série avec le Raspberry Pi
 
 UART2 à 115 200 bauds, 8N1. Une requête JSON par ligne (`\n`), une réponse

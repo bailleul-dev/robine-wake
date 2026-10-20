@@ -51,7 +51,11 @@ async fn main(spawner: Spawner) -> ! {
         .into_async();
     let guide = rmt
         .channel0
-        .configure_tx(&TxChannelConfig::default().with_clk_divider(1))
+        .configure_tx(
+            &TxChannelConfig::default()
+                .with_clk_divider(1)
+                .with_memsize(guide_light::RMT_MEMSIZE),
+        )
         .expect("RMT channel")
         .with_pin(peripherals.GPIO13);
     spawner.spawn(guide_light::run(guide).unwrap());
