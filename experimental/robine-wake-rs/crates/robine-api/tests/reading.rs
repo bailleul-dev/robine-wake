@@ -13,10 +13,11 @@ fn warm_white_at_the_bottom_dim_red_at_the_top() {
     let now = 1_000 + 10_000;
     let bottom = reading().pixel_at(now, 0, PIXELS);
     let top = reading().pixel_at(now, PIXELS - 1, PIXELS);
-    // A candle amber, all but no blue: at 60 % of 2100 K.
-    assert_eq!(bottom, Rgb { r: 153, g: 60, b: 6 });
+    // A candle flame without blue, at 60 %.
+    assert_eq!(bottom, Rgb { r: 153, g: 48, b: 0 });
     assert!(top.g * 8 <= top.r && top.b == 0, "red: {top:?}");
     assert!(top.r < bottom.r / 2, "dim: {top:?}");
+    assert!(pixels_have_no_blue(now), "no blue before sleep");
     // From the bottom up, the light only gets redder.
     let pixels: Vec<Rgb> = (0..PIXELS).map(|index| reading().pixel_at(now, index, PIXELS)).collect();
     for pair in pixels.windows(2) {
@@ -50,4 +51,8 @@ fn without_a_sunset_it_fades_out_at_the_end() {
     assert!(u16::from(fading.r) * 3 > u16::from(full.r) && u16::from(fading.r) * 3 < u16::from(full.r) * 2, "{fading:?}");
     assert_eq!(reading.pixel_at(601_000, 0, PIXELS), Rgb::OFF);
     assert_eq!(reading.pixel_at(700_000, 30, PIXELS), Rgb::OFF);
+}
+
+fn pixels_have_no_blue(now: u64) -> bool {
+    (0..PIXELS).all(|index| reading().pixel_at(now, index, PIXELS).b == 0)
 }

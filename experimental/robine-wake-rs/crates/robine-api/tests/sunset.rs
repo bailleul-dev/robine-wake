@@ -22,7 +22,7 @@ fn starts_at_once_with_the_whole_strip_amber() {
     assert!(pixels.iter().all(|pixel| *pixel == pixels[0]), "{pixels:?}");
     let amber = pixels[0];
     assert!(amber.r > 60 && amber.r < 128, "calm, not a reading light: {amber:?}");
-    assert!(amber.g > amber.b && amber.b <= 5, "amber, poor in blue: {amber:?}");
+    assert!(amber.g > 0 && amber.b == 0, "amber, without blue: {amber:?}");
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn never_turns_cold() {
     let sunset = sunset();
     for ms in (0..=60_000).step_by(500) {
         for pixel in strip(&sunset, 1_000 + ms) {
-            assert!(pixel.b * 20 <= pixel.r.max(1), "{ms} ms: {pixel:?}");
+            assert_eq!(pixel.b, 0, "{ms} ms: {pixel:?}");
             assert!(u16::from(pixel.g) * 2 <= u16::from(pixel.r).max(1), "{ms} ms: {pixel:?}");
         }
     }

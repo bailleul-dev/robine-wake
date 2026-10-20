@@ -8,13 +8,13 @@ use crate::light::Rgb;
 use crate::sunset::Sunset;
 
 /// Colour from the bottom (0) to the top (1) of the strip.
-/// The WS2812B blue die makes any white look cold: the bottom stays a
-/// candle-like amber, with hardly any blue.
+/// No blue at all before sleep, which the WS2812B blue die would also make
+/// look cold: the bottom is a candle flame, red and green only.
 const KEYFRAMES: [(f32, Rgb); 4] = [
-    (0.00, Rgb { r: 255, g: 100, b: 10 }), // ≈ 2100 K, candle
-    (0.55, Rgb { r: 255, g: 85, b: 5 }),   // ≈ 1900 K
-    (0.75, Rgb { r: 255, g: 55, b: 0 }),   // orange
-    (1.00, Rgb { r: 255, g: 15, b: 0 }),   // red
+    (0.00, Rgb { r: 255, g: 80, b: 0 }), // ≈ 1900 K, candle flame
+    (0.55, Rgb { r: 255, g: 68, b: 0 }), // ≈ 1800 K
+    (0.75, Rgb { r: 255, g: 45, b: 0 }), // orange
+    (1.00, Rgb { r: 255, g: 12, b: 0 }), // red
 ];
 
 /// Intensity at the top, in share of the bottom's: the red stays dim.

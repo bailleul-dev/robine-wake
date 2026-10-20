@@ -9,7 +9,7 @@ use crate::light::Rgb;
 /// Colour of the sun along the sunset, from its start to its end: never
 /// colder than ≈ 2200 K.
 const KEYFRAMES: [(f32, Rgb); 3] = [
-    (0.0, Rgb { r: 255, g: 95, b: 8 }), // ≈ 2200 K, amber
+    (0.0, Rgb { r: 255, g: 95, b: 0 }), // ≈ 2200 K, amber, without blue before sleep
     (0.5, Rgb { r: 255, g: 60, b: 0 }), // ≈ 1800 K, sun on the horizon
     (1.0, Rgb { r: 255, g: 15, b: 0 }), // red afterglow
 ];

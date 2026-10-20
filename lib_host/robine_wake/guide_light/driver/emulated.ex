@@ -107,9 +107,9 @@ defmodule RobineWake.GuideLight.Driver.Emulated do
   end
 
   defp colour("dawn", progress), do: mix({60, 12, 0}, {255, 210, 160}, progress)
-  defp colour("sunset", progress), do: mix({110, 40, 4}, {0, 0, 0}, progress)
+  defp colour("sunset", progress), do: mix({110, 40, 0}, {0, 0, 0}, progress)
   defp colour("breathing", _progress), do: {10, 0, 0}
-  defp colour("reading", _progress), do: {153, 84, 24}
+  defp colour("reading", _progress), do: {153, 48, 0}
 
   defp mix({r1, g1, b1}, {r2, g2, b2}, t),
     do: {round(r1 + (r2 - r1) * t), round(g1 + (g2 - g1) * t), round(b1 + (b2 - b1) * t)}
