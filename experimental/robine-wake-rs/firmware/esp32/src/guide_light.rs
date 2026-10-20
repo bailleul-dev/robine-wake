@@ -3,7 +3,8 @@
 //!
 //! The Raspberry Pi owns the 4/6 rhythm and sends `light.set` commands; this
 //! task only renders the current transition at 50 Hz, the same colour on
-//! every pixel. A dawn is rendered pixel by pixel instead.
+//! every pixel. A dawn or a breathing session is rendered pixel by pixel
+//! instead.
 
 use core::cell::Cell;
 
@@ -14,7 +15,7 @@ use esp_hal::gpio::Level;
 use esp_hal::rmt::{Channel, PulseCode, Tx};
 use esp_hal::Async;
 use log::warn;
-use robine_api::{Dawn, LightFade, Rgb};
+use robine_api::{Breathing, Cadence, Dawn, LightFade, Rgb};
 
 use crate::clock;
 
@@ -36,11 +37,12 @@ pub const PIXELS: usize = 60;
 pub const RMT_MEMSIZE: u8 = 4;
 
 /// What the strip shows: the transition published by the app after every
-/// command, or a dawn.
+/// command, a dawn or a breathing session.
 #[derive(Clone, Copy)]
 enum Scene {
     Fade(Option<LightFade>),
     Dawn(Dawn),
+    Breathing(Breathing),
 }
 
 static SCENE: Mutex<CriticalSectionRawMutex, Cell<Scene>> = Mutex::new(Cell::new(Scene::Fade(None)));
@@ -63,6 +65,13 @@ pub fn start_dawn(duration_ms: u64) {
         max_brightness: DAWN_MAX_BRIGHTNESS,
     };
     SCENE.lock(|current| current.set(Scene::Dawn(dawn)));
+}
+
+/// Starts breathing now at `cadence` (`Cadence::parse("0-4-0-6")` for
+/// cardiac coherence), until the next command.
+pub fn start_breathing(cadence: Cadence) {
+    let breathing = Breathing { started_ms: clock::monotonic_ms(), cadence };
+    SCENE.lock(|current| current.set(Scene::Breathing(breathing)));
 }
 
 /// Pulse codes of every pixel, GRB order, most significant bit first, then
@@ -101,6 +110,13 @@ pub async fn run(mut channel: Channel<'static, Async, Tx>) {
             Scene::Dawn(dawn) => {
                 shown = None;
                 encode(|index| dawn.pixel_at(now, index, PIXELS), &mut codes);
+                if let Err(error) = channel.transmit(&codes).await {
+                    warn!("guide light: {error:?}");
+                }
+            }
+            Scene::Breathing(breathing) => {
+                shown = None;
+                encode(|index| breathing.pixel_at(now, index, PIXELS), &mut codes);
                 if let Err(error) = channel.transmit(&codes).await {
                     warn!("guide light: {error:?}");
                 }

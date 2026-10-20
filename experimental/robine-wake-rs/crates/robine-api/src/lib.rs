@@ -15,6 +15,7 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
+mod breathing;
 mod command;
 mod dawn;
 mod device;
@@ -25,6 +26,7 @@ pub mod sounds;
 use alloc::vec::Vec;
 use chrono::{DateTime, Utc};
 
+pub use breathing::{Breathing, Cadence};
 pub use dawn::Dawn;
 pub use device::{AudioOutput, Device, SnapshotError};
 pub use light::{Easing, LightFade, LightLevel, Rgb, MAX_TRANSITION_MS};

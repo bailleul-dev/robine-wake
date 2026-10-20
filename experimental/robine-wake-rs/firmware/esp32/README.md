@@ -73,10 +73,20 @@ petite alimentation 5 V. Elle reste allumée jusqu'à la commande suivante.
 | `+5V`, `GND` (fils d'injection) | alimentation 5 V séparée |
 | `GND` | GND de la carte : sans masse commune, le signal se brouille |
 
+`guide_light::start_breathing(Cadence::parse("0-4-0-6"))` lance une
+respiration guidée ([30-003](../../../../docs/specs/30/003-guided-breathing/spec.md)),
+calculée par `robine_api::Breathing`. La cadence s'écrit `pause poumons
+vides-inspiration-pause poumons pleins-expiration`, en secondes (`0-4-0-6` :
+cohérence cardiaque). Poumons vides, seule la LED du centre luit en rouge
+très faible ; à l'inspiration, une fenêtre glisse du centre vers chaque bout
+en s'élargissant linéairement jusqu'à 10 LED par côté, et revient à
+l'expiration. Elle tourne jusqu'à la commande suivante.
+
 Démos de banc, sans Wi-Fi ni Pi :
 
 ```sh
 cargo run --release --bin dawn_demo     # aube compressée à 1 minute
+cargo run --release --bin breathing_demo  # respiration 0-4-0-6
 cargo run --release --bin strip_probe   # identifie le protocole d'un ruban inconnu
 ```
 
