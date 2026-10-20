@@ -160,6 +160,10 @@ fn starts_a_dawn_a_sunset_or_a_breathing_session() {
         other => panic!("{other:?}"),
     }
 
+    let status = ok(command(&mut device, 7_500, "light.program", json!({ "program": "reading", "duration_ms": 600_000 })));
+    // The reading time, then the 30-minute sunset.
+    assert_eq!((status["program"].clone(), status["duration_ms"].clone()), (json!("reading"), json!(2_400_000)));
+
     let status = ok(command(&mut device, 8_000, "light.program", json!({ "program": "off" })));
     assert_eq!(status["program"], serde_json::Value::Null);
     assert_eq!(device.light(), None);
@@ -204,10 +208,13 @@ fn rejects_invalid_programs() {
         (json!({ "program": "disco" }), "invalid_program"),
         (json!({ "program": "dawn" }), "invalid_duration"),
         (json!({ "program": "dawn", "duration_ms": 0 }), "invalid_duration"),
-        (json!({ "program": "sunset", "duration_ms": 7_200_001 }), "invalid_duration"),
+        (json!({ "program": "sunset", "duration_ms": 14_400_001 }), "invalid_duration"),
         (json!({ "program": "breathing", "duration_ms": 300_000 }), "invalid_cadence"),
         (json!({ "program": "breathing", "cadence": "4-6", "duration_ms": 300_000 }), "invalid_cadence"),
         (json!({ "program": "breathing", "cadence": "0-4-0-6" }), "invalid_duration"),
+        (json!({ "program": "reading" }), "invalid_duration"),
+        (json!({ "program": "reading", "duration_ms": 14_400_001 }), "invalid_duration"),
+        (json!({ "program": "reading", "duration_ms": 60_000, "sunset_ms": 14_400_001 }), "invalid_duration"),
     ];
     for (body, code) in cases {
         let response = command(&mut device, 0, "light.program", body.clone());

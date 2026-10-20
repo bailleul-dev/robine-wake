@@ -136,10 +136,16 @@ network light is involved.
   that full daylight arrives at the alarm time. Snooze turns the strip off and
   resuming starts it again; dismissal turns it off or leaves it lit, per alarm.
 - **Evening breathing.** The `Soir` screen starts a guided breathing session at
-  a chosen cadence and duration: the strip breathes while the speaker plays the
-  meditation ambience at the chosen volume. An alarm takes over the strip.
-- **Manual programs.** The same screen starts a sunrise or a sunset of 1 to 60
-  minutes, or turns the strip off.
+  a cadence picked from named patterns (or typed in) and a duration: the strip
+  breathes while the speaker plays the meditation ambience at the chosen volume. An alarm takes over the strip.
+- **Reading light.** On the `Soir` screen, a warm amber at the bottom of the
+  vertical strip to read by, orange then red towards the top, for up to 4
+  hours, then an optional sunset of up to 2 hours.
+- **Ambience.** A program can play a sound along, such as the storm and rain:
+  it lowers to silence as the light fades and stops with it.
+- **Manual programs.** The same screen starts a sunrise or a sunset of 1 minute
+  to 4 hours, or turns the strip off. It also reads the strip back, pixel by
+  pixel.
 
 Strip failures are logged and never prevent the local audio alarm from running.
 

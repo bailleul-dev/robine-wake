@@ -10,6 +10,7 @@ import robine/breathing.{type Breathing}
 import robine/calendar
 import robine/decoding.{defaulted, optional}
 import robine/id.{type Id}
+import robine/light
 import robine/nap.{type Nap}
 import robine/session.{type Active, type Past}
 import robine/sound.{type Sound}
@@ -25,6 +26,8 @@ pub type Snapshot {
     active_session: Option(Active),
     smartphone_dismiss: SmartphoneDismiss,
     breathing: Breathing,
+    /// The sound playing along the strip's program.
+    ambience: Option(light.Playing),
     remote: RemoteButtons,
     /// Where the clock answers commands over Wi-Fi, best first.
     http_endpoints: List(String),
@@ -73,6 +76,7 @@ pub const empty =
     active_session: None,
     smartphone_dismiss: SmartphoneDismiss(enabled: True, locked: False),
     breathing: breathing.Resting,
+    ambience: None,
     remote: RemoteButtons(pairing: False, buttons: []),
     http_endpoints: [],
   )
@@ -112,6 +116,7 @@ pub fn decoder() -> Decoder(Snapshot) {
     breathing.Resting,
     breathing.decoder(),
   )
+  use ambience <- defaulted("light_ambience", None, light.playing_decoder())
   use remote <- defaulted("remote_button", empty.remote, remote_decoder())
   use http_endpoints <- defaulted("transport", [], {
     use endpoints <- defaulted("http_endpoints", [], decode.list(decode.string))
@@ -127,6 +132,7 @@ pub fn decoder() -> Decoder(Snapshot) {
     active_session: option.flatten(active_session),
     smartphone_dismiss:,
     breathing:,
+    ambience:,
     remote:,
     http_endpoints:,
   ))

@@ -23,6 +23,7 @@ defmodule RobineWake.Application do
       RobineWake.Network,
       RobineWake.GuideLight,
       RobineWake.Breathing,
+      RobineWake.LightAmbience,
       RobineWake.AirPlay,
       RobineWake.BluetoothAudio,
       RobineWake.Audio,

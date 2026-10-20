@@ -32,7 +32,8 @@ pub type Command {
   StartBreathing(cadence: light.Cadence, length: light.Length, volume: Percent)
   SetBreathingVolume(Percent)
   StopBreathing
-  StartLightProgram(light.Program)
+  StartLightProgram(program: light.Program, ambience: Option(light.Ambience))
+  SetAmbienceVolume(Percent)
   /// What the strip shows, pixel by pixel.
   GetLight
   BeginButtonPairing
@@ -105,6 +106,7 @@ pub fn operation(command: Command) -> String {
     StopBreathing -> "breathing.stop"
     StartLightProgram(..) -> "light.program"
     GetLight -> "light.get"
+    SetAmbienceVolume(..) -> "light.ambience.volume"
     BeginButtonPairing -> "remote_button.pairing.begin"
     RemoveButton(..) -> "remote_button.remove"
   }
@@ -146,7 +148,10 @@ pub fn body(command: Command) -> Json {
       ])
     SetBreathingVolume(volume) ->
       json.object([#("volume_percent", json.int(level.percent_to_int(volume)))])
-    StartLightProgram(program) -> light.encode(program)
+    StartLightProgram(program:, ambience:) ->
+      light.encode_with(program, ambience)
+    SetAmbienceVolume(volume) ->
+      json.object([#("volume_percent", json.int(level.percent_to_int(volume)))])
     BeginButtonPairing -> json.object([#("duration_seconds", json.int(120))])
     RemoveButton(button) ->
       json.object([#("button_id", json.string(id.to_string(button)))])

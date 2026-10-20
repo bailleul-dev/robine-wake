@@ -11,6 +11,7 @@ defmodule RobineWake.WakeSession do
     EventStream,
     GuideLight,
     Id,
+    LightAmbience,
     Settings
   }
 
@@ -395,6 +396,7 @@ defmodule RobineWake.WakeSession do
     now = Clock.monotonic_ms()
     since = ringing_since(state, strong?, now, Clock.utc_now())
     Breathing.interrupt()
+    interrupt_ambience()
     start_dawn(state.alarm, now - since)
 
     with :ok <- Audio.play(state.id, sound_id),
@@ -520,6 +522,13 @@ defmodule RobineWake.WakeSession do
   # The dawn on the strip spans the pre-wake and reaches daylight at the
   # alarm time: started late (snooze, restart, strong test), it runs only for
   # what is left of the pre-wake, down to daylight at once.
+  # The speaker goes to the alarm; a stuck ambience must not hold it back.
+  defp interrupt_ambience do
+    LightAmbience.interrupt()
+  catch
+    :exit, _reason -> :ok
+  end
+
   defp start_dawn(%{light_profile: %{enabled: true}} = alarm, elapsed_ms) do
     duration_ms = max(alarm.prewake_seconds * 1_000 - elapsed_ms, 1)
     GuideLight.start_program(%{"program" => "dawn", "duration_ms" => duration_ms})

@@ -11,6 +11,7 @@ defmodule RobineWake.Bluetooth.Command do
     EventLog,
     GuideLight,
     Health,
+    LightAmbience,
     Nap,
     RemoteButton,
     Scheduler,
@@ -45,6 +46,7 @@ defmodule RobineWake.Bluetooth.Command do
     "breathing.stop",
     "light.program",
     "light.get",
+    "light.ambience.volume",
     "remote_button.status",
     "remote_button.pairing.begin",
     "remote_button.pair",
@@ -182,7 +184,9 @@ defmodule RobineWake.Bluetooth.Command do
          %{"cadence" => cadence, "duration_minutes" => duration_minutes} = body
        )
        when is_binary(cadence) and is_integer(duration_minutes) do
-    Breathing.start(cadence, duration_minutes, Map.get(body, "volume_percent", 60))
+    with {:ok, _ambience} <- LightAmbience.stop() do
+      Breathing.start(cadence, duration_minutes, Map.get(body, "volume_percent", 60))
+    end
   end
 
   defp dispatch("breathing.volume", %{"volume_percent" => volume_percent})
@@ -192,8 +196,17 @@ defmodule RobineWake.Bluetooth.Command do
   defp dispatch("breathing.stop", _body), do: Breathing.stop()
 
   # Forwarded to the ESP32, which renders the program on its LED strip.
-  defp dispatch("light.program", body) when is_map(body),
-    do: light_reply(GuideLight.program(body))
+  # A new program ends the breathing session, whose strip it takes; the
+  # optional `ambience` plays along and ends with the light.
+  defp dispatch("light.program", body) when is_map(body) do
+    with {:ok, ambience} <- ambience(Map.get(body, "ambience")),
+         {:ok, _breathing} <- Breathing.stop() do
+      body |> Map.delete("ambience") |> LightAmbience.start(ambience) |> light_reply()
+    end
+  end
+
+  defp dispatch("light.ambience.volume", %{"volume_percent" => volume}) when is_integer(volume),
+    do: LightAmbience.set_volume(volume)
 
   # What the strip shows, pixel by pixel, as the ESP32 renders it.
   defp dispatch("light.get", _body), do: light_reply(GuideLight.read())
@@ -220,6 +233,7 @@ defmodule RobineWake.Bluetooth.Command do
     with :ok <- Settings.reset(),
          :ok <- RemoteButton.reset(),
          {:ok, _breathing} <- Breathing.stop(),
+         {:ok, _ambience} <- LightAmbience.stop(),
          :ok <- maybe_reset_camera(),
          :ok <- EventLog.clear(),
          :ok <- Auth.factory_reset() do
@@ -246,6 +260,7 @@ defmodule RobineWake.Bluetooth.Command do
           Settings.smartphone_dismiss_locked?()
         ),
       "breathing" => normalize(Breathing.status()),
+      "light_ambience" => normalize(LightAmbience.status()),
       "remote_button" => normalize(RemoteButton.status()),
       "lora" => normalize(LoRaServer.safe_status()),
       "transport" => transport_dto(health)
@@ -298,9 +313,21 @@ defmodule RobineWake.Bluetooth.Command do
     }
   end
 
+  defp ambience(nil), do: {:ok, nil}
+
+  defp ambience(%{"sound_id" => sound_id} = ambience) when is_binary(sound_id),
+    do: {:ok, %{sound_id: sound_id, volume: Map.get(ambience, "volume_percent", 40)}}
+
+  defp ambience(_ambience), do: {:error, :validation_failed}
+
   defp light_reply({:ok, status}), do: {:ok, status}
   defp light_reply({:error, {:guide_light_rejected, code}}), do: {:error, code}
   defp light_reply({:error, :capability_unavailable}), do: {:error, :capability_unavailable}
+
+  defp light_reply({:error, reason})
+       when reason in [:invalid_ambience_volume, :sound_not_found, :wake_session_active],
+       do: {:error, reason}
+
   defp light_reply({:error, _unreachable}), do: {:error, :light_unavailable}
 
   defp camera_enabled?, do: Application.get_env(:robine_wake, :camera_enabled, true)
@@ -310,6 +337,7 @@ defmodule RobineWake.Bluetooth.Command do
     |> drop_unless(camera_enabled?(), "camera.calibrate")
     |> drop_unless(GuideLight.configured?(), "light.program")
     |> drop_unless(GuideLight.configured?(), "light.get")
+    |> drop_unless(GuideLight.configured?(), "light.ambience.volume")
   end
 
   defp drop_unless(operations, true, _operation), do: operations

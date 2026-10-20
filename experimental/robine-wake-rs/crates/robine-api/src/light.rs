@@ -14,14 +14,16 @@ use serde_json::{json, Map, Value};
 
 use crate::breathing::{Breathing, Cadence};
 use crate::dawn::Dawn;
+use crate::reading::{Reading, DEFAULT_SUNSET_MS};
 use crate::device::{Error, Result};
 use crate::sunset::Sunset;
 use crate::{Context, Device};
 
 /// Longest transition accepted, in milliseconds.
 pub const MAX_TRANSITION_MS: u64 = 60_000;
-/// Longest dawn or sunset accepted, in milliseconds: two hours.
-pub const MAX_PROGRAM_MS: u64 = 7_200_000;
+/// Longest program accepted, in milliseconds: four hours, for a long
+/// reading.
+pub const MAX_PROGRAM_MS: u64 = 14_400_000;
 /// Ceiling of a program's light, in percent: 60 pixels near 2 A on a small
 /// 5 V supply.
 pub const PROGRAM_MAX_BRIGHTNESS: f32 = 60.0;
@@ -118,6 +120,7 @@ pub enum LightScene {
     Dawn(Dawn),
     Sunset(Sunset),
     Breathing(Breathing),
+    Reading(Reading),
 }
 
 impl LightScene {
@@ -129,6 +132,7 @@ impl LightScene {
             LightScene::Dawn(dawn) => dawn.pixel_at(monotonic_ms, index, count),
             LightScene::Sunset(sunset) => sunset.pixel_at(monotonic_ms, index, count),
             LightScene::Breathing(breathing) => breathing.pixel_at(monotonic_ms, index, count),
+            LightScene::Reading(reading) => reading.pixel_at(monotonic_ms, index, count),
         }
     }
 
@@ -140,6 +144,7 @@ impl LightScene {
             LightScene::Dawn(dawn) => (dawn.started_ms, dawn.duration_ms),
             LightScene::Sunset(sunset) => (sunset.started_ms, sunset.duration_ms),
             LightScene::Breathing(breathing) => (breathing.started_ms, breathing.session_ms()),
+            LightScene::Reading(reading) => (reading.started_ms, reading.total_ms()),
         };
         Some((monotonic_ms.saturating_sub(started_ms), duration_ms))
     }
@@ -150,6 +155,7 @@ impl LightScene {
             LightScene::Dawn(_) => Some("dawn"),
             LightScene::Sunset(_) => Some("sunset"),
             LightScene::Breathing(_) => Some("breathing"),
+            LightScene::Reading(_) => Some("reading"),
         }
     }
 }
@@ -162,7 +168,9 @@ impl Device {
     }
 
     /// `light.program`: `{"program":"dawn"|"sunset","duration_ms":…}`,
-    /// `{"program":"breathing","cadence":"0-4-0-6","duration_ms":…}` or
+    /// `{"program":"breathing","cadence":"0-4-0-6","duration_ms":…}`,
+    /// `{"program":"reading","duration_ms":…,"sunset_ms":…}` (the sunset
+    /// after the reading time, 30 minutes when absent, none at 0) or
     /// `{"program":"off"}`.
     /// The program starts now and runs until the next light command.
     pub(crate) fn start_light_program(&mut self, body: &Map<String, Value>, ctx: &Context) -> Result<Value> {
@@ -196,6 +204,18 @@ impl Device {
                     cadence,
                 }))
             }
+            Some("reading") => Some(LightScene::Reading(Reading {
+                started_ms,
+                duration_ms: duration_ms()?,
+                sunset_ms: match body.get("sunset_ms") {
+                    None | Some(Value::Null) => DEFAULT_SUNSET_MS,
+                    Some(value) => value
+                        .as_u64()
+                        .filter(|ms| *ms <= MAX_PROGRAM_MS)
+                        .ok_or(Error::Code("invalid_duration"))?,
+                },
+                max_brightness: PROGRAM_MAX_BRIGHTNESS,
+            })),
             Some("off") => None,
             _ => return Err(Error::Code("invalid_program")),
         };

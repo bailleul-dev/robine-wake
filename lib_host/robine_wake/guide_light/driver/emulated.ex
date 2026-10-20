@@ -4,7 +4,7 @@ defmodule RobineWake.GuideLight.Driver.Emulated do
   each program on the halo of the 3D room, as one colour the viewer
   interpolates (the room has no pixels). A dawn rises from a faint orange to
   daylight, a sunset fades from amber to dark, a breathing session holds a
-  dim red. `light.get` reports the program and a uniform strip of the same
+  dim red, a reading light holds a warm white. `light.get` reports the program and a uniform strip of the same
   colours.
   """
 
@@ -48,6 +48,13 @@ defmodule RobineWake.GuideLight.Driver.Emulated do
     remember(body, duration)
     light(%{on: true, brightness: 24.0, mirek: @amber})
     light(%{on: true, brightness: 0.0, transition_ms: duration})
+  end
+
+  # A reading light, then the 30-minute sunset of the ESP32.
+  defp show("light.program", %{"program" => "reading", "duration_ms" => duration} = body) do
+    sunset = Map.get(body, "sunset_ms", 1_800_000)
+    remember(body, duration + sunset)
+    light(%{on: true, brightness: 40.0, mirek: 370})
   end
 
   defp show("light.program", %{"program" => "breathing", "duration_ms" => duration} = body) do
@@ -102,6 +109,7 @@ defmodule RobineWake.GuideLight.Driver.Emulated do
   defp colour("dawn", progress), do: mix({60, 12, 0}, {255, 210, 160}, progress)
   defp colour("sunset", progress), do: mix({110, 40, 4}, {0, 0, 0}, progress)
   defp colour("breathing", _progress), do: {10, 0, 0}
+  defp colour("reading", _progress), do: {153, 84, 24}
 
   defp mix({r1, g1, b1}, {r2, g2, b2}, t),
     do: {round(r1 + (r2 - r1) * t), round(g1 + (g2 - g1) * t), round(b1 + (b2 - b1) * t)}

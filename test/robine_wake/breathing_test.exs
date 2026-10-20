@@ -79,7 +79,7 @@ defmodule RobineWake.BreathingTest do
   end
 
   test "an alarm takes over the strip from the breathing session" do
-    {:ok, alarm} = Settings.create_alarm(%{label: "Test", local_time: "07:00"})
+    {:ok, alarm} = Settings.create_alarm(%{label: "Test", local_time: "12:00"})
     assert {:ok, %{active: true}} = Breathing.start("0-4-0-6", 5, 2)
 
     assert {:ok, _pid} = WakeSession.start(alarm)

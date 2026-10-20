@@ -11,7 +11,9 @@ defmodule RobineWake.WakeSessionTest do
     {:ok, alarm} =
       Settings.create_alarm(%{
         label: "Test",
-        local_time: "07:00",
+        # Far from the manual clock (07:00 in Paris): the scheduler must not
+        # start a session of its own beside the test's.
+        local_time: "12:00",
         days_of_week: [1, 2, 3, 4, 5, 6, 7],
         dismiss_policy: :either,
         strong_sound_id: "wake_up_call",

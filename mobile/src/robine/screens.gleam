@@ -910,10 +910,12 @@ fn breathing_circle(guided: Breathing, now: Timestamp) -> Element {
   ])
 }
 
+/// A volume slider; `commit` sends where it settled, to a sound playing.
 fn volume_control(
+  title: String,
   volume: Int,
-  active: Bool,
   set_volume: fn(Int) -> Nil,
+  commit: Option(fn(Int) -> Nil),
 ) -> Element {
   column(
     [
@@ -931,30 +933,14 @@ fn volume_control(
             s.font_weight("700"),
             s.color(theme.text),
           ],
-          pick(volume == 0, "🔇", "🔊") <> " Volume du jardin sonore",
+          pick(volume == 0, "🔇", "🔊") <> " " <> title,
         ),
         label(
           [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
           int.to_string(volume) <> " %",
         ),
       ]),
-      slider(
-        volume,
-        0,
-        100,
-        5,
-        theme.moon,
-        set_volume,
-        Some(fn(value) {
-          case active {
-            True ->
-              ignore(
-                actions.send(command.SetBreathingVolume(level.percent(value))),
-              )
-            False -> Nil
-          }
-        }),
-      ),
+      slider(volume, 0, 100, 5, theme.moon, set_volume, commit),
     ],
   )
 }
@@ -979,10 +965,44 @@ fn minutes_slider(
       ),
       label(
         [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
-        int.to_string(minutes) <> " min",
+        duration_label(minutes),
       ),
     ]),
     slider(minutes, 1, most, 1, theme.moon, set_minutes, None),
+  ])
+}
+
+/// `45 min`, `1 h 30`.
+fn duration_label(minutes: Int) -> String {
+  case minutes < 60 {
+    True -> int.to_string(minutes) <> " min"
+    False ->
+      int.to_string(minutes / 60)
+      <> " h"
+      <> case minutes % 60 {
+        0 -> ""
+        rest -> " " <> string.pad_start(int.to_string(rest), 2, "0")
+      }
+  }
+}
+
+/// The sunset after a reading light, from none to two hours.
+fn sunset_slider(minutes: Int, set_minutes: fn(Int) -> Nil) -> Element {
+  column([s.gap(8)], [
+    row([], [
+      label(
+        [s.flex(1), s.font_size(14), s.font_weight("700"), s.color(theme.text)],
+        "Coucher de soleil après la lecture",
+      ),
+      label(
+        [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
+        case minutes {
+          0 -> "Aucun"
+          minutes -> duration_label(minutes)
+        },
+      ),
+    ]),
+    slider(minutes, 0, 120, 5, theme.moon, set_minutes, None),
   ])
 }
 
@@ -1028,6 +1048,7 @@ fn breathing_card(desktop: Bool) -> Element {
 fn render_breathing_card(desktop: Bool) -> Element {
   let state = store.use_app_state()
   let #(cadence_text, set_cadence_text) = redraw.use_state(light.coherence)
+  let #(custom, set_custom) = redraw.use_state(False)
   let #(minutes, set_minutes) = redraw.use_state(10)
   let #(volume, set_volume) = use_evening_volume()
   let session = state.clock.breathing
@@ -1086,7 +1107,16 @@ fn render_breathing_card(desktop: Bool) -> Element {
                 "💡  Le réveil ne joint pas le ruban lumineux",
               )
           },
-          volume_control(volume, True, set_volume),
+          volume_control(
+            "Volume du jardin sonore",
+            volume,
+            set_volume,
+            Some(fn(value) {
+              ignore(
+                actions.send(command.SetBreathingVolume(level.percent(value))),
+              )
+            }),
+          ),
           theme.button("Terminer la séance", fn() {
             ignore(actions.send(command.StopBreathing))
           })
@@ -1100,48 +1130,93 @@ fn render_breathing_card(desktop: Bool) -> Element {
             [s.font_size(14), s.line_height(20), s.color(theme.muted)],
             "Poumons vides, seule la LED du centre luit en rouge très faible ; à l’inspiration, une fenêtre glisse vers les bouts du ruban et revient à l’expiration. La séance finit sur un souffle complet.",
           ),
-          label(
-            [s.font_size(14), s.font_weight("700"), s.color(theme.text)],
-            "Cadence",
-          ),
-          native.text_input([
-            native.prop("value", cadence_text),
-            native.prop("onChangeText", set_cadence_text),
-            native.prop("placeholder", light.coherence),
-            native.prop("placeholderTextColor", theme.muted),
-            native.prop("autoCapitalize", "none"),
-            native.prop("autoCorrect", False),
-            native.style(theme.input_style([])),
-          ]),
-          label(
-            [
-              s.font_size(12),
-              s.color(pick(result.is_ok(cadence), theme.muted, theme.rose)),
-            ],
-            "Pause poumons vides - inspiration - pause poumons pleins - expiration, en secondes. 0-4-0-6 : cohérence cardiaque.",
-          ),
-          minutes_slider("Durée", minutes, 30, set_minutes),
-          volume_control(volume, False, set_volume),
-          theme.button("Commencer la séance", fn() {
-            case cadence {
-              Ok(cadence) ->
-                ignore(
-                  actions.send(command.StartBreathing(
-                    cadence:,
-                    length: light.length(minutes),
-                    volume: level.percent(volume),
-                  )),
-                )
-              Error(Nil) -> Nil
+          pattern_picker(cadence_text, custom, fn(choice) {
+            case choice {
+              "" -> set_custom(True)
+              cadence -> {
+                set_custom(False)
+                set_cadence_text(cadence)
+              }
             }
-          })
-            |> theme.with_icon("play")
-            |> theme.primary
-            |> theme.disabled(state.busy || result.is_error(cadence))
-            |> theme.render,
+          }),
+          ..{
+            case custom {
+              False -> []
+              True -> [
+                native.text_input([
+                  native.prop("value", cadence_text),
+                  native.prop("onChangeText", set_cadence_text),
+                  native.prop("placeholder", light.coherence),
+                  native.prop("placeholderTextColor", theme.muted),
+                  native.prop("autoCapitalize", "none"),
+                  native.prop("autoCorrect", False),
+                  native.style(theme.input_style([])),
+                ]),
+                label(
+                  [
+                    s.font_size(12),
+                    s.color(pick(result.is_ok(cadence), theme.muted, theme.rose)),
+                  ],
+                  "Pause poumons vides - inspiration - pause poumons pleins - expiration, en secondes.",
+                ),
+              ]
+            }
+            |> list.append([
+              minutes_slider("Durée", minutes, 30, set_minutes),
+              volume_control(
+                "Volume du jardin sonore",
+                volume,
+                set_volume,
+                None,
+              ),
+              theme.button("Commencer la séance", fn() {
+                case cadence {
+                  Ok(cadence) ->
+                    ignore(
+                      actions.send(command.StartBreathing(
+                        cadence:,
+                        length: light.length(minutes),
+                        volume: level.percent(volume),
+                      )),
+                    )
+                  Error(Nil) -> Nil
+                }
+              })
+                |> theme.with_icon("play")
+                |> theme.primary
+                |> theme.disabled(state.busy || result.is_error(cadence))
+                |> theme.render,
+            ])
+          }
         ]
       }
     ]),
+  ])
+}
+
+/// The cadences offered by name, and a custom one typed in.
+fn pattern_picker(
+  cadence_text: String,
+  custom: Bool,
+  on_change: fn(String) -> Nil,
+) -> Element {
+  row([s.align_items("center"), s.gap(10)], [
+    label(
+      [s.flex(1), s.font_size(14), s.font_weight("700"), s.color(theme.text)],
+      "Rythme",
+    ),
+    native.picker(
+      [
+        native.prop("selectedValue", case custom {
+          True -> ""
+          False -> cadence_text
+        }),
+        native.prop("onValueChange", on_change),
+        native.prop("dropdownIconColor", theme.moon),
+        native.style(theme.picker_style([s.width(260)])),
+      ],
+      list.append(light.patterns, [#("", "Personnalisé…")]),
+    ),
   ])
 }
 
@@ -1152,8 +1227,24 @@ fn light_card(desktop: Bool) -> Element {
 }
 
 fn render_light_card(desktop: Bool) -> Element {
-  let busy = store.use_app_state().busy
+  let state = store.use_app_state()
+  let busy = state.busy
   let #(minutes, set_minutes) = redraw.use_state(30)
+  let #(sunset_minutes, set_sunset_minutes) = redraw.use_state(30)
+  // The ambience to play along: a sound id, or "" for none.
+  let #(sound_choice, set_sound_choice) = redraw.use_state("")
+  let #(volume, set_volume) = redraw.use_state(40)
+  let playing = state.clock.ambience
+  let ambient_sounds =
+    list.filter(state.clock.sounds, fn(candidate) {
+      !sound.is_strong(candidate)
+    })
+  let ambience =
+    id.find(ambient_sounds, sound_choice, fn(sound) { sound.id })
+    |> result.map(fn(sound) {
+      light.Ambience(sound: sound.id, volume: level.percent(volume))
+    })
+    |> option.from_result
   // The last reading, and when it arrived.
   let #(reading, set_reading) = redraw.use_state(None)
   let #(problem, set_problem) = redraw.use_state(None)
@@ -1185,8 +1276,19 @@ fn render_light_card(desktop: Bool) -> Element {
     #(),
   )
   let start = fn(program) {
-    settle(actions.send(command.StartLightProgram(program)))
+    settle(actions.send(command.StartLightProgram(program:, ambience:)))
   }
+  let active_volume = option.map(playing, fn(playing) { playing.volume })
+  redraw.use_effect(
+    fn() {
+      case active_volume {
+        Some(active_volume) if active_volume != volume ->
+          set_volume(active_volume)
+        _ -> Nil
+      }
+    },
+    #(active_volume),
+  )
   theme.card(False, dashboard_card_style(desktop), [
     column([s.gap(14)], [
       header(
@@ -1194,11 +1296,65 @@ fn render_light_card(desktop: Bool) -> Element {
         theme.icon("sunny", 20, theme.moon),
       ),
       strip_reading(reading, problem, now, read),
-      minutes_slider("Durée", minutes, 60, set_minutes),
+      minutes_slider("Durée", minutes, 240, set_minutes),
+      label(
+        [s.font_size(12), s.line_height(17), s.color(theme.muted)],
+        "Lecture : ambre chaud en bas du ruban, orange puis rouge vers le haut, pendant la durée choisie, puis le coucher de soleil choisi, ou le noir.",
+      ),
+      sunset_slider(sunset_minutes, set_sunset_minutes),
+      ambience_picker(sound_choice, ambient_sounds, set_sound_choice),
+      case playing {
+        Some(light.Playing(sound:, gain:, audible:, ..)) ->
+          label(
+            [
+              s.font_size(12),
+              s.font_weight("700"),
+              s.color(pick(audible, theme.mint, theme.rose)),
+            ],
+            case audible {
+              True ->
+                "🔊  "
+                <> sound_title(state.clock.sounds, sound)
+                <> " · "
+                <> int.to_string(gain)
+                <> " % en ce moment, jusqu’à l’extinction"
+              False -> "🔇  Le réveil ne joue pas l’ambiance"
+            },
+          )
+        None -> native.none()
+      },
+      case option.is_some(ambience) || option.is_some(playing) {
+        True ->
+          volume_control(
+            "Volume de l’ambiance",
+            volume,
+            set_volume,
+            case playing {
+              Some(_) ->
+                Some(fn(value) {
+                  ignore(
+                    actions.send(
+                      command.SetAmbienceVolume(level.percent(value)),
+                    ),
+                  )
+                })
+              None -> None
+            },
+          )
+        False -> native.none()
+      },
       row([s.gap(10)], [
-        theme.button("Lever de soleil", fn() { start(light.Dawn(length)) })
-          |> theme.with_icon("sunny")
+        theme.button("Lecture", fn() {
+          start(
+            light.ReadingLight(length, sunset: case sunset_minutes {
+              0 -> None
+              minutes -> Some(light.length(minutes))
+            }),
+          )
+        })
+          |> theme.with_icon("book")
           |> theme.grow
+          |> theme.primary
           |> theme.disabled(busy)
           |> theme.render,
         theme.button("Coucher de soleil", fn() { start(light.Sunset(length)) })
@@ -1207,12 +1363,53 @@ fn render_light_card(desktop: Bool) -> Element {
           |> theme.disabled(busy)
           |> theme.render,
       ]),
-      theme.button("Éteindre", fn() { start(light.Off) })
-        |> theme.with_icon("stop")
-        |> theme.disabled(busy)
-        |> theme.render,
+      row([s.gap(10)], [
+        theme.button("Lever de soleil", fn() { start(light.Dawn(length)) })
+          |> theme.with_icon("sunny")
+          |> theme.grow
+          |> theme.disabled(busy)
+          |> theme.render,
+        theme.button("Éteindre", fn() { start(light.Off) })
+          |> theme.with_icon("stop")
+          |> theme.grow
+          |> theme.disabled(busy)
+          |> theme.render,
+      ]),
     ]),
   ])
+}
+
+/// The sound to play with the next program, or none.
+fn ambience_picker(
+  choice: String,
+  sounds: List(sound.Sound),
+  set_choice: fn(String) -> Nil,
+) -> Element {
+  row([s.align_items("center"), s.gap(10)], [
+    label(
+      [s.flex(1), s.font_size(14), s.font_weight("700"), s.color(theme.text)],
+      "Ambiance",
+    ),
+    native.picker(
+      [
+        native.prop("selectedValue", choice),
+        native.prop("onValueChange", set_choice),
+        native.prop("dropdownIconColor", theme.moon),
+        native.style(theme.picker_style([s.width(200)])),
+      ],
+      [
+        #("", "Aucune"),
+        ..list.map(sounds, fn(sound) { #(id.to_string(sound.id), sound.title) })
+      ],
+    ),
+  ])
+}
+
+fn sound_title(sounds: List(sound.Sound), sound_id: String) -> String {
+  case id.find(sounds, sound_id, fn(sound) { sound.id }) {
+    Ok(sound) -> sound.title
+    Error(Nil) -> sound_id
+  }
 }
 
 /// The strip as the ESP32 last rendered it, one swatch a pixel, with the

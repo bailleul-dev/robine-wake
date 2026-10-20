@@ -13,6 +13,7 @@ defmodule RobineWake.DomainCase do
         Camera,
         Clock,
         GuideLight,
+        LightAmbience,
         Scheduler,
         Settings,
         WakeSession
@@ -46,6 +47,7 @@ defmodule RobineWake.DomainCase do
     if RobineWake.WakeSession.active(), do: RobineWake.WakeSession.dismiss(:test_cleanup)
     :ok = RobineWake.Settings.reset()
     {:ok, _breathing} = RobineWake.Breathing.stop()
+    {:ok, _ambience} = RobineWake.LightAmbience.stop()
     # Flush casts queued by the reset above before clearing their record.
     _ = RobineWake.GuideLight.status()
     :ok = GuideLightDriver.reset()

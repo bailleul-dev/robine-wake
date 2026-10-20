@@ -21,6 +21,7 @@ mod dawn;
 mod device;
 mod dto;
 mod light;
+mod reading;
 mod sunset;
 pub mod sounds;
 
@@ -34,6 +35,7 @@ pub use light::{
     Easing, LightFade, LightLevel, LightScene, Rgb, MAX_PROGRAM_MS, MAX_TRANSITION_MS, PROGRAM_MAX_BRIGHTNESS,
 };
 pub use sounds::Sound;
+pub use reading::Reading;
 pub use sunset::Sunset;
 
 /// Port of the HTTP command endpoint, shared with the Raspberry Pi build.
