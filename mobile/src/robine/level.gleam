@@ -1,4 +1,4 @@
-//// Levels the clock bounds: volumes and Hue brightness.
+//// Levels the clock bounds: volumes.
 
 import gleam/dynamic/decode.{type Decoder}
 import gleam/int
@@ -34,49 +34,13 @@ pub fn percent_decoder() -> Decoder(Percent) {
   }
 }
 
-/// Hue brightness, from 1 to 100: a light at 0 is simply off.
-pub opaque type Brightness {
-  Brightness(Int)
-}
-
-pub fn brightness(value: Int) -> Brightness {
-  Brightness(int.clamp(value, 1, 100))
-}
-
-pub fn brightness_from_int(value: Int) -> Result(Brightness, Nil) {
-  case value >= 1 && value <= 100 {
-    True -> Ok(Brightness(value))
-    False -> Error(Nil)
-  }
-}
-
-pub fn brightness_to_int(brightness: Brightness) -> Int {
-  let Brightness(value) = brightness
-  value
-}
-
-pub fn brightness_decoder() -> Decoder(Brightness) {
-  use value <- decode.then(decoding.number())
-  case brightness_from_int(value) {
-    Ok(brightness) -> decode.success(brightness)
-    Error(Nil) -> decode.failure(Brightness(1), "Brightness")
-  }
-}
-
-/// Two levels, the second at least the first: a sound or a light that rises.
+/// Two levels, the second at least the first: a sound that rises.
 pub opaque type Rise(level) {
   Rise(from: level, to: level)
 }
 
 pub fn percent_rise(from: Percent, to: Percent) -> Result(Rise(Percent), Nil) {
   rise(from, to, percent_to_int)
-}
-
-pub fn brightness_rise(
-  from: Brightness,
-  to: Brightness,
-) -> Result(Rise(Brightness), Nil) {
-  rise(from, to, brightness_to_int)
 }
 
 fn rise(from: a, to: a, as_int: fn(a) -> Int) -> Result(Rise(a), Nil) {

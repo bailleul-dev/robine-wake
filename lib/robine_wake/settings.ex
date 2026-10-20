@@ -49,7 +49,6 @@ defmodule RobineWake.Settings do
     do: {:error, %{smartphone_dismiss_enabled: "must be a boolean"}}
 
   def detection_profile, do: GenServer.call(__MODULE__, :detection_profile)
-  def hue_bridge, do: GenServer.call(__MODULE__, :hue_bridge)
   def remote_buttons, do: GenServer.call(__MODULE__, :remote_buttons)
 
   def put_remote_button(id, name, secret),
@@ -59,8 +58,6 @@ defmodule RobineWake.Settings do
     do: GenServer.call(__MODULE__, {:authorize_remote_button, id, counter, mac})
 
   def remove_remote_button(id), do: GenServer.call(__MODULE__, {:remove_remote_button, id})
-  def put_hue_bridge(config), do: GenServer.call(__MODULE__, {:put_hue_bridge, config})
-  def clear_hue_bridge, do: GenServer.call(__MODULE__, :clear_hue_bridge)
 
   def put_detection_profile(profile),
     do: GenServer.call(__MODULE__, {:put_detection_profile, profile})
@@ -264,9 +261,6 @@ defmodule RobineWake.Settings do
   def handle_call(:detection_profile, _from, state),
     do: {:reply, state.settings["detection_profile"], state}
 
-  def handle_call(:hue_bridge, _from, state),
-    do: {:reply, state.settings["hue_bridge"], state}
-
   def handle_call(:remote_buttons, _from, state) do
     buttons =
       state.settings
@@ -335,25 +329,6 @@ defmodule RobineWake.Settings do
     end
   end
 
-  def handle_call({:put_hue_bridge, config}, _from, state) when is_map(config) do
-    settings = Map.put(state.settings, "hue_bridge", normalize(config))
-    next = %{state | settings: settings}
-
-    case persist(next) do
-      :ok -> {:reply, :ok, next}
-      {:error, reason} -> {:reply, {:error, reason}, state}
-    end
-  end
-
-  def handle_call(:clear_hue_bridge, _from, state) do
-    next = %{state | settings: Map.delete(state.settings, "hue_bridge")}
-
-    case persist(next) do
-      :ok -> {:reply, :ok, next}
-      {:error, reason} -> {:reply, {:error, reason}, state}
-    end
-  end
-
   def handle_call({:put_detection_profile, profile}, _from, state) do
     settings = Map.put(state.settings, "detection_profile", normalize(profile))
     next = %{state | settings: settings}
@@ -411,7 +386,8 @@ defmodule RobineWake.Settings do
       path: path,
       alarms: alarms,
       sessions: Map.get(data, "sessions", []),
-      settings: Map.get(data, "settings", %{}),
+      # The Philips Hue bridge and its application key are gone with Hue.
+      settings: data |> Map.get("settings", %{}) |> Map.delete("hue_bridge"),
       created_at: Map.get(data, "created_at", DateTime.to_iso8601(Clock.utc_now())),
       degraded: nil
     }

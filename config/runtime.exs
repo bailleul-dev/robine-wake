@@ -51,7 +51,7 @@ if host_target? and System.get_env("ROBINE_DEMO") in ["1", "true"] do
 
   config :robine_wake,
     clock: RobineWakeDev.Clock.Scaled,
-    hue_driver: RobineWake.Hue.Driver.Emulated,
+    guide_light: [driver: RobineWake.GuideLight.Driver.Emulated],
     audio_driver: RobineWake.Audio.Driver.Emulated,
     initial_time_quality: :trusted,
     remote_dismiss_enabled: true,

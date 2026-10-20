@@ -4,13 +4,13 @@ defmodule RobineWakeWeb.Router do
   alias RobineWake.{
     Alarm,
     Auth,
+    Breathing,
     Camera,
     ClockQuality,
     Diagnostics,
     EventLog,
     EventStream,
     Health,
-    Hue,
     RemoteButton,
     Scheduler,
     Settings,
@@ -143,18 +143,17 @@ defmodule RobineWakeWeb.Router do
         enabled: Settings.smartphone_dismiss_enabled(),
         locked: Settings.smartphone_dismiss_locked?()
       },
-      hue: Hue.status(),
-      hue_targets: Hue.targets(),
+      breathing: Breathing.status(),
       remote_button: RemoteButton.status(),
       lora: LoRaServer.safe_status()
     })
   end
 
   post "/api/breathing/start" do
-    with target_id when is_binary(target_id) <- conn.body_params["target_id"],
+    with cadence when is_binary(cadence) <- conn.body_params["cadence"],
          duration when is_integer(duration) <- conn.body_params["duration_minutes"],
          volume when is_integer(volume) <- conn.body_params["volume_percent"],
-         {:ok, status} <- Hue.start_breathing(target_id, duration, volume) do
+         {:ok, status} <- Breathing.start(cadence, duration, volume) do
       json(conn, 200, %{data: status})
     else
       nil -> api_error(conn, :invalid_body)
@@ -164,14 +163,14 @@ defmodule RobineWakeWeb.Router do
   end
 
   post "/api/breathing/volume" do
-    case Hue.set_breathing_volume(conn.body_params["volume_percent"]) do
+    case Breathing.set_volume(conn.body_params["volume_percent"]) do
       {:ok, status} -> json(conn, 200, %{data: status})
       {:error, reason} -> api_error(conn, reason)
     end
   end
 
   post "/api/breathing/stop" do
-    case Hue.stop_breathing() do
+    case Breathing.stop() do
       {:ok, status} -> json(conn, 200, %{data: status})
       {:error, reason} -> api_error(conn, reason)
     end
@@ -644,19 +643,18 @@ defmodule RobineWakeWeb.Router do
         </section>
 
         <section id="screen-evening" class="app-screen">
-          <header class="evening-hero"><div class="breathing-orb" aria-hidden="true"><span></span></div><p class="eyebrow">Rituel du soir</p><h1>Ralentir avant la nuit</h1><p>Une respiration guidée uniquement par la lumière, sur un orage naturel et continu.</p></header>
+          <header class="evening-hero"><div class="breathing-orb" aria-hidden="true"><span></span></div><p class="eyebrow">Rituel du soir</p><h1>Ralentir avant la nuit</h1><p>Une respiration guidée par le ruban lumineux, sur un orage naturel et continu.</p></header>
           <div class="dashboard">
             <section class="panel full breathing-panel">
-              <div class="panel-head"><div><span class="panel-kicker rose">Respiration 4 / 6</span><h2 id="breathing-title">Préparer la séance</h2></div><strong id="breathing-badge" class="breathing-badge">Prêt</strong></div>
-              <div id="breathing-active" class="breathing-active" hidden><div class="phase-visual"><div id="phase-orb" class="phase-orb"></div><div><span id="breathing-phase" class="panel-kicker">Inspiration</span><strong id="breathing-remaining">—</strong><small id="breathing-target-name">Lumière Hue</small></div></div></div>
-              <p class="panel-copy">La couleur glisse directement entre deux teintes chaudes proches, sans passer par le blanc ; seule la luminosité varie lentement. L’orage reste constant même si cet écran se ferme.</p>
-              <div class="phase-legends"><div><i class="inhale-dot"></i><span><strong>Inspiration</strong><small>4 s · ambre doré · 1 → 30 %</small></span></div><div><i class="exhale-dot"></i><span><strong>Expiration</strong><small>6 s · rose crépusculaire · 30 → 1 %</small></span></div></div>
-              <div class="evening-controls">
-                <label class="field">Pièce ou zone<select id="breathing-target"></select></label>
+              <div class="panel-head"><div><span class="panel-kicker rose">Respiration</span><h2 id="breathing-title">Préparer la séance</h2></div><strong id="breathing-badge" class="breathing-badge">Prêt</strong></div>
+              <div id="breathing-active" class="breathing-active" hidden><div class="phase-visual"><div id="phase-orb" class="phase-orb"></div><div><span id="breathing-phase" class="panel-kicker">Inspiration</span><strong id="breathing-remaining">—</strong><small id="breathing-cadence-name">0-4-0-6</small></div></div></div>
+              <p class="panel-copy">Une fenêtre rouge et faible s’élargit du centre du ruban à l’inspiration et revient à l’expiration. L’orage reste constant même si cet écran se ferme.</p>
+                            <div class="evening-controls">
+                <label class="field">Cadence<input id="breathing-cadence" value="0-4-0-6" autocomplete="off"></label>
                 <label class="field">Durée<select id="breathing-duration"><option value="3">3 minutes</option><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select></label>
                 <label class="field range-field volume-control">Volume <output id="breathing-volume-output">60 %</output><input id="breathing-volume" type="range" min="0" max="100" step="5" value="60" oninput="syncBreathingVolume()" onchange="commitBreathingVolume()"></label>
               </div>
-              <div class="actions breathing-actions"><button id="breathing-start" class="primary" onclick="startBreathing()">▶ Commencer la séance</button><button id="breathing-stop" class="danger" onclick="stopBreathing()" hidden>■ Terminer et restaurer la lumière</button></div>
+              <div class="actions breathing-actions"><button id="breathing-start" class="primary" onclick="startBreathing()">▶ Commencer la séance</button><button id="breathing-stop" class="danger" onclick="stopBreathing()" hidden>■ Terminer la séance</button></div>
               <p id="breathing-message" class="panel-copy" role="status"></p>
             </section>
           </div>
@@ -745,13 +743,12 @@ defmodule RobineWakeWeb.Router do
         async function request(path, options={}) { const method=options.method||'GET'; const headers={'content-type':'application/json',...(options.headers||{})}; if(!['GET','HEAD','OPTIONS'].includes(method.toUpperCase()))headers['x-csrf-token']=csrfToken; const url=new URL(path,location.origin); const response=await fetch(url,{...options,headers}); if(!response.ok){throw await response.json()} return response.status===204?null:response.json(); }
         function showScreen(name){for(const screen of document.querySelectorAll('.app-screen'))screen.classList.toggle('active',screen.id===`screen-${name}`);for(const tab of document.querySelectorAll('.app-tab'))tab.classList.toggle('active',tab.dataset.screen===name);window.scrollTo({top:0,behavior:'smooth'})}
         function showDiagnostics(){showScreen('system');history.replaceState(null,'','#diagnostics');requestAnimationFrame(()=>{const panel=document.querySelector('#diagnostics-panel');panel.scrollIntoView({behavior:'smooth',block:'start'});panel.focus({preventScroll:true})})}
-        const reasonLabel=reason=>({confirmation_required:"Confirmation de l’heure nécessaire",clock_untrusted:'Horloge non synchronisée',hue_not_configured:'Pont Hue non configuré'}[reason]||reason||'Aucun problème détecté');
+        const reasonLabel=reason=>({confirmation_required:"Confirmation de l’heure nécessaire",clock_untrusted:'Horloge non synchronisée'}[reason]||reason||'Aucun problème détecté');
         function renderDiagnostics(data){const h=data.health;const items=[
           {name:'Horloge',state:h.clock.state,detail:h.clock.trusted?`Synchronisée automatiquement · ${h.clock.source}`:reasonLabel(h.clock.reason)},
           {name:'Alarmes',state:h.scheduler.state,detail:h.scheduler.armed?'Planificateur armé':`Planificateur désarmé · ${reasonLabel(h.clock.reason)}`},
           {name:'Audio',state:h.audio.driver_status.state,detail:h.audio.last_error?String(h.audio.last_error):h.audio.driver_status.device},
           {name:'Réseau',state:h.network.state,detail:(h.network.ipv4_addresses||[]).join(' · ')||'Aucune adresse réseau'},
-          {name:'Lumières Hue',state:data.hue.state,detail:data.hue.last_error||`${data.hue.target_count||0} pièce(s) disponible(s)`},
           {name:'Récepteur LoRa',state:data.lora?.state||'unavailable',detail:data.lora?.last_error||`${((data.lora?.frequency_hz||0)/1000000).toFixed(1)} MHz · ${data.lora?.packets_received||0} paquet(s) reçu(s)`},
           {name:'Stockage',state:h.storage.state,detail:'Configuration locale'},
           {name:'Firmware',state:h.firmware.state,detail:`${h.firmware.validation} · ${h.firmware.build_id}`},
@@ -759,7 +756,8 @@ defmodule RobineWakeWeb.Router do
           {name:'Bluetooth',state:h.bluetooth_audio?.state||'unavailable',detail:h.bluetooth_audio?.reason||h.bluetooth_audio?.name}
         ];const rank={unhealthy:0,unavailable:0,degraded:1,unknown:1,healthy:2,available:2,trusted:2};items.sort((a,b)=>(rank[a.state]??1)-(rank[b.state]??1));document.querySelector('#diagnostics-summary').textContent=h.state==='healthy'?'Tout est opérationnel':'Intervention recommandée';document.querySelector('#diagnostics-summary').className=h.state;document.querySelector('#diagnostics-list').innerHTML=items.map(item=>`<div class="diagnostic-item"><span>${esc(item.name)}</span><strong class="${esc(item.state)}">${esc(item.state==='healthy'||item.state==='available'||item.state==='trusted'?'OK':item.state==='degraded'?'À vérifier':'Indisponible')}</strong><small>${esc(item.detail)}</small></div>`).join('')}
         function alarmMarkup(a){const prewake=(a.prewake_seconds??a.volume_profile.ramp_seconds)/60;return `<article class="alarm ${a.enabled?'':'disabled'}"><div class="alarm-time">${esc(a.local_time.slice(0,5))}</div><div><strong>${esc(a.label)}</strong><div class="alarm-meta"><span>${esc(a.enabled?repeatLabel(a):'En pause')}</span><span>·</span><span>début ${esc(prewake)} min avant</span></div><div class="sound-route"><span>${esc(soundName(a.sound_id))}</span><i>→</i><span>${esc(soundName(a.strong_sound_id))}</span></div></div><div class="actions"><button class="ghost" onclick="triggerAlarm('${a.id}')">Tester doux</button><button class="danger" onclick="triggerStrongAlarm('${a.id}')">Tester fort</button><button class="ghost" onclick="openAlarmEditor('${a.id}')">Modifier</button><button class="secondary" onclick="toggleAlarm('${a.id}')">${a.enabled?'Pause':'Activer'}</button><button class="danger" onclick="deleteAlarm('${a.id}')">Supprimer</button></div></article>`}
-        function renderBreathing(data){const breathing=data.hue?.breathing;const active=breathing?.active===true;const targetSelect=document.querySelector('#breathing-target');const selected=active?breathing.target_id:targetSelect.value;targetSelect.innerHTML=(data.hue_targets||[]).map(target=>`<option value="${esc(target.id)}">${esc(target.name)}</option>`).join('');if([...targetSelect.options].some(option=>option.value===selected))targetSelect.value=selected;document.querySelector('#breathing-active').hidden=!active;document.querySelector('#breathing-start').hidden=active;document.querySelector('#breathing-stop').hidden=!active;document.querySelector('#breathing-title').textContent=active?'La séance est en cours':'Préparer la séance';document.querySelector('#breathing-badge').textContent=active?'En cours':data.hue?.state==='available'?'Prêt':'Hue indisponible';document.querySelector('#breathing-badge').className=`breathing-badge ${active?'active':''}`;if(active){const inhale=breathing.phase==='inhale';document.querySelector('#breathing-phase').textContent=inhale?'Inspiration':'Expiration';document.querySelector('#phase-orb').className=`phase-orb ${inhale?'inhale':'exhale'}`;document.querySelector('#breathing-remaining').textContent=`${Math.ceil((breathing.remaining_seconds||0)/60)} min restantes`;document.querySelector('#breathing-target-name').textContent=breathing.target_name||'Lumière Hue';const volume=breathing.audio?.volume_percent??60;document.querySelector('#breathing-volume').value=volume;document.querySelector('#breathing-volume-output').textContent=`${volume} %`}}
+        function breathingPhase(b){const breath=b.hold_empty_ms+b.inhale_ms+b.hold_full_ms+b.exhale_ms;let t=breath>0?b.elapsed_ms%breath:0;if(t<b.hold_empty_ms)return'pause';t-=b.hold_empty_ms;if(t<b.inhale_ms)return'inhale';t-=b.inhale_ms;if(t<b.hold_full_ms)return'pause';return'exhale'}
+        function renderBreathing(data){const breathing=data.breathing;const active=breathing?.active===true;document.querySelector('#breathing-active').hidden=!active;document.querySelector('#breathing-start').hidden=active;document.querySelector('#breathing-stop').hidden=!active;document.querySelector('#breathing-title').textContent=active?'La séance est en cours':'Préparer la séance';document.querySelector('#breathing-badge').textContent=active?'En cours':'Prêt';document.querySelector('#breathing-badge').className=`breathing-badge ${active?'active':''}`;if(active){const phase=breathingPhase(breathing);document.querySelector('#breathing-phase').textContent={inhale:'Inspiration',exhale:'Expiration',pause:'Pause'}[phase];document.querySelector('#phase-orb').className=`phase-orb ${phase==='exhale'?'exhale':'inhale'}`;document.querySelector('#breathing-remaining').textContent=`${Math.ceil((breathing.remaining_seconds||0)/60)} min restantes`;document.querySelector('#breathing-cadence-name').textContent=breathing.light?.active?breathing.cadence:`${breathing.cadence} · ruban injoignable`;const volume=breathing.volume_percent??60;document.querySelector('#breathing-volume').value=volume;document.querySelector('#breathing-volume-output').textContent=`${volume} %`}}
         function renderRemoteButton(data){const remote=data.remote_button||{};const radio=data.lora||{};const listening=radio.state==='listening';const pairing=remote.pairing?.active===true;const buttons=remote.buttons||[];document.querySelector('#remote-button-state').textContent=!listening?'Récepteur indisponible':pairing?'Association en cours':buttons.length?`${buttons.length} bouton(s) prêt(s)`:'Prêt à associer';document.querySelector('#remote-button-list').innerHTML=buttons.length?buttons.map(button=>`<div class="timeline-item"><div><strong>${esc(button.name)}</strong><br><small>${button.last_seen_at?`Dernier appui · ${esc(new Date(button.last_seen_at).toLocaleString('fr-FR'))}`:'Jamais utilisé'}</small></div><button class="danger" onclick="removeRemoteButton('${esc(button.id)}')">Oublier</button></div>`).join(''):'<div class="empty-state">Aucun bouton associé.</div>';document.querySelector('#remote-button-pair').disabled=pairing||!listening;document.querySelector('#remote-button-message').textContent=!listening?`Le module LoRa n’est pas prêt${radio.last_error?` : ${radio.last_error}`:'.'}`:pairing?'Fenêtre ouverte pendant 2 minutes : maintenez maintenant le bouton physique enfoncé.':`Récepteur à ${((radio.frequency_hz||0)/1000000).toFixed(1)} MHz.`}
         async function refresh(){
           const data=await request('/api/state'); stateCache={...data,sounds:stateCache.sounds}; const h=data.health; const now=new Date(h.now); const health=document.querySelector('#health');
@@ -796,9 +794,9 @@ defmodule RobineWakeWeb.Router do
         async function setSmartphoneDismiss(enabled){await request('/api/settings/smartphone-dismiss',{method:'PATCH',body:JSON.stringify({enabled})});await refresh()}
         async function observe(state){await request('/api/simulation/observation',{method:'POST',body:JSON.stringify({state,confidence:.95})});await refresh()}
         function syncBreathingVolume(){document.querySelector('#breathing-volume-output').textContent=`${document.querySelector('#breathing-volume').value} %`}
-        async function commitBreathingVolume(){if(stateCache.hue?.breathing?.active!==true)return;const message=document.querySelector('#breathing-message');try{await request('/api/breathing/volume',{method:'POST',body:JSON.stringify({volume_percent:Number(document.querySelector('#breathing-volume').value)})});message.textContent='Volume mis à jour.'}catch(error){message.textContent=error.error?.message||'Impossible de modifier le volume.'}}
-        async function startBreathing(){const message=document.querySelector('#breathing-message');const target=document.querySelector('#breathing-target').value;if(!target){message.textContent='Aucune pièce Hue disponible.';return}message.textContent='Démarrage de la séance…';try{await request('/api/breathing/start',{method:'POST',body:JSON.stringify({target_id:target,duration_minutes:Number(document.querySelector('#breathing-duration').value),volume_percent:Number(document.querySelector('#breathing-volume').value)})});message.textContent='La lumière et le paysage sonore démarrent.';await refresh()}catch(error){message.textContent=error.error?.message||'Impossible de démarrer la séance.'}}
-        async function stopBreathing(){const message=document.querySelector('#breathing-message');message.textContent='Fin de la séance…';try{await request('/api/breathing/stop',{method:'POST',body:'{}'});message.textContent='Séance terminée, lumière restaurée.';await refresh()}catch(error){message.textContent=error.error?.message||'Impossible de terminer la séance.'}}
+        async function commitBreathingVolume(){if(stateCache.breathing?.active!==true)return;const message=document.querySelector('#breathing-message');try{await request('/api/breathing/volume',{method:'POST',body:JSON.stringify({volume_percent:Number(document.querySelector('#breathing-volume').value)})});message.textContent='Volume mis à jour.'}catch(error){message.textContent=error.error?.message||'Impossible de modifier le volume.'}}
+        async function startBreathing(){const message=document.querySelector('#breathing-message');const cadence=document.querySelector('#breathing-cadence').value.trim();message.textContent='Démarrage de la séance…';try{await request('/api/breathing/start',{method:'POST',body:JSON.stringify({cadence,duration_minutes:Number(document.querySelector('#breathing-duration').value),volume_percent:Number(document.querySelector('#breathing-volume').value)})});message.textContent='Le ruban et le paysage sonore démarrent.';await refresh()}catch(error){message.textContent=error.error?.message||'Impossible de démarrer la séance.'}}
+        async function stopBreathing(){const message=document.querySelector('#breathing-message');message.textContent='Fin de la séance…';try{await request('/api/breathing/stop',{method:'POST',body:'{}'});message.textContent='Séance terminée.';await refresh()}catch(error){message.textContent=error.error?.message||'Impossible de terminer la séance.'}}
         async function confirmTime(){await request('/api/time/confirm',{method:'POST',body:'{}'});await refresh()}
         async function beginRemoteButtonPairing(){const message=document.querySelector('#remote-button-message');try{await request('/api/remote-button/pairing',{method:'POST',body:JSON.stringify({duration_seconds:120})});message.textContent='Fenêtre ouverte : maintenez maintenant le bouton physique enfoncé.';await refresh()}catch(error){message.textContent='Impossible d’ouvrir la fenêtre d’association.'}}
         async function removeRemoteButton(id){if(confirm('Oublier ce bouton ?')){await request(`/api/remote-button/${encodeURIComponent(id)}`,{method:'DELETE'});await refresh()}}

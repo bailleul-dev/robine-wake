@@ -1,6 +1,6 @@
 //! Bench demo of guided breathing on the guide light strip (GPIO 13): a dim
 //! red glow that widens from the centre on the inhale and shrinks back on
-//! the exhale, at the cadence below, until the board is reset.
+//! the exhale, at the cadence below: one-minute sessions, 5 s apart.
 //!
 //! `cargo run --release --bin breathing_demo`
 
@@ -20,6 +20,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 /// Hold empty - inhale - hold full - exhale, in seconds: cardiac coherence.
 const CADENCE: &str = "0-4-0-6";
+const DURATION_MS: u64 = 60_000;
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
@@ -34,9 +35,11 @@ async fn main(spawner: Spawner) -> ! {
 
     let cadence = Cadence::parse(CADENCE).expect("cadence");
     info!("breathing: {CADENCE}, {} breaths a minute", 60_000 / cadence.breath_ms());
-    guide_light::start_breathing(cadence);
     loop {
-        Timer::after_millis(cadence.breath_ms()).await;
-        info!("breathing: next breath");
+        info!("breathing: start ({} s)", DURATION_MS / 1_000);
+        guide_light::start_breathing(cadence, DURATION_MS);
+        Timer::after_millis(DURATION_MS).await;
+        info!("breathing: over, dark 5 s");
+        Timer::after_millis(5_000).await;
     }
 }

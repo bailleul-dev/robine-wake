@@ -11,23 +11,24 @@ defmodule RobineWakeDev.DemoTest do
   setup do
     start_supervised!({Phoenix.PubSub, name: RobineWakeDev.PubSub})
     start_supervised!(Hardware)
-    swap_drivers(RobineWake.Hue.Driver.Emulated, RobineWake.Audio.Driver.Emulated)
+    guide_light = Application.get_env(:robine_wake, :guide_light)
+    Application.put_env(:robine_wake, :guide_light, driver: RobineWake.GuideLight.Driver.Emulated)
+    swap_audio(RobineWake.Audio.Driver.Emulated)
 
-    on_exit(fn -> swap_drivers(RobineWake.Hue.Driver.Test, RobineWake.Audio.Driver.Host) end)
+    on_exit(fn ->
+      Application.put_env(:robine_wake, :guide_light, guide_light)
+      swap_audio(RobineWake.Audio.Driver.Host)
+    end)
 
     :ok = Hardware.subscribe()
     :ok
   end
 
-  # Hue and Audio pick their driver when they start.
-  defp swap_drivers(hue, audio) do
-    Application.put_env(:robine_wake, :hue_driver, hue)
+  # Audio picks its driver when it starts; the guide light at each request.
+  defp swap_audio(audio) do
     Application.put_env(:robine_wake, :audio_driver, audio)
-
-    for child <- [RobineWake.Hue, RobineWake.Audio] do
-      :ok = Supervisor.terminate_child(RobineWake.Supervisor, child)
-      {:ok, _pid} = Supervisor.restart_child(RobineWake.Supervisor, child)
-    end
+    :ok = Supervisor.terminate_child(RobineWake.Supervisor, RobineWake.Audio)
+    {:ok, _pid} = Supervisor.restart_child(RobineWake.Supervisor, RobineWake.Audio)
   end
 
   defp ringing_alarm(light_profile \\ %{}) do
@@ -44,39 +45,27 @@ defmodule RobineWakeDev.DemoTest do
     alarm
   end
 
-  test "the emulated bridge exposes the bar's lights and stores what the domain sets" do
-    assert {:ok, _status} = Hue.pair("emulated-bridge")
-    assert Enum.map(Hue.targets(), & &1["id"]) |> Enum.sort() == ["bedroom", "halo", "lamps"]
+  test "the emulated strip shows its programs on the halo" do
+    assert {:ok, %{"program" => "dawn"}} =
+             RobineWake.GuideLight.program(%{"program" => "dawn", "duration_ms" => 60_000})
 
-    :ok =
-      RobineWake.Hue.Driver.Emulated.set_target(%{}, "lamps", %{
-        "on" => %{"on" => true},
-        "dimming" => %{"brightness" => 25},
-        "color_temperature" => %{"mirek" => 250},
-        "dynamics" => %{"duration" => 60_000}
-      })
+    assert_receive {:hardware, %{type: "light", id: "halo", state: %{on: true, brightness: 2.0}}}
 
-    for id <- ["lamp_left", "lamp_right"] do
-      assert_receive {:hardware,
-                      %{
-                        type: "light",
-                        id: ^id,
-                        state: %{on: true, brightness: 25.0, mirek: 250, transition_ms: 60_000}
-                      }}
-    end
+    assert_receive {:hardware,
+                    %{
+                      type: "light",
+                      id: "halo",
+                      state: %{brightness: 60.0, mirek: 182, transition_ms: 60_000}
+                    }}
 
-    assert {:ok, %{"on" => %{"on" => true}, "color_temperature" => %{"mirek" => 250}}} =
-             RobineWake.Hue.Driver.Emulated.get_target(%{}, "lamps")
+    refute Hardware.snapshot().lights["lamp_left"].on
 
-    refute Hardware.snapshot().lights["halo"].on
-
-    assert {:error, :hue_target_not_found} =
-             RobineWake.Hue.Driver.Emulated.get_target(%{}, "kitchen")
+    assert {:error, {:guide_light_rejected, "invalid_program"}} =
+             RobineWake.GuideLight.program(%{"program" => "disco"})
   end
 
   test "a breathing session breathes on the halo and plays the meditation sound" do
-    {:ok, _status} = Hue.pair("emulated-bridge")
-    assert {:ok, _breathing} = Hue.start_breathing("halo", 3, 40)
+    assert {:ok, _breathing} = Breathing.start("0-4-0-6", 3, 40)
 
     assert_receive {:hardware, %{type: "light", id: "halo", state: %{on: true}}}, 2_000
 
@@ -90,14 +79,14 @@ defmodule RobineWakeDev.DemoTest do
     assert url =~ "/emulator/audio/"
 
     refute_received {:hardware, %{type: "light", id: "lamp_left"}}
-    assert {:ok, _status} = Hue.stop_breathing()
+    assert {:ok, _status} = Breathing.set_volume(0)
+    assert {:ok, _status} = Breathing.stop()
   end
 
-  test "a wake session raises the dawn on the lamps and rings through the browser" do
-    {:ok, _status} = Hue.pair("emulated-bridge")
-    ringing_alarm(%{enabled: true, target_id: "lamps", target_name: "Lampes", end_brightness: 25})
+  test "a wake session raises the dawn on the halo and rings through the browser" do
+    ringing_alarm(%{enabled: true})
 
-    assert_receive {:hardware, %{type: "light", id: "lamp_left", state: %{on: true}}}, 2_000
+    assert_receive {:hardware, %{type: "light", id: "halo", state: %{on: true}}}, 2_000
 
     assert_receive {:hardware,
                     %{
@@ -134,10 +123,9 @@ defmodule RobineWakeDev.DemoTest do
 
     :ok = Demo.reset()
 
-    assert [%{label: "Demo · Réveil", light_profile: %{target_id: "lamps"}}] =
+    assert [%{label: "Demo · Réveil", light_profile: %{enabled: true}}] =
              Settings.list_alarms()
 
-    assert Hue.status().configured
     assert [%{"id" => "demo-remote"}] = Settings.remote_buttons()
     assert %{hour: 22, minute: 30} = Scaled.utc_now() |> DateTime.shift_zone!("Europe/Paris")
 

@@ -1,5 +1,6 @@
 //// The programs the clock's LED strip plays on its own: a dawn, a sunset,
-//// a breathing session at a cadence, or nothing.
+//// or nothing. A breathing session also plays the ambience: it is a
+//// `breathing.start` command, at a cadence of this module.
 
 import gleam/float
 import gleam/int
@@ -11,11 +12,11 @@ import gleam/string
 pub type Program {
   Dawn(Length)
   Sunset(Length)
-  Breathing(Cadence)
   Off
 }
 
-/// How long a dawn or a sunset lasts, from 1 to 120 minutes.
+/// How long a program lasts, from 1 to 120 minutes. A breathing session
+/// finishes its last breath, then the strip goes dark.
 pub opaque type Length {
   Length(minutes: Int)
 }
@@ -72,11 +73,6 @@ pub fn encode(program: Program) -> Json {
   case program {
     Dawn(length) -> timed("dawn", length)
     Sunset(length) -> timed("sunset", length)
-    Breathing(cadence) ->
-      json.object([
-        #("program", json.string("breathing")),
-        #("cadence", json.string(cadence.text)),
-      ])
     Off -> json.object([#("program", json.string("off"))])
   }
 }

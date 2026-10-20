@@ -1,16 +1,14 @@
 defmodule RobineWake.GuideLight do
   @moduledoc """
-  NeoPixel guide light wired to the ESP32, driven through its low-level
-  `light.set` command.
+  LED strip wired to the ESP32: the dawn of an alarm, the evening sunset and
+  the breathing session are programs the ESP32 renders on its own, and
+  `light.set` is a plain transition to one colour.
 
-  The Raspberry Pi owns the breathing clock because it is the master of the
-  audio: it sends one command per phase, at the phase boundary, with the
-  transition the ESP32 interpolates. Commands are serialized here so an
-  `off` never overtakes the last fade, and never block the caller. A
-  failure is logged and the breathing session continues without the light.
-
-  `program/1` starts a program the ESP32 renders on its own strip (dawn,
-  sunset, breathing at a cadence) and waits for its answer, for the web UI.
+  `program/1` starts a program and waits for its answer, for the web UI;
+  `start_program/1` and `set/1` return at once, for the wake session that
+  must not wait on the light. Commands are serialized here so an `off`
+  never overtakes the program before it. A failure is logged and the caller
+  carries on without the light.
 
   This module speaks the API-002 envelope; the configured driver only moves
   bytes (UART on the GPIO header, or HTTP over Wi-Fi):
@@ -41,12 +39,16 @@ defmodule RobineWake.GuideLight do
 
   @doc """
   Starts a `light.program` on the ESP32: `%{"program" => "dawn" | "sunset",
-  "duration_ms" => ms}`, `%{"program" => "breathing", "cadence" => "0-4-0-6"}`
-  or `%{"program" => "off"}`. Returns the light status sent back by the ESP32.
+  "duration_ms" => ms}`, `%{"program" => "breathing", "cadence" => "0-4-0-6",
+  "duration_ms" => ms}` or `%{"program" => "off"}`. Returns the light status sent back by the ESP32.
   """
   @spec program(map()) :: {:ok, map()} | {:error, term()}
   def program(body) when is_map(body),
     do: GenServer.call(__MODULE__, {:request, "light.program", body}, 5_000)
+
+  @doc "Queues a `light.program` like `program/1`; returns immediately."
+  @spec start_program(map()) :: :ok
+  def start_program(body) when is_map(body), do: GenServer.cast(__MODULE__, {:program, body})
 
   def status, do: GenServer.call(__MODULE__, :status)
 
@@ -60,6 +62,17 @@ defmodule RobineWake.GuideLight do
     case Application.get_env(:robine_wake, :guide_light) do
       nil -> {:noreply, state}
       config -> {:noreply, send_level(state, config, level)}
+    end
+  end
+
+  def handle_cast({:program, body}, state) do
+    case Application.get_env(:robine_wake, :guide_light) do
+      nil ->
+        {:noreply, state}
+
+      config ->
+        {state, _result} = send_request(state, config, "light.program", body)
+        {:noreply, state}
     end
   end
 

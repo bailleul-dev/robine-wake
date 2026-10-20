@@ -4,9 +4,9 @@ defmodule RobineWakeDev.Demo do
 
   A reset is a factory reset through the domain functions (the same steps as
   the `device.factory_reset` command, the admin password aside), then the
-  demo setup a visitor would otherwise do in the app: pair the emulated Hue
-  bridge, create a 07:00 alarm whose dawn drives the bedside lamps, pair the
-  virtual remote, and put the clock back to the evening at real speed.
+  demo setup a visitor would otherwise do in the app: create a 07:00 alarm
+  whose dawn rises on the LED strip, pair the virtual remote, and put the
+  clock back to the evening at real speed.
 
   It runs at boot, from the "Reset demo" button, and every
   `ROBINE_DEMO_RESET_HOURS` hours.
@@ -16,7 +16,7 @@ defmodule RobineWakeDev.Demo do
 
   require Logger
 
-  alias RobineWake.{Alarm, ClockQuality, EventLog, Hue, RemoteButton, Scheduler, Settings}
+  alias RobineWake.{Alarm, Breathing, ClockQuality, EventLog, RemoteButton, Scheduler, Settings}
   alias RobineWakeDev.Clock.Scaled
   alias RobineWakeDev.{Hardware, VirtualRemote}
 
@@ -80,7 +80,7 @@ defmodule RobineWakeDev.Demo do
     stop_sessions()
     :ok = Settings.reset()
     :ok = RemoteButton.reset()
-    :ok = Hue.reset()
+    {:ok, _breathing} = Breathing.stop()
     :ok = EventLog.clear()
     :ok = Hardware.reset()
 
@@ -88,8 +88,7 @@ defmodule RobineWakeDev.Demo do
     :ok = Scaled.set_utc(evening())
     _result = ClockQuality.confirm()
 
-    with {:ok, _status} <- Hue.pair("emulated-bridge"),
-         {:ok, _alarm} <- Settings.create_alarm(demo_alarm()),
+    with {:ok, _alarm} <- Settings.create_alarm(demo_alarm()),
          :ok <- VirtualRemote.pair() do
       :ok
     else
@@ -118,15 +117,7 @@ defmodule RobineWakeDev.Demo do
       sound_id: "jungle_sunrise",
       strong_sound_id: "wake_up_call",
       prewake_seconds: 1_200,
-      light_profile: %{
-        enabled: true,
-        target_id: "lamps",
-        target_name: "Lampes de chevet",
-        start_brightness: 1,
-        end_brightness: 25,
-        ramp_seconds: 1_200,
-        end_behavior: :restore
-      }
+      light_profile: %{enabled: true, end_behavior: :off}
     }
   end
 

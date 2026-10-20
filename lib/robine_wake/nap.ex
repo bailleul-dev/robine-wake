@@ -75,7 +75,7 @@ defmodule RobineWake.Nap do
       "sound_id" => map["sound_id"],
       "strong_sound_id" => map["strong_sound_id"],
       "volume_profile" => Map.put(map["volume_profile"], "ramp_seconds", ramp_seconds),
-      "light_profile" => Map.put(map["light_profile"], "ramp_seconds", ramp_seconds)
+      "light_profile" => map["light_profile"]
     }
   end
 end

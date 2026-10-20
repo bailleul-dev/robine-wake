@@ -52,7 +52,7 @@ code, tests, or tickets.
 - [Wake session](20/002-wake-session/spec.md)
 - [Audio output](30/001-audio-output/spec.md)
 - [AirPlay receiver](30/002-airplay-receiver/spec.md)
-- [Respiration guidée Hue et ambiance sonore](30/003-guided-breathing/spec.md)
+- [Respiration guidée sur le ruban et ambiance sonore](30/003-guided-breathing/spec.md)
 - [Vibration DIY du lit](30/004-bed-vibration/spec.md)
 - [Bluetooth audio receiver](30/005-bluetooth-audio-receiver/spec.md)
 - [Local interface](50/001-local-interface/spec.md)

@@ -6,9 +6,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/timestamp.{type Timestamp}
 import robine/alarm.{type Alarm}
+import robine/breathing.{type Breathing}
 import robine/calendar
 import robine/decoding.{defaulted, optional}
-import robine/hue.{type Breathing, type Hue, type HueTarget}
 import robine/id.{type Id}
 import robine/nap.{type Nap}
 import robine/session.{type Active, type Past}
@@ -24,9 +24,7 @@ pub type Snapshot {
     recent_sessions: List(Past),
     active_session: Option(Active),
     smartphone_dismiss: SmartphoneDismiss,
-    hue: Hue,
     breathing: Breathing,
-    hue_targets: List(HueTarget),
     remote: RemoteButtons,
     /// Where the clock answers commands over Wi-Fi, best first.
     http_endpoints: List(String),
@@ -74,9 +72,7 @@ pub const empty =
     recent_sessions: [],
     active_session: None,
     smartphone_dismiss: SmartphoneDismiss(enabled: True, locked: False),
-    hue: hue.Unpaired,
-    breathing: hue.Resting,
-    hue_targets: [],
+    breathing: breathing.Resting,
     remote: RemoteButtons(pairing: False, buttons: []),
     http_endpoints: [],
   )
@@ -111,15 +107,10 @@ pub fn decoder() -> Decoder(Snapshot) {
       decode.success(SmartphoneDismiss(enabled:, locked:))
     },
   )
-  use #(hue, breathing) <- defaulted(
-    "hue",
-    #(hue.Unpaired, hue.Resting),
-    hue.decoder(),
-  )
-  use hue_targets <- defaulted(
-    "hue_targets",
-    [],
-    decode.list(hue.target_decoder()),
+  use breathing <- defaulted(
+    "breathing",
+    breathing.Resting,
+    breathing.decoder(),
   )
   use remote <- defaulted("remote_button", empty.remote, remote_decoder())
   use http_endpoints <- defaulted("transport", [], {
@@ -135,9 +126,7 @@ pub fn decoder() -> Decoder(Snapshot) {
     recent_sessions:,
     active_session: option.flatten(active_session),
     smartphone_dismiss:,
-    hue:,
     breathing:,
-    hue_targets:,
     remote:,
     http_endpoints:,
   ))

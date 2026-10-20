@@ -107,7 +107,7 @@ the real server runs unchanged, and only the hardware ports are emulated.
 | Port | Demo adapter | Visible as |
 |---|---|---|
 | `RobineWake.Clock` | `RobineWakeDev.Clock.Scaled` (×1, ×10, ×60, jump) | virtual time; sunrise stages follow it |
-| `RobineWake.Hue.Driver` | `RobineWake.Hue.Driver.Emulated`: targets `halo`, `lamps`, `bedroom` | the halo and lamps of the 3D room |
+| `RobineWake.GuideLight.Driver` | `RobineWake.GuideLight.Driver.Emulated`: the strip programs | the halo of the 3D room |
 | `RobineWake.Audio.Driver` | `RobineWake.Audio.Driver.Emulated` | the browser plays the same files, at the Amp2 level (dB) |
 | Remote button (LoRa / HTTP) | `RobineWakeDev.VirtualRemote` | the on-screen ESP32; the server signs `remote_button.dismiss` |
 
@@ -123,13 +123,12 @@ the real server runs unchanged, and only the hardware ports are emulated.
 - everything else goes to `RobineWakeWeb.Router`.
 
 `RobineWakeDev.Demo` resets the instance at boot, on demand, and every
-`ROBINE_DEMO_RESET_HOURS`. The reset is a factory reset. It then pairs the
-emulated bridge and creates a 07:00 alarm with a 20-minute dawn on `lamps`,
-ending at 25 % (about 100 lm, 300 lux at the eye). It also pairs the virtual
-remote and sets the clock to 22:30 at ×1.
+`ROBINE_DEMO_RESET_HOURS`. The reset is a factory reset. It then creates a
+07:00 alarm with a dawn on the strip over its pre-wake. It also pairs the
+virtual remote and sets the clock to 22:30 at ×1.
 
 Breathing and strong-wake colours stay on real time: they are paced for a
-human body. The viewer runs Hue transitions of 10 s or less in real time and
+human body. The viewer runs light transitions of 10 s or less in real time and
 longer ones (sunrise stages) in virtual time.
 
 Security limits of a shared instance:

@@ -22,7 +22,7 @@ defmodule RobineWake.Application do
       RobineWake.ClockQuality,
       RobineWake.Network,
       RobineWake.GuideLight,
-      RobineWake.Hue,
+      RobineWake.Breathing,
       RobineWake.AirPlay,
       RobineWake.BluetoothAudio,
       RobineWake.Audio,

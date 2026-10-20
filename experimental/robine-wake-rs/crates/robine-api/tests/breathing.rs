@@ -5,7 +5,7 @@ use robine_api::{Breathing, Cadence, Rgb};
 const PIXELS: usize = 60;
 
 fn session(cadence: Cadence) -> Breathing {
-    Breathing { started_ms: 1_000, cadence }
+    Breathing { started_ms: 1_000, duration_ms: 60_000, cadence }
 }
 
 fn strip(breathing: &Breathing, monotonic_ms: u64) -> Vec<Rgb> {
@@ -81,4 +81,14 @@ fn widens_linearly() {
     let widths: Vec<usize> = [0, 1_000, 2_000, 3_000, 4_000].iter().map(|ms| window(&strip(&breathing, 1_000 + ms)).len()).collect();
     assert!(widths.windows(2).all(|pair| pair[0] <= pair[1]), "{widths:?}");
     assert_eq!((widths[0], widths[4]), (1, 10), "{widths:?}");
+}
+
+#[test]
+fn ends_dark_after_the_last_full_breath() {
+    // 65 s at 10 s a breath: seven breaths, the last one finished.
+    let breathing = Breathing { started_ms: 1_000, duration_ms: 65_000, cadence: Cadence::COHERENCE };
+    assert_eq!(breathing.session_ms(), 70_000);
+    assert!(lit(&strip(&breathing, 1_000 + 64_000)) > 1);
+    assert!(lit(&strip(&breathing, 1_000 + 69_999)) >= 1);
+    assert_eq!(lit(&strip(&breathing, 1_000 + 70_000)), 0);
 }

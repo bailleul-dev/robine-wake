@@ -1,8 +1,8 @@
 defmodule RobineWakeDev.Hardware do
   @moduledoc """
   State of the emulated hardware in demo mode, as commanded by the real
-  domain through the emulated drivers: the lights of the bar (breathing halo,
-  bedside lamps) and the audio output.
+  domain through the emulated drivers: the lights of the bar (the halo is the
+  LED strip, the bedside lamps stay dark) and the audio output.
 
   Every change is broadcast on `RobineWakeDev.PubSub`, topic `"hardware"`, as
   `{:hardware, event}`; `snapshot/0` gives a new viewer the full state.
@@ -15,22 +15,6 @@ defmodule RobineWakeDev.Hardware do
 
   @topic "hardware"
 
-  # Hue targets exposed by the emulated bridge, and the outputs they drive.
-  @targets [
-    %{"id" => "halo", "name" => "Halo Robine", "kind" => "zone", "outputs" => ["halo"]},
-    %{
-      "id" => "lamps",
-      "name" => "Lampes de chevet",
-      "kind" => "zone",
-      "outputs" => ["lamp_left", "lamp_right"]
-    },
-    %{
-      "id" => "bedroom",
-      "name" => "Chambre",
-      "kind" => "room",
-      "outputs" => ["halo", "lamp_left", "lamp_right"]
-    }
-  ]
   @outputs ["halo", "lamp_left", "lamp_right"]
   @initial_light %{on: false, brightness: 60.0, xy: nil, mirek: 370, transition_ms: 0}
   @initial_audio %{
@@ -52,13 +36,12 @@ defmodule RobineWakeDev.Hardware do
   def topic, do: @topic
   def subscribe, do: Phoenix.PubSub.subscribe(RobineWakeDev.PubSub, @topic)
 
-  @doc "Hue targets of the emulated bridge, without the internal output mapping."
-  def hue_targets, do: Enum.map(@targets, &Map.delete(&1, "outputs"))
-
-  def hue_state(target_id), do: GenServer.call(__MODULE__, {:hue_state, target_id})
-
-  def apply_hue(target_id, changes),
-    do: GenServer.call(__MODULE__, {:apply_hue, target_id, changes})
+  @doc """
+  Moves `output` to `changes` (`on`, `brightness` 0-100, `xy` or `mirek`)
+  over `transition_ms`, as the room viewer interpolates it.
+  """
+  def apply_light(output, changes) when output in @outputs,
+    do: GenServer.call(__MODULE__, {:apply_light, output, changes})
 
   def audio_play(session_id, sound_id),
     do: GenServer.call(__MODULE__, {:audio_play, session_id, sound_id})
@@ -76,27 +59,21 @@ defmodule RobineWakeDev.Hardware do
   def init(_opts), do: {:ok, initial_state()}
 
   @impl true
-  def handle_call({:hue_state, target_id}, _from, state) do
-    case target(target_id) do
-      nil -> {:reply, {:error, :hue_target_not_found}, state}
-      %{"outputs" => [output | _]} -> {:reply, {:ok, to_hue(state.lights[output])}, state}
-    end
-  end
+  def handle_call({:apply_light, output, changes}, _from, state) do
+    light =
+      state.lights[output]
+      |> Map.merge(Map.take(changes, [:on, :brightness, :xy, :mirek]))
+      |> Map.put(:transition_ms, Map.get(changes, :transition_ms, 0))
 
-  def handle_call({:apply_hue, target_id, changes}, _from, state) do
-    case target(target_id) do
-      nil ->
-        {:reply, {:error, :hue_target_not_found}, state}
+    light =
+      cond do
+        Map.has_key?(changes, :xy) -> %{light | mirek: nil}
+        Map.has_key?(changes, :mirek) -> %{light | xy: nil}
+        true -> light
+      end
 
-      %{"outputs" => outputs} ->
-        lights =
-          Enum.reduce(outputs, state.lights, fn output, lights ->
-            Map.update!(lights, output, &merge_hue(&1, changes))
-          end)
-
-        Enum.each(outputs, &broadcast(%{type: "light", id: &1, state: lights[&1]}))
-        {:reply, :ok, %{state | lights: lights}}
-    end
+    broadcast(%{type: "light", id: output, state: light})
+    {:reply, :ok, put_in(state.lights[output], light)}
   end
 
   def handle_call({:audio_play, session_id, sound_id}, _from, state) do
@@ -136,38 +113,6 @@ defmodule RobineWakeDev.Hardware do
   def handle_cast(:clock_changed, state) do
     broadcast(%{type: "clock", state: clock()})
     {:noreply, state}
-  end
-
-  # --- Hue state ------------------------------------------------------------
-
-  defp target(id), do: Enum.find(@targets, &(&1["id"] == id))
-
-  defp merge_hue(light, changes) do
-    light
-    |> maybe(changes, ["on", "on"], &%{&2 | on: &1})
-    |> maybe(changes, ["dimming", "brightness"], &%{&2 | brightness: &1 * 1.0})
-    |> maybe(changes, ["color", "xy"], &%{&2 | xy: %{x: &1["x"], y: &1["y"]}, mirek: nil})
-    |> maybe(changes, ["color_temperature", "mirek"], &%{&2 | mirek: &1, xy: nil})
-    |> Map.put(:transition_ms, get_in(changes, ["dynamics", "duration"]) || 0)
-  end
-
-  defp maybe(light, changes, path, update) do
-    case get_in(changes, path) do
-      nil -> light
-      value -> update.(value, light)
-    end
-  end
-
-  defp to_hue(light) do
-    colour =
-      if light.xy,
-        do: %{"color" => %{"xy" => %{"x" => light.xy.x, "y" => light.xy.y}}},
-        else: %{"color_temperature" => %{"mirek" => light.mirek}}
-
-    Map.merge(
-      %{"on" => %{"on" => light.on}, "dimming" => %{"brightness" => light.brightness}},
-      colour
-    )
   end
 
   # --- Audio ----------------------------------------------------------------

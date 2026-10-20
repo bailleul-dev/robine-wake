@@ -6,7 +6,6 @@ import gleam/json.{type Json}
 import gleam/option.{type Option}
 import gleam/result
 import robine/alarm.{type Alarm, type Settings}
-import robine/hue.{type BreathingLength, type HueTarget}
 import robine/id.{type Id}
 import robine/level.{type Percent}
 import robine/light
@@ -30,14 +29,7 @@ pub type Command {
   SetSmartphoneDismiss(enabled: Bool)
   ConfirmClock
   EraseHistory
-  PairHue(host: String)
-  RefreshHue
-  DisconnectHue
-  StartBreathing(
-    target: Id(HueTarget),
-    length: BreathingLength,
-    volume: Percent,
-  )
+  StartBreathing(cadence: light.Cadence, length: light.Length, volume: Percent)
   SetBreathingVolume(Percent)
   StopBreathing
   StartLightProgram(light.Program)
@@ -70,10 +62,6 @@ pub type Refusal {
   StaleRevision
   NotFound
   ValidationFailed
-  HueLinkButtonRequired
-  InvalidHueBridgeAddress
-  HuePairingFailed
-  HueTargetNotFound
   WakeSessionActive
   UnsupportedOperation
   PairingWindowClosed
@@ -108,9 +96,6 @@ pub fn operation(command: Command) -> String {
     SetSmartphoneDismiss(..) -> "settings.smartphone_dismiss.set"
     ConfirmClock -> "clock.confirm"
     EraseHistory -> "history.erase"
-    PairHue(..) -> "hue.pair"
-    RefreshHue -> "hue.refresh"
-    DisconnectHue -> "hue.disconnect"
     StartBreathing(..) -> "breathing.start"
     SetBreathingVolume(..) -> "breathing.volume"
     StopBreathing -> "breathing.stop"
@@ -128,8 +113,6 @@ pub fn body(command: Command) -> Json {
     | Dismiss
     | ConfirmClock
     | EraseHistory
-    | RefreshHue
-    | DisconnectHue
     | StopBreathing -> json.object([])
     CreateAlarm(settings) ->
       json.object([#("alarm", alarm.encode(settings, option.None))])
@@ -149,11 +132,10 @@ pub fn body(command: Command) -> Json {
       json.object([#("duration_minutes", json.int(nap.minutes(length)))])
     SetSmartphoneDismiss(enabled) ->
       json.object([#("enabled", json.bool(enabled))])
-    PairHue(host) -> json.object([#("bridge_host", json.string(host))])
-    StartBreathing(target:, length:, volume:) ->
+    StartBreathing(cadence:, length:, volume:) ->
       json.object([
-        #("target_id", json.string(id.to_string(target))),
-        #("duration_minutes", json.int(hue.breathing_minutes(length))),
+        #("cadence", json.string(light.cadence_text(cadence))),
+        #("duration_minutes", json.int(light.minutes(length))),
         #("volume_percent", json.int(level.percent_to_int(volume))),
       ])
     SetBreathingVolume(volume) ->
@@ -241,10 +223,6 @@ pub fn refusal(code: String) -> Refusal {
     "stale_revision" -> StaleRevision
     "not_found" -> NotFound
     "validation_failed" -> ValidationFailed
-    "hue_link_button_required" -> HueLinkButtonRequired
-    "invalid_hue_bridge_address" -> InvalidHueBridgeAddress
-    "hue_pairing_failed" -> HuePairingFailed
-    "hue_target_not_found" -> HueTargetNotFound
     "wake_session_active" -> WakeSessionActive
     "unsupported_operation" -> UnsupportedOperation
     "pairing_window_closed" -> PairingWindowClosed
@@ -276,12 +254,7 @@ fn describe_refusal(refusal: Refusal) -> String {
     StaleRevision -> "Cette alarme a changé. Actualisez avant de réessayer."
     NotFound -> "Cet élément n’existe plus sur le réveil."
     ValidationFailed -> "Certains réglages ne sont pas valides."
-    HueLinkButtonRequired ->
-      "Appuyez sur le bouton rond du pont Hue, puis réessayez."
-    InvalidHueBridgeAddress -> "L’adresse du pont Hue n’est pas valide."
-    HuePairingFailed -> "Le pont Hue a refusé l’association."
-    HueTargetNotFound -> "Cette pièce ou zone Hue n’est plus disponible."
-    WakeSessionActive -> "Une alarme utilise déjà la lumière Hue."
+    WakeSessionActive -> "Une alarme est en cours sur le réveil."
     UnsupportedOperation ->
       "Cette fonction nécessite une version plus récente du réveil."
     PairingWindowClosed -> "La fenêtre d’association du bouton est fermée."

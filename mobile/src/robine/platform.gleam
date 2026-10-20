@@ -133,9 +133,6 @@ pub fn format_date_time(at: Timestamp) -> String {
 @external(javascript, "./platform_ffi.mjs", "format_date_time")
 fn format_date_time_ms(ms: Int) -> String
 
-@external(javascript, "./platform_ffi.mjs", "http_get")
-pub fn http_get(url: String) -> Promise(Result(String, String))
-
 /// A success or error vibration.
 @external(javascript, "./platform_ffi.mjs", "haptic")
 pub fn haptic(success: Bool) -> Nil

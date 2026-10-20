@@ -36,7 +36,10 @@ defmodule RobineWake.GuideLight.Driver.Test do
     table()
 
     count = fn key ->
-      with [{^key, count}] <- :ets.lookup(@table, key), do: count, else: (_ -> 0)
+      case :ets.lookup(@table, key) do
+        [{^key, count}] -> count
+        [] -> 0
+      end
     end
 
     %{opened: count.(:opened), closed: count.(:closed)}

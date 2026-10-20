@@ -144,7 +144,7 @@ defmodule RobineWake.Bluetooth.ServerTest do
     assert "alarm.update" in operations
     assert "session.get" in operations
     assert "settings.smartphone_dismiss.set" in operations
-    assert "hue.pair" in operations
+    refute "hue.pair" in operations
     assert "breathing.start" in operations
     assert "breathing.volume" in operations
     assert "breathing.stop" in operations

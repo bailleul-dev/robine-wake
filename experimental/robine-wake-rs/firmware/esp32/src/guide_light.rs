@@ -79,9 +79,13 @@ pub fn start_sunset(duration_ms: u64) {
 }
 
 /// Starts breathing now at `cadence` (`Cadence::parse("0-4-0-6")` for
-/// cardiac coherence), until the next command.
-pub fn start_breathing(cadence: Cadence) {
-    publish(Some(LightScene::Breathing(Breathing { started_ms: clock::monotonic_ms(), cadence })));
+/// cardiac coherence) for about `duration_ms`, ending on a full breath.
+pub fn start_breathing(cadence: Cadence, duration_ms: u64) {
+    publish(Some(LightScene::Breathing(Breathing {
+        started_ms: clock::monotonic_ms(),
+        duration_ms,
+        cadence,
+    })));
 }
 
 /// SPI bytes of every pixel, GRB order, most significant bit first. The

@@ -3,9 +3,9 @@ import gleam/option.{None, Some}
 import robine/challenge
 import robine/command
 import robine/draft_test
-import robine/hue
 import robine/id
 import robine/level
+import robine/light
 import robine/nap
 import robine/session
 import robine/snapshot
@@ -41,15 +41,15 @@ pub fn requests_carry_the_operation_and_its_body_test() {
   // The revision deleted is the one read with the alarm.
   assert command.encode(command.DeleteAlarm(draft_test.week_alarm()), "id-2")
     == "{\"v\":1,\"id\":\"id-2\",\"op\":\"alarm.delete\",\"body\":{\"alarm_id\":\"alarm-1\",\"revision\":4}}"
-  let assert [three, ..] = hue.breathing_lengths()
+  let assert Ok(cadence) = light.cadence("0-4-0-6")
   let breathing =
     command.StartBreathing(
-      target: id.from_string("room"),
-      length: three,
+      cadence:,
+      length: light.length(3),
       volume: level.percent(250),
     )
   assert command.encode(breathing, "id-3")
-    == "{\"v\":1,\"id\":\"id-3\",\"op\":\"breathing.start\",\"body\":{\"target_id\":\"room\",\"duration_minutes\":3,\"volume_percent\":100}}"
+    == "{\"v\":1,\"id\":\"id-3\",\"op\":\"breathing.start\",\"body\":{\"cadence\":\"0-4-0-6\",\"duration_minutes\":3,\"volume_percent\":100}}"
   assert !command.changes_state(command.GetState)
   assert command.changes_state(command.Dismiss)
 }

@@ -1,10 +1,8 @@
 //// The four tabs: morning, alarms, evening and the clock itself.
 
-import gleam/dynamic/decode
 import gleam/float
 import gleam/int
 import gleam/javascript/promise
-import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -14,9 +12,9 @@ import gleam/time/timestamp.{type Timestamp}
 import redraw.{type Element}
 import robine/actions
 import robine/alarm.{type Alarm}
+import robine/breathing.{type Breathing, Guided}
 import robine/calendar
 import robine/command
-import robine/hue.{type Breathing, Guided, Paired, Unpaired}
 import robine/id
 import robine/level
 import robine/light
@@ -825,65 +823,49 @@ fn render_alarms_screen(desktop: Bool) -> Element {
 
 // Evening ---------------------------------------------------------------------
 
-fn phase_legend(color: String, title: String, detail: String) -> Element {
-  row(
-    [
-      s.flex(1),
-      s.align_items("center"),
-      s.gap(9),
-      s.padding(11),
-      s.border_radius(13),
-      s.background_color("rgba(255,255,255,0.05)"),
-    ],
-    [
-      native.view(
-        [
-          native.style([
-            s.width(12),
-            s.height(12),
-            s.border_radius(6),
-            s.background_color(color),
-          ]),
-        ],
-        [],
-      ),
-      column([s.flex(1)], [
-        label(
-          [s.font_size(12), s.font_weight("700"), s.color(theme.text)],
-          title,
-        ),
-        label([s.font_size(10), s.margin_top(1), s.color(theme.muted)], detail),
-      ]),
-    ],
-  )
-}
-
 fn breathing_guide(breathing: Breathing) -> Element {
   native.component("BreathingGuide", render_breathing_guide)(breathing)
 }
 
 fn render_breathing_guide(breathing: Breathing) -> Element {
-  let now = use_now(250)
+  let now = use_now(100)
   case breathing {
-    hue.Resting -> native.none()
+    breathing.Resting -> native.none()
     Guided(..) as guided -> breathing_circle(guided, now)
   }
 }
 
-fn breathing_circle(breathing: Breathing, now: Timestamp) -> Element {
-  let inhale = case breathing {
-    Guided(phase: hue.Exhale, ..) -> False
-    _ -> True
+/// The breath the strip shows, mirrored on screen: the circle swells with
+/// the lungs.
+fn breathing_circle(guided: Breathing, now: Timestamp) -> Element {
+  let assert Guided(breath:, started:, ends:, ..) = guided
+  let #(phase, progress, fullness) =
+    breathing.phase_at(breath, breathing.elapsed_ms(started, now))
+  let #(word, color) = case phase {
+    breathing.Inhale -> #("Inspirez", theme.breathing_inhale_amber)
+    breathing.HoldFull -> #("Retenez", theme.breathing_inhale_amber)
+    breathing.Exhale -> #("Expirez", theme.breathing_exhale_rose)
+    breathing.HoldEmpty -> #("Pause", theme.breathing_exhale_rose)
   }
-  let remaining = case breathing {
-    Guided(remaining: Some(left), ..) ->
-      int.to_string(float.round(duration.to_seconds(left)))
-    _ -> "—"
+  let phase_left =
+    float.ceiling(
+      int.to_float(breathing.phase_ms(breath, phase))
+      *. { 1.0 -. progress }
+      /. 1000.0,
+    )
+  let minutes_left = case ends {
+    Some(ends) ->
+      " · "
+      <> int.to_string(int.max(
+        0,
+        float.round(float.ceiling(
+          duration.to_seconds(timestamp.difference(now, ends)) /. 60.0,
+        )),
+      ))
+      <> " min restantes"
+    None -> ""
   }
-  let progress = hue.phase_progress(breathing, now)
-  let color =
-    pick(inhale, theme.breathing_inhale_amber, theme.breathing_exhale_rose)
-  let size = 118.0 +. 54.0 *. pick(inhale, progress, 1.0 -. progress)
+  let size = 118.0 +. 54.0 *. fullness
   column([s.align_items("center"), s.gap(14), s.padding_vertical(8)], [
     native.view(
       [
@@ -917,11 +899,14 @@ fn breathing_circle(breathing: Breathing, now: Timestamp) -> Element {
             s.font_weight("800"),
             s.color(theme.text),
           ],
-          pick(inhale, "Inspirez", "Expirez"),
+          word,
         ),
       ],
     ),
-    label([s.font_size(13), s.color(theme.muted)], remaining <> " s restantes"),
+    label(
+      [s.font_size(13), s.color(theme.muted)],
+      int.to_string(float.round(phase_left)) <> " s" <> minutes_left,
+    ),
   ])
 }
 
@@ -946,7 +931,7 @@ fn volume_control(
             s.font_weight("700"),
             s.color(theme.text),
           ],
-          pick(volume == 0, "🔇", "🔊") <> " Volume",
+          pick(volume == 0, "🔇", "🔊") <> " Volume du jardin sonore",
         ),
         label(
           [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
@@ -974,65 +959,43 @@ fn volume_control(
   )
 }
 
+/// A labelled value above its slider.
+fn minutes_slider(
+  title: String,
+  minutes: Int,
+  most: Int,
+  set_minutes: fn(Int) -> Nil,
+) -> Element {
+  column([s.gap(8)], [
+    row([], [
+      label(
+        [
+          s.flex(1),
+          s.font_size(14),
+          s.font_weight("700"),
+          s.color(theme.text),
+        ],
+        title,
+      ),
+      label(
+        [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
+        int.to_string(minutes) <> " min",
+      ),
+    ]),
+    slider(minutes, 1, most, 1, theme.moon, set_minutes, None),
+  ])
+}
+
 pub fn evening_screen(desktop: Bool) -> Element {
   native.component("EveningScreen", render_evening_screen)(desktop)
 }
 
 fn render_evening_screen(desktop: Bool) -> Element {
   let state = store.use_app_state()
-  let #(target_id, set_target_id) = redraw.use_state("")
-  let #(length, set_length) = redraw.use_state(hue.default_breathing_length())
-  let #(volume, set_volume) = use_evening_volume()
-  let targets = state.clock.hue_targets
-  let breathing = state.clock.breathing
-  let #(active, guided_target, guided_volume, ambience) = case breathing {
-    Guided(target:, volume:, ambience:, ..) -> #(
-      True,
-      option.map(target, id.to_string),
-      option.map(volume, level.percent_to_int),
-      ambience,
-    )
-    hue.Resting -> #(False, None, None, False)
-  }
-  let configured = hue.is_paired(state.clock.hue)
-  let selected = case id.find(targets, target_id, fn(target) { target.id }) {
-    Ok(_) -> target_id
-    Error(Nil) ->
-      case guided_target, targets {
-        Some(guided), _ -> guided
-        None, [first, ..] -> id.to_string(first.id)
-        None, [] -> ""
-      }
-  }
-  let chosen = id.find(targets, selected, fn(target) { target.id })
-  redraw.use_effect(
-    fn() {
-      case string.trim(target_id) == "" && string.trim(selected) != "" {
-        True -> set_target_id(selected)
-        False -> Nil
-      }
-    },
-    #(selected, target_id),
-  )
-  redraw.use_effect(
-    fn() {
-      case active, guided_volume {
-        True, Some(active_volume) if active_volume != volume ->
-          set_volume(active_volume)
-        _, _ -> Nil
-      }
-    },
-    #(active, guided_volume, volume),
-  )
   column([s.flex(1)], [
     theme.screen_title(
       "Le soir",
-      theme.button("Actualiser", fn() {
-        case configured {
-          True -> ignore(actions.send(command.RefreshHue))
-          False -> ignore(actions.refresh())
-        }
-      })
+      theme.button("Actualiser", fn() { ignore(actions.refresh()) })
         |> theme.with_icon("refresh")
         |> theme.disabled(state.busy),
       desktop,
@@ -1048,138 +1011,142 @@ fn render_evening_screen(desktop: Bool) -> Element {
           ),
           label(
             [s.font_size(14), s.text_align("center"), s.color(theme.muted)],
-            "Une respiration guidée par la lumière, douce et autonome, pour laisser la journée retomber.",
+            "Une respiration guidée par le ruban lumineux, sur un jardin sonore, puis un coucher de soleil pour s’endormir.",
           ),
         ]),
       ]),
-      theme.card(active, dashboard_card_style(desktop), [
-        column([s.gap(15)], [
-          row([], [
-            theme.eyebrow("Respiration 4 / 6", theme.twilight_rose),
-            spacer(),
-            theme.icon("bulb", 21, theme.breathing_inhale_amber),
-          ]),
-          ..case active {
-            True -> [
-              breathing_guide(breathing),
-              label(
-                [
-                  s.font_size(12),
-                  s.font_weight("700"),
-                  s.color(pick(ambience, theme.mint, theme.rose)),
-                ],
-                pick(
-                  ambience,
-                  "🔊  Jardin sonore synchronisé avec la lumière",
-                  "🔇  La lumière continue sans ambiance sonore",
-                ),
-              ),
-              volume_control(volume, True, set_volume),
-              theme.button("Terminer et restaurer la lumière", fn() {
-                ignore(actions.send(command.StopBreathing))
-              })
-                |> theme.with_icon("stop")
-                |> theme.primary
-                |> theme.disabled(state.busy)
-                |> theme.render,
-            ]
-            False -> [
-              label(
-                [s.font_size(14), s.line_height(20), s.color(theme.muted)],
-                "L’orage reste naturel et constant. La lumière glisse directement de l’ambre doré au rose crépusculaire, sans passer par le blanc ; seule son intensité évolue lentement.",
-              ),
-              row([s.gap(14)], [
-                phase_legend(
-                  theme.breathing_inhale_amber,
-                  "Inspiration",
-                  "4 s · ambre doré · 2 → 30 %",
-                ),
-                phase_legend(
-                  theme.breathing_exhale_rose,
-                  "Expiration",
-                  "6 s · rose crépusculaire · 30 → 2 %",
-                ),
-              ]),
-              native.picker(
-                [
-                  native.prop("selectedValue", selected),
-                  native.prop("onValueChange", fn(value: String) {
-                    set_target_id(value)
-                  }),
-                  native.prop("dropdownIconColor", theme.moon),
-                  native.style(theme.picker_style([])),
-                ],
-                list.map(targets, fn(target) {
-                  #(id.to_string(target.id), target.name)
-                }),
-              ),
-              native.picker(
-                [
-                  native.prop("selectedValue", hue.breathing_minutes(length)),
-                  native.prop("onValueChange", fn(minutes: Int) {
-                    case
-                      list.find(hue.breathing_lengths(), fn(length) {
-                        hue.breathing_minutes(length) == minutes
-                      })
-                    {
-                      Ok(length) -> set_length(length)
-                      Error(Nil) -> Nil
-                    }
-                  }),
-                  native.prop("dropdownIconColor", theme.moon),
-                  native.style(theme.picker_style([])),
-                ],
-                list.map(hue.breathing_lengths(), fn(length) {
-                  let minutes = hue.breathing_minutes(length)
-                  #(minutes, int.to_string(minutes) <> " minutes")
-                }),
-              ),
-              volume_control(volume, False, set_volume),
-              theme.button("Commencer la séance", fn() {
-                case chosen {
-                  Ok(target) ->
-                    ignore(
-                      actions.send(command.StartBreathing(
-                        target: target.id,
-                        length:,
-                        volume: level.percent(volume),
-                      )),
-                    )
-                  Error(Nil) -> Nil
-                }
-              })
-                |> theme.with_icon("play")
-                |> theme.primary
-                |> theme.disabled(
-                  state.busy || !configured || result.is_error(chosen),
-                )
-                |> theme.render,
-              case state.clock.hue {
-                Paired(reachable: True, ..) -> native.none()
-                Paired(..) ->
-                  theme.button("Réessayer la connexion Hue", fn() {
-                    ignore(actions.send(command.RefreshHue))
-                  })
-                  |> theme.compact
-                  |> theme.disabled(state.busy)
-                  |> theme.render
-                Unpaired ->
-                  label(
-                    [s.font_size(12), s.color(theme.rose)],
-                    "💡 Configurez d’abord Philips Hue dans l’onglet Réveil.",
-                  )
-              },
-            ]
-          }
-        ]),
-      ]),
+      breathing_card(desktop),
       light_card(desktop),
     ]),
   ])
 }
 
-/// The clock's LED strip: dawn, sunset and breathing programs it plays on
-/// its own.
+fn breathing_card(desktop: Bool) -> Element {
+  native.component("BreathingCard", render_breathing_card)(desktop)
+}
+
+fn render_breathing_card(desktop: Bool) -> Element {
+  let state = store.use_app_state()
+  let #(cadence_text, set_cadence_text) = redraw.use_state(light.coherence)
+  let #(minutes, set_minutes) = redraw.use_state(10)
+  let #(volume, set_volume) = use_evening_volume()
+  let session = state.clock.breathing
+  let #(active, active_volume, ambience, strip) = case session {
+    Guided(volume:, ambience:, strip:, ..) -> #(
+      True,
+      Some(level.percent_to_int(volume)),
+      ambience,
+      strip,
+    )
+    breathing.Resting -> #(False, None, False, False)
+  }
+  let cadence = light.cadence(cadence_text)
+  redraw.use_effect(
+    fn() {
+      case active_volume {
+        Some(active_volume) if active_volume != volume ->
+          set_volume(active_volume)
+        _ -> Nil
+      }
+    },
+    #(active_volume, volume),
+  )
+  theme.card(active, dashboard_card_style(desktop), [
+    column([s.gap(15)], [
+      header(
+        theme.eyebrow(
+          case session {
+            Guided(cadence:, ..) -> "Respiration " <> cadence
+            breathing.Resting -> "Respiration"
+          },
+          theme.twilight_rose,
+        ),
+        theme.icon("bulb", 21, theme.breathing_inhale_amber),
+      ),
+      ..case active {
+        True -> [
+          breathing_guide(session),
+          label(
+            [
+              s.font_size(12),
+              s.font_weight("700"),
+              s.color(pick(ambience, theme.mint, theme.rose)),
+            ],
+            pick(
+              ambience,
+              "🔊  Jardin sonore pendant la séance",
+              "🔇  La séance continue sans jardin sonore",
+            ),
+          ),
+          case strip {
+            True -> native.none()
+            False ->
+              label(
+                [s.font_size(12), s.font_weight("700"), s.color(theme.rose)],
+                "💡  Le réveil ne joint pas le ruban lumineux",
+              )
+          },
+          volume_control(volume, True, set_volume),
+          theme.button("Terminer la séance", fn() {
+            ignore(actions.send(command.StopBreathing))
+          })
+            |> theme.with_icon("stop")
+            |> theme.primary
+            |> theme.disabled(state.busy)
+            |> theme.render,
+        ]
+        False -> [
+          label(
+            [s.font_size(14), s.line_height(20), s.color(theme.muted)],
+            "Poumons vides, seule la LED du centre luit en rouge très faible ; à l’inspiration, une fenêtre glisse vers les bouts du ruban et revient à l’expiration. La séance finit sur un souffle complet.",
+          ),
+          label(
+            [s.font_size(14), s.font_weight("700"), s.color(theme.text)],
+            "Cadence",
+          ),
+          native.text_input([
+            native.prop("value", cadence_text),
+            native.prop("onChangeText", set_cadence_text),
+            native.prop("placeholder", light.coherence),
+            native.prop("placeholderTextColor", theme.muted),
+            native.prop("autoCapitalize", "none"),
+            native.prop("autoCorrect", False),
+            native.style(theme.input_style([])),
+          ]),
+          label(
+            [
+              s.font_size(12),
+              s.color(pick(result.is_ok(cadence), theme.muted, theme.rose)),
+            ],
+            "Pause poumons vides - inspiration - pause poumons pleins - expiration, en secondes. 0-4-0-6 : cohérence cardiaque.",
+          ),
+          minutes_slider("Durée", minutes, 30, set_minutes),
+          volume_control(volume, False, set_volume),
+          theme.button("Commencer la séance", fn() {
+            case cadence {
+              Ok(cadence) ->
+                ignore(
+                  actions.send(command.StartBreathing(
+                    cadence:,
+                    length: light.length(minutes),
+                    volume: level.percent(volume),
+                  )),
+                )
+              Error(Nil) -> Nil
+            }
+          })
+            |> theme.with_icon("play")
+            |> theme.primary
+            |> theme.disabled(state.busy || result.is_error(cadence))
+            |> theme.render,
+        ]
+      }
+    ]),
+  ])
+}
+
+/// The clock's LED strip on its own: a sunrise to read by, a sunset to
+/// fall asleep with.
 fn light_card(desktop: Bool) -> Element {
   native.component("LightCard", render_light_card)(desktop)
 }
@@ -1187,9 +1154,7 @@ fn light_card(desktop: Bool) -> Element {
 fn render_light_card(desktop: Bool) -> Element {
   let busy = store.use_app_state().busy
   let #(minutes, set_minutes) = redraw.use_state(30)
-  let #(cadence_text, set_cadence_text) = redraw.use_state(light.coherence)
   let length = light.length(minutes)
-  let cadence = light.cadence(cadence_text)
   let start = fn(program) {
     ignore(actions.send(command.StartLightProgram(program)))
   }
@@ -1197,24 +1162,9 @@ fn render_light_card(desktop: Bool) -> Element {
     column([s.gap(14)], [
       header(
         theme.eyebrow("Ruban lumineux", theme.moon),
-        theme.icon("bulb", 20, theme.moon),
+        theme.icon("sunny", 20, theme.moon),
       ),
-      row([], [
-        label(
-          [
-            s.flex(1),
-            s.font_size(14),
-            s.font_weight("700"),
-            s.color(theme.text),
-          ],
-          "Durée de l’aube ou du coucher",
-        ),
-        label(
-          [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
-          int.to_string(minutes) <> " min",
-        ),
-      ]),
-      slider(minutes, 1, 60, 1, theme.moon, set_minutes, None),
+      minutes_slider("Durée", minutes, 60, set_minutes),
       row([s.gap(10)], [
         theme.button("Lever de soleil", fn() { start(light.Dawn(length)) })
           |> theme.with_icon("sunny")
@@ -1227,44 +1177,10 @@ fn render_light_card(desktop: Bool) -> Element {
           |> theme.disabled(busy)
           |> theme.render,
       ]),
-      label(
-        [s.font_size(14), s.font_weight("700"), s.color(theme.text)],
-        "Cadence de respiration",
-      ),
-      native.text_input([
-        native.prop("value", cadence_text),
-        native.prop("onChangeText", set_cadence_text),
-        native.prop("placeholder", light.coherence),
-        native.prop("placeholderTextColor", theme.muted),
-        native.prop("autoCapitalize", "none"),
-        native.prop("autoCorrect", False),
-        native.style(theme.input_style([])),
-      ]),
-      label(
-        [
-          s.font_size(12),
-          s.color(pick(result.is_ok(cadence), theme.muted, theme.rose)),
-        ],
-        "Pause poumons vides - inspiration - pause poumons pleins - expiration, en secondes. 0-4-0-6 : cohérence cardiaque.",
-      ),
-      row([s.gap(10)], [
-        theme.button("Respirer", fn() {
-          case cadence {
-            Ok(cadence) -> start(light.Breathing(cadence))
-            Error(Nil) -> Nil
-          }
-        })
-          |> theme.with_icon("play")
-          |> theme.primary
-          |> theme.grow
-          |> theme.disabled(busy || result.is_error(cadence))
-          |> theme.render,
-        theme.button("Éteindre", fn() { start(light.Off) })
-          |> theme.with_icon("stop")
-          |> theme.grow
-          |> theme.disabled(busy)
-          |> theme.render,
-      ]),
+      theme.button("Éteindre", fn() { start(light.Off) })
+        |> theme.with_icon("stop")
+        |> theme.disabled(busy)
+        |> theme.render,
     ]),
   ])
 }
@@ -1276,201 +1192,6 @@ fn date_label(value: Option(Timestamp)) -> String {
     Some(at) -> platform.format_date_time(at)
     None -> "—"
   }
-}
-
-type Bridge {
-  Bridge(id: String, host: String, name: String)
-}
-
-type Discovery {
-  Idle
-  Searching
-  Found(List(Bridge))
-  Unavailable
-}
-
-fn discover_hue(set_discovery: fn(Discovery) -> Nil) -> Nil {
-  set_discovery(Searching)
-  {
-    use response <- promise.map(platform.http_get(
-      "https://discovery.meethue.com/",
-    ))
-    let bridge = {
-      use id <- decode.field("id", decode.string)
-      use host <- decode.field("internalipaddress", decode.string)
-      decode.success(Bridge(id:, host:, name: "Pont Hue " <> id))
-    }
-    case response {
-      Ok(text) ->
-        case json.parse(text, decode.list(bridge)) {
-          Ok([_, ..] as bridges) -> set_discovery(Found(bridges))
-          _ -> set_discovery(Unavailable)
-        }
-      Error(_) -> set_discovery(Unavailable)
-    }
-  }
-  Nil
-}
-
-fn hue_card(
-  state: AppState,
-  bridge_host: String,
-  set_bridge_host: fn(String) -> Nil,
-  discovery: Discovery,
-  set_discovery: fn(Discovery) -> Nil,
-  desktop: Bool,
-) -> Element {
-  let available = hue.is_ready(state.clock.hue)
-  theme.card(available, dashboard_card_style(desktop), [
-    column([s.gap(15)], [
-      row([], [
-        theme.eyebrow("Philips Hue", theme.moon),
-        spacer(),
-        theme.icon("bulb", 22, theme.moon),
-      ]),
-      ..list.flatten([
-        case state.clock.hue {
-          Paired(bridge:, target_count:, ..) -> [
-            theme.metric_row(
-              "git-network",
-              "Pont local",
-              pick(bridge == "", "Connecté", bridge),
-              pick(available, theme.mint, theme.rose),
-            ),
-            theme.metric_row(
-              "albums",
-              "Pièces et zones",
-              int.to_string(target_count) <> " disponibles",
-              theme.lavender,
-            ),
-            row([s.gap(10)], [
-              theme.button("Actualiser", fn() {
-                ignore(actions.send(command.RefreshHue))
-              })
-                |> theme.render,
-              theme.button("Déconnecter", fn() {
-                ignore(actions.send(command.DisconnectHue))
-              })
-                |> theme.danger
-                |> theme.render,
-            ]),
-          ]
-          Unpaired ->
-            list.flatten([
-              [
-                label(
-                  [s.font_size(14), s.line_height(20), s.color(theme.muted)],
-                  "Les ponts Hue présents sur le même réseau sont découverts automatiquement. Appuyez sur le bouton rond du pont juste avant de le connecter.",
-                ),
-              ],
-              case discovery {
-                Searching -> [
-                  label(
-                    [s.font_size(13), s.color(theme.muted)],
-                    "◌ Recherche des ponts Hue…",
-                  ),
-                ]
-                Found(bridges) ->
-                  list.map(bridges, fn(bridge) {
-                    native.pressable(
-                      [
-                        native.key(bridge.id),
-                        native.on_press(fn() {
-                          set_bridge_host(bridge.host)
-                          ignore(actions.send(command.PairHue(bridge.host)))
-                        }),
-                      ],
-                      [
-                        row(
-                          [
-                            s.align_items("center"),
-                            s.gap(12),
-                            s.padding(12),
-                            s.border_radius(13),
-                            s.background_color("rgba(255,255,255,0.06)"),
-                          ],
-                          [
-                            theme.icon("shield-checkmark", 20, theme.moon),
-                            column([s.flex(1)], [
-                              label(
-                                [
-                                  s.font_size(14),
-                                  s.font_weight("700"),
-                                  s.color(theme.text),
-                                ],
-                                bridge.name,
-                              ),
-                              label(
-                                [s.font_size(12), s.color(theme.muted)],
-                                bridge.host,
-                              ),
-                            ]),
-                            label(
-                              [
-                                s.font_size(12),
-                                s.font_weight("700"),
-                                s.color(theme.moon),
-                              ],
-                              "Connecter ›",
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  })
-                Unavailable -> [
-                  label(
-                    [s.font_size(12), s.color(theme.rose)],
-                    "⚠ Aucun pont résolu. Utilisez l’adresse manuelle.",
-                  ),
-                ]
-                Idle -> []
-              },
-              [
-                theme.button("Rechercher à nouveau", fn() {
-                  discover_hue(set_discovery)
-                })
-                  |> theme.compact
-                  |> theme.disabled(discovery == Searching)
-                  |> theme.render,
-                native.text_input([
-                  native.prop("value", bridge_host),
-                  native.prop("onChangeText", set_bridge_host),
-                  native.prop(
-                    "placeholder",
-                    "Adresse manuelle · ex. 192.168.1.42",
-                  ),
-                  native.prop("placeholderTextColor", theme.muted),
-                  native.prop("autoCapitalize", "none"),
-                  native.prop("autoCorrect", False),
-                  native.prop("keyboardType", "url"),
-                  native.style(theme.input_style([])),
-                ]),
-                theme.button("Connecter cette adresse", fn() {
-                  ignore(
-                    actions.send(command.PairHue(string.trim(bridge_host))),
-                  )
-                })
-                  |> theme.primary
-                  |> theme.disabled(
-                    string.trim(bridge_host) == "" || state.busy,
-                  )
-                  |> theme.render,
-              ],
-            ])
-        },
-        case state.clock.hue {
-          Paired(reachable: False, ..) -> [
-            label(
-              [s.font_size(12), s.color(theme.rose)],
-              "⚠ Le pont est enregistré mais momentanément inaccessible.",
-            ),
-          ]
-          _ -> []
-        },
-      ])
-    ]),
-  ])
 }
 
 fn remote_button_card(state: AppState, desktop: Bool) -> Element {
@@ -1662,18 +1383,6 @@ pub fn system_screen(desktop: Bool) -> Element {
 
 fn render_system_screen(desktop: Bool) -> Element {
   let state = store.use_app_state()
-  let #(bridge_host, set_bridge_host) = redraw.use_state("")
-  let #(discovery, set_discovery) = redraw.use_state(Idle)
-  let configured = hue.is_paired(state.clock.hue)
-  redraw.use_effect(
-    fn() {
-      case configured, discovery {
-        False, Idle -> discover_hue(set_discovery)
-        _, _ -> Nil
-      }
-    },
-    #(discovery == Idle, configured),
-  )
   let device = state.clock.device
   let health = fn(part: fn(snapshot.Device) -> snapshot.Health) {
     case device {
@@ -1726,14 +1435,6 @@ fn render_system_screen(desktop: Bool) -> Element {
           ),
         ]),
       ]),
-      hue_card(
-        state,
-        bridge_host,
-        set_bridge_host,
-        discovery,
-        set_discovery,
-        desktop,
-      ),
       smartphone_dismiss_card(state, desktop),
       remote_button_card(state, desktop),
       sounds_card(state, desktop),

@@ -172,15 +172,6 @@ export function format_date_time(ms) {
   return dateTimeFormat.format(new Date(ms));
 }
 
-export async function http_get(url) {
-  try {
-    const response = await fetch(url);
-    return new Ok(await response.text());
-  } catch (error) {
-    return new Error(message(error, "Requête impossible"));
-  }
-}
-
 export function haptic(success) {
   Haptics.notificationAsync(
     success

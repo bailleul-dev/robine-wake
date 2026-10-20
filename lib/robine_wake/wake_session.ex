@@ -2,7 +2,17 @@ defmodule RobineWake.WakeSession do
   @moduledoc false
   use GenServer
 
-  alias RobineWake.{Alarm, Audio, Clock, EventLog, EventStream, Hue, Id, Settings}
+  alias RobineWake.{
+    Alarm,
+    Audio,
+    Breathing,
+    Clock,
+    EventLog,
+    EventStream,
+    GuideLight,
+    Id,
+    Settings
+  }
 
   def child_spec(opts) do
     %{
@@ -337,7 +347,7 @@ defmodule RobineWake.WakeSession do
 
       true ->
         :ok = Audio.stop(state.id)
-        Hue.snooze(state.id)
+        light_off(state.alarm)
         until = Clock.monotonic_ms() + snooze.duration_seconds * 1_000
         until_utc = DateTime.add(Clock.utc_now(), snooze.duration_seconds, :second)
 
@@ -370,7 +380,7 @@ defmodule RobineWake.WakeSession do
   @impl true
   def terminate(_reason, state) do
     if state.state not in [:dismissed, :timed_out], do: Audio.stop(state.id)
-    if state.state not in [:dismissed, :timed_out], do: Hue.finish_wake(state.id, :restore)
+    if state.state not in [:dismissed, :timed_out], do: light_off(state.alarm)
     EventStream.publish("session.changed")
     :ok
   end
@@ -383,24 +393,16 @@ defmodule RobineWake.WakeSession do
 
     sound_id = if strong?, do: state.alarm.strong_sound_id, else: state.alarm.sound_id
     now = Clock.monotonic_ms()
-    utc_now = Clock.utc_now()
-
-    light_profile = %{
-      state.alarm.light_profile
-      | start_brightness: 1,
-        ramp_seconds: state.alarm.prewake_seconds
-    }
-
-    Hue.start_wake(state.id, light_profile)
+    since = ringing_since(state, strong?, now, Clock.utc_now())
+    Breathing.interrupt()
+    start_dawn(state.alarm, now - since)
 
     with :ok <- Audio.play(state.id, sound_id),
          :ok <- Audio.set_gain(state.id, start_gain) do
-      if strong?, do: Hue.strong_wake(state.id)
-
       next = %{
         state
         | state: :ringing,
-          ringing_since: ringing_since(state, strong?, now, utc_now),
+          ringing_since: since,
           last_tick_monotonic: now,
           current_gain: start_gain,
           audio_phase: if(strong?, do: :strong, else: :gentle),
@@ -515,13 +517,26 @@ defmodule RobineWake.WakeSession do
 
   defp strong_gain(%{volume_profile: profile}), do: Map.get(profile, :strong, profile.ceiling)
 
+  # The dawn on the strip spans the pre-wake and reaches daylight at the
+  # alarm time: started late (snooze, restart, strong test), it runs only for
+  # what is left of the pre-wake, down to daylight at once.
+  defp start_dawn(%{light_profile: %{enabled: true}} = alarm, elapsed_ms) do
+    duration_ms = max(alarm.prewake_seconds * 1_000 - elapsed_ms, 1)
+    GuideLight.start_program(%{"program" => "dawn", "duration_ms" => duration_ms})
+  end
+
+  defp start_dawn(_alarm, _elapsed_ms), do: :ok
+
+  defp light_off(%{light_profile: %{enabled: true}}),
+    do: GuideLight.start_program(%{"program" => "off"})
+
+  defp light_off(_alarm), do: :ok
+
   defp escalate_audio(%{audio_phase: :strong} = state), do: state
 
   defp escalate_audio(state) do
     case Audio.play(state.id, state.alarm.strong_sound_id) do
       :ok ->
-        Hue.strong_wake(state.id)
-
         EventLog.emit(:gentle_wake_escalated,
           source: :wake_session,
           severity: :warning,
@@ -583,7 +598,7 @@ defmodule RobineWake.WakeSession do
 
   defp complete(state, reason) do
     _ = Audio.stop(state.id)
-    Hue.finish_wake(state.id, state.alarm.light_profile.end_behavior)
+    if state.alarm.light_profile.end_behavior == :off, do: light_off(state.alarm)
     terminal_state = if reason == :timed_out, do: :timed_out, else: :dismissed
 
     next = %{

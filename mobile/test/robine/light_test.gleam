@@ -26,9 +26,6 @@ pub fn programs_encode_as_the_clock_reads_them_test() {
     == "{\"program\":\"dawn\",\"duration_ms\":1800000}"
   assert json.to_string(light.encode(light.Sunset(light.length(1))))
     == "{\"program\":\"sunset\",\"duration_ms\":60000}"
-  let assert Ok(cadence) = light.cadence(light.coherence)
-  assert json.to_string(light.encode(light.Breathing(cadence)))
-    == "{\"program\":\"breathing\",\"cadence\":\"0-4-0-6\"}"
   assert json.to_string(light.encode(light.Off)) == "{\"program\":\"off\"}"
 }
 

@@ -11,9 +11,8 @@ import gleam/result
 import gleam/time/timestamp.{type Timestamp}
 import robine/calendar.{type Days, type Time}
 import robine/decoding.{defaulted, number, optional}
-import robine/hue.{type HueTarget}
 import robine/id.{type Id}
-import robine/level.{type Brightness, type Percent, type Rise}
+import robine/level.{type Percent, type Rise}
 import robine/sound.{type Sound}
 
 pub type Alarm {
@@ -53,30 +52,14 @@ pub opaque type Ramp {
   Ramp(seconds: Int)
 }
 
-/// A Philips Hue sunrise. Its settings are kept while it is off.
+/// A dawn on the LED strip, over the ramp: faint orange, then daylight at
+/// the alarm time.
 pub type Light {
-  Light(
-    switch: Switch,
-    glow: Rise(Brightness),
-    ramp: Ramp,
-    afterwards: Afterwards,
-  )
+  Light(dawn: Bool, afterwards: Afterwards)
 }
 
-pub type Switch {
-  /// Remembers the room or zone it lit last.
-  SwitchedOff(last: Option(Target))
-  SwitchedOn(Target)
-}
-
-/// A Hue room or zone; the clock may not know its name.
-pub type Target {
-  Target(id: Id(HueTarget), name: Option(String))
-}
-
-/// What the light does once the alarm is stopped.
+/// What the strip does once the alarm is stopped.
 pub type Afterwards {
-  Restore
   TurnOff
   Leave
 }
@@ -130,16 +113,16 @@ pub fn next(alarms: List(Alarm)) -> Option(Alarm) {
 
 pub fn afterwards_code(afterwards: Afterwards) -> String {
   case afterwards {
-    Restore -> "restore"
     TurnOff -> "off"
     Leave -> "leave"
   }
 }
 
+/// Alarms saved with a Philips Hue sunrise restored the room: the strip
+/// turns off instead.
 pub fn afterwards_from_code(code: String) -> Result(Afterwards, Nil) {
   case code {
-    "restore" -> Ok(Restore)
-    "off" -> Ok(TurnOff)
+    "off" | "restore" -> Ok(TurnOff)
     "leave" -> Ok(Leave)
     _ -> Error(Nil)
   }
@@ -147,9 +130,8 @@ pub fn afterwards_from_code(code: String) -> Result(Afterwards, Nil) {
 
 pub fn afterwards_label(afterwards: Afterwards) -> String {
   case afterwards {
-    Restore -> "Après l’arrêt · Restaurer"
     TurnOff -> "Après l’arrêt · Éteindre"
-    Leave -> "Après l’arrêt · Laisser"
+    Leave -> "Après l’arrêt · Laisser allumé"
   }
 }
 
@@ -197,32 +179,10 @@ pub fn encode(settings: Settings, revision: Option(Int)) -> Json {
 }
 
 fn encode_light(light: Light) -> Json {
-  let #(enabled, target) = case light.switch {
-    SwitchedOn(target) -> #(True, Some(target))
-    SwitchedOff(last) -> #(False, last)
-  }
-  let brightness = fn(value) { json.int(level.brightness_to_int(value)) }
-  json.object(
-    list.flatten([
-      [
-        #("enabled", json.bool(enabled)),
-        #("start_brightness", brightness(level.from(light.glow))),
-        #("end_brightness", brightness(level.to(light.glow))),
-        #("ramp_seconds", json.int(light.ramp.seconds)),
-        #("end_behavior", json.string(afterwards_code(light.afterwards))),
-      ],
-      case target {
-        Some(Target(id: target_id, name:)) -> [
-          #("target_id", json.string(id.to_string(target_id))),
-          ..case name {
-            Some(name) -> [#("target_name", json.string(name))]
-            None -> []
-          }
-        ]
-        None -> []
-      },
-    ]),
-  )
+  json.object([
+    #("enabled", json.bool(light.dawn)),
+    #("end_behavior", json.string(afterwards_code(light.afterwards))),
+  ])
 }
 
 // Decoding --------------------------------------------------------------------
@@ -278,7 +238,7 @@ pub fn decoder() -> Decoder(Alarm) {
     volume_decoder(),
   )
   use ramp <- defaulted("prewake_seconds", volume_ramp, ramp_decoder())
-  use light <- defaulted("light_profile", no_light(), light_decoder())
+  use light <- defaulted("light_profile", default_light(), light_decoder())
   use next_rings <- next_rings_decoder()
   decode.success(Alarm(
     id: alarm_id,
@@ -332,47 +292,16 @@ fn volume_decoder() -> Decoder(#(Volume, Ramp)) {
   decode.success(#(Volume(rise:, strong:), ramp))
 }
 
-/// The light of an alarm that never had one.
-pub fn no_light() -> Light {
-  let assert Ok(glow) =
-    level.brightness_rise(level.brightness(1), level.brightness(70))
-  Light(switch: SwitchedOff(None), glow:, ramp: Ramp(900), afterwards: Restore)
+/// The clock's own default: a dawn, then the strip off.
+pub fn default_light() -> Light {
+  Light(dawn: True, afterwards: TurnOff)
 }
 
 fn light_decoder() -> Decoder(Light) {
-  use enabled <- defaulted("enabled", False, decode.bool)
-  use target_id <- optional("target_id", decode.string)
-  use target_name <- optional("target_name", decode.string)
-  use start <- defaulted(
-    "start_brightness",
-    level.brightness(1),
-    level.brightness_decoder(),
-  )
-  use end <- defaulted(
-    "end_brightness",
-    level.brightness(70),
-    level.brightness_decoder(),
-  )
-  use ramp <- defaulted("ramp_seconds", Ramp(900), ramp_decoder())
-  use afterwards <- defaulted("end_behavior", "restore", decode.string)
-  use glow <- decoding.require(
-    level.brightness_rise(start, end),
-    "Glow",
-    no_light().glow,
-  )
-  let target = case target_id {
-    Some(target_id) if target_id != "" ->
-      Some(Target(id: id.from_string(target_id), name: target_name))
-    _ -> None
-  }
-  let switch = case enabled, target {
-    True, Some(target) -> SwitchedOn(target)
-    _, _ -> SwitchedOff(target)
-  }
+  use dawn <- defaulted("enabled", True, decode.bool)
+  use afterwards <- defaulted("end_behavior", "off", decode.string)
   decode.success(Light(
-    switch:,
-    glow:,
-    ramp:,
-    afterwards: afterwards_from_code(afterwards) |> result.unwrap(Restore),
+    dawn:,
+    afterwards: afterwards_from_code(afterwards) |> result.unwrap(TurnOff),
   ))
 }

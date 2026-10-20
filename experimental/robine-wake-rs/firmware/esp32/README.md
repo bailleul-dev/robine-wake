@@ -67,7 +67,7 @@ Soir, carte « Ruban lumineux ») :
 ```json
 {"v":1,"id":"1","op":"light.program","body":{"program":"dawn","duration_ms":1800000}}
 {"v":1,"id":"2","op":"light.program","body":{"program":"sunset","duration_ms":1800000}}
-{"v":1,"id":"3","op":"light.program","body":{"program":"breathing","cadence":"0-4-0-6"}}
+{"v":1,"id":"3","op":"light.program","body":{"program":"breathing","cadence":"0-4-0-6","duration_ms":300000}}
 {"v":1,"id":"4","op":"light.program","body":{"program":"off"}}
 ```
 
@@ -95,21 +95,22 @@ coup en ambre (≈ 2200 K, 40 % du plafond), puis baisse sur la courbe de
 l'aube à l'envers et rougit, les bords s'éteignant en premier, jusqu'à une
 LED rouge faible au centre qui s'éteint. Jamais plus froid que 2200 K.
 
-`guide_light::start_breathing(Cadence::parse("0-4-0-6"))` lance une
+`guide_light::start_breathing(Cadence::parse("0-4-0-6"), duree_ms)` lance une
 respiration guidée ([30-003](../../../../docs/specs/30/003-guided-breathing/spec.md)),
 calculée par `robine_api::Breathing`. La cadence s'écrit `pause poumons
 vides-inspiration-pause poumons pleins-expiration`, en secondes (`0-4-0-6` :
 cohérence cardiaque). Poumons vides, seule la LED du centre luit en rouge
 très faible ; à l'inspiration, une fenêtre glisse du centre vers chaque bout
 en s'élargissant linéairement jusqu'à 10 LED par côté, et revient à
-l'expiration. Elle tourne jusqu'à la commande suivante.
+l'expiration. Au bout de la durée, elle finit le souffle en cours (poumons
+vides) et le ruban s'éteint.
 
 Démos de banc, sans Wi-Fi ni Pi :
 
 ```sh
 cargo run --release --bin dawn_demo     # aube compressée à 1 minute
 cargo run --release --bin sunset_demo   # coucher compressé à 1 minute
-cargo run --release --bin breathing_demo  # respiration 0-4-0-6
+cargo run --release --bin breathing_demo  # respiration 0-4-0-6 d'une minute
 cargo run --release --bin strip_probe   # identifie le protocole d'un ruban inconnu
 ```
 

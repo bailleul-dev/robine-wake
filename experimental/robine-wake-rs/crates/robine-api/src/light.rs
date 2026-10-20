@@ -150,7 +150,8 @@ impl Device {
     }
 
     /// `light.program`: `{"program":"dawn"|"sunset","duration_ms":…}`,
-    /// `{"program":"breathing","cadence":"0-4-0-6"}` or `{"program":"off"}`.
+    /// `{"program":"breathing","cadence":"0-4-0-6","duration_ms":…}` or
+    /// `{"program":"off"}`.
     /// The program starts now and runs until the next light command.
     pub(crate) fn start_light_program(&mut self, body: &Map<String, Value>, ctx: &Context) -> Result<Value> {
         let duration_ms = || {
@@ -177,7 +178,11 @@ impl Device {
                     .and_then(Value::as_str)
                     .and_then(Cadence::parse)
                     .ok_or(Error::Code("invalid_cadence"))?;
-                Some(LightScene::Breathing(Breathing { started_ms, cadence }))
+                Some(LightScene::Breathing(Breathing {
+                    started_ms,
+                    duration_ms: duration_ms()?,
+                    cadence,
+                }))
             }
             Some("off") => None,
             _ => return Err(Error::Code("invalid_program")),

@@ -126,23 +126,22 @@ The stable versioned command envelope, GATT UUIDs, paged response header, CRC32
 validation, compatibility rules, and supported operations are documented in the
 [Bluetooth v1 contract](docs/bluetooth/v1.md).
 
-## Connect Philips Hue
+## LED strip
 
-Robine Wake controls a Philips Hue Bridge directly over the local network; no Hue
-cloud account or remote API is used by the firmware. In the iOS app, open the
-`Réveil` tab, allow local-network discovery, press the round button on the Hue
-Bridge, and select the bridge found automatically through Bonjour. Manual address
-entry remains available as a fallback. Rooms and zones then become available in
-each alarm under `Lever de lumière`.
+The light comes from a 60-LED WS2812B strip driven by the ESP32 co-processor,
+which the Pi commands over UART (`light.program`). No bridge, cloud account or
+network light is involved.
 
-Each alarm can choose its Hue target, initial and final brightness, transition
-duration, and whether dismissal restores the previous state, turns the target
-off, or leaves the final light active. Snooze turns the selected target off and
-resuming the alarm starts the transition again. Hue failures are logged as a
-degraded accessory event and never prevent the local audio alarm from running.
+- **Dawn.** Each alarm can raise a dawn on the strip over its pre-wake ramp, so
+  that full daylight arrives at the alarm time. Snooze turns the strip off and
+  resuming starts it again; dismissal turns it off or leaves it lit, per alarm.
+- **Evening breathing.** The `Soir` screen starts a guided breathing session at
+  a chosen cadence and duration: the strip breathes while the speaker plays the
+  meditation ambience at the chosen volume. An alarm takes over the strip.
+- **Manual programs.** The same screen starts a sunrise or a sunset of 1 to 60
+  minutes, or turns the strip off.
 
-The bridge application key is stored only in the device's persistent local
-configuration. Configuration exports omit Hue credentials.
+Strip failures are logged and never prevent the local audio alarm from running.
 
 ## Build for Raspberry Pi 3
 

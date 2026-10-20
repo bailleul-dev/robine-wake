@@ -5,9 +5,8 @@ import gleam/option.{None, Some}
 import gleam/time/duration
 import gleam/time/timestamp
 import robine/alarm
+import robine/breathing
 import robine/calendar
-import robine/hue
-import robine/id
 import robine/level
 import robine/nap
 import robine/session
@@ -27,18 +26,11 @@ pub fn decodes_a_recorded_state_test() {
   let assert [morning, ..] = clock.alarms
   assert alarm.time_label(morning) == "06:15"
   assert morning.settings.days == calendar.every_day()
-  // A light switched off remembers its room.
-  assert morning.settings.light.switch
-    == alarm.SwitchedOff(
-      Some(alarm.Target(
-        id: id.from_string("cb20ac8a-cf99-4267-a2e0-9d995b3ce9a2"),
-        name: Some("Chambre"),
-      )),
-    )
+  // A Hue sunrise, switched off, recorded before the strip.
+  assert morning.settings.light
+    == alarm.Light(dawn: False, afterwards: alarm.TurnOff)
   assert list.length(morning.next_rings) == 5
-  assert clock.hue
-    == hue.Paired(bridge: "192.168.1.193", reachable: False, target_count: 0)
-  assert clock.breathing == hue.Resting
+  assert clock.breathing == breathing.Resting
   let assert Some(device) = clock.device
   assert device.firmware == Some("0.1.0")
   assert device.network == snapshot.Available
@@ -52,36 +44,39 @@ pub fn decodes_a_recorded_state_test() {
 
 pub fn decodes_a_breathing_session_test() {
   let text =
-    "{\"configured\":true,\"state\":\"available\",\"bridge_host\":\"hue.local\",\"breathing\":{\"active\":true,\"phase\":\"exhale\",\"phase_started_at\":\"2026-10-20T21:00:00Z\",\"remaining_seconds\":300,\"audio\":{\"active\":true,\"volume_percent\":40}}}"
-  let assert Ok(clock) =
-    json.parse("{\"hue\":" <> text <> "}", snapshot.decoder())
-  assert clock.hue
-    == hue.Paired(bridge: "hue.local", reachable: True, target_count: 0)
-  let assert hue.Guided(
-    phase: hue.Exhale,
-    clock: hue.StartedAt(started),
-    remaining: Some(remaining),
+    "{\"breathing\":{\"active\":true,\"cadence\":\"2-4-1-6\",\"hold_empty_ms\":2000,\"inhale_ms\":4000,\"hold_full_ms\":1000,\"exhale_ms\":6000,\"started_at\":\"2026-10-20T21:00:00Z\",\"server_time\":\"2026-10-20T21:00:30Z\",\"remaining_seconds\":270,\"volume_percent\":40,\"audio\":{\"active\":true},\"light\":{\"active\":false}}}"
+  let assert Ok(clock) = json.parse(text, snapshot.decoder())
+  let assert breathing.Guided(
+    cadence: "2-4-1-6",
+    breath:,
+    started:,
+    ends: Some(ends),
+    volume:,
     ambience: True,
-    volume: Some(volume),
-    ..,
+    strip: False,
   ) = clock.breathing
-  assert remaining == duration.minutes(5)
   assert volume == level.percent(40)
-  // Three seconds into a six-second exhale.
-  let now = timestamp.add(started, duration.seconds(3))
-  assert hue.phase_progress(clock.breathing, now) == 0.5
-  assert hue.phase_progress(
-      clock.breathing,
-      timestamp.add(now, duration.hours(1)),
+  assert timestamp.difference(started, ends) == duration.minutes(5)
+  // 13 s a breath: hold, inhale, hold, exhale.
+  assert breathing.phase_at(breath, 1000) == #(breathing.HoldEmpty, 0.5, 0.0)
+  assert breathing.phase_at(breath, 3000) == #(breathing.Inhale, 0.25, 0.25)
+  assert breathing.phase_at(breath, 6500) == #(breathing.HoldFull, 0.5, 1.0)
+  assert breathing.phase_at(breath, 10_000) == #(breathing.Exhale, 0.5, 0.5)
+  assert breathing.phase_at(breath, 13_000 + 3000)
+    == #(breathing.Inhale, 0.25, 0.25)
+  assert breathing.elapsed_ms(
+      started,
+      timestamp.add(started, duration.seconds(3)),
     )
-    == 1.0
+    == 3000
 }
 
-pub fn older_firmware_tells_how_long_the_phase_has_lasted_test() {
-  let text =
-    "{\"hue\":{\"configured\":true,\"breathing\":{\"active\":true,\"phase_elapsed_ms\":1000}}}"
+pub fn no_session_without_its_start_test() {
+  let text = "{\"breathing\":{\"active\":true,\"cadence\":\"0-4-0-6\"}}"
   let assert Ok(clock) = json.parse(text, snapshot.decoder())
-  assert hue.phase_progress(clock.breathing, timestamp.system_time()) == 0.25
+  assert clock.breathing == breathing.Resting
+  let assert Ok(clock) = json.parse("{\"hue\":{}}", snapshot.decoder())
+  assert clock.breathing == breathing.Resting
 }
 
 pub fn a_finished_session_is_not_active_test() {
@@ -127,11 +122,6 @@ pub fn an_alarm_beyond_the_clock_bounds_is_refused_test() {
   let assert Error(_) =
     json.parse(
       alarm("\"volume_profile\":{\"start\":90,\"ceiling\":20}"),
-      snapshot.decoder(),
-    )
-  let assert Error(_) =
-    json.parse(
-      alarm("\"light_profile\":{\"start_brightness\":0}"),
       snapshot.decoder(),
     )
   let assert Error(_) =

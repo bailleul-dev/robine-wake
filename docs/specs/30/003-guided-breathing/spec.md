@@ -1,4 +1,4 @@
-# 30-003 — Respiration guidée : lumière, son et vibration
+# 30-003 — Respiration guidée : ruban, son et vibration
 
 ## Objectif
 
@@ -9,56 +9,43 @@ l’app est verrouillée ou déconnectée.
 
 Cette fonction est un guide de détente et ne formule aucune allégation médicale.
 
-## Lumière Philips Hue
+## Ruban lumineux de l’ESP32
 
-La pièce ou zone Hue est choisie dans l’app iOS. Au démarrage, Robine Wake lit
-et mémorise son état, applique immédiatement une luminosité basse de 2 % en
-rose crépusculaire, puis
-alterne les commandes Hue v2 suivantes :
+Le ruban WS2812B de 60 LED, relié à l’ESP32, porte la lumière de la séance
+(Philips Hue a été retiré le 2026-10-20). Au démarrage, le Raspberry Pi envoie
+une seule commande `light.program` :
 
-| Phase | Durée native Hue | Destination |
-|---|---:|---:|
-| inspiration | 4 000 ms | 30 %, ambre doré (`xy 0,56 / 0,42`) |
-| expiration | 6 000 ms | 2 %, rose crépusculaire (`xy 0,50 / 0,30`) |
+```json
+{"program":"breathing","cadence":"0-4-0-6","duration_ms":600000}
+```
 
-Chaque destination utilise `dynamics.duration`; aucun fondu image par image
-n’est envoyé par l’iPhone. Les échéances reposent sur l’horloge monotone du
-réveil et sur des deadlines absolues pour empêcher l’accumulation de dérive
-logicielle. La latence du réseau local à la réception d’une commande reste à
-mesurer sur le matériel réel.
-
-L’arrêt est idempotent, annule la prochaine échéance et restaure l’état `on`, la
-luminosité et la température de couleur observés avant la session. Le lancement
-d’une alarme lumineuse arrête d’abord la respiration et restaure la lampe. Une
-respiration est refusée si une session de réveil possède déjà Hue.
-
-La durée est choisie parmi 3, 5, 10, 15, 20 ou 30 minutes. Un minuteur monotone détenu
-par le Raspberry Pi arrête automatiquement la session, effectue le fondu audio
-et restaure la lumière, même lorsque l’app iOS n’est plus connectée.
-
-## Veilleuse NeoPixel de l’ESP32
-
-Une Adafruit Flora RGB Smart NeoPixel, reliée à l’ESP32, double la lumière
-Hue. Le Raspberry Pi, maître de l’audio, garde l’horloge : à chaque frontière
-de phase, au même instant que l’enveloppe audio, `RobineWake.GuideLight` envoie
-une commande `light.set` (couleur, intensité, transition `smoothstep` de
-4 000 ou 6 000 ms) que l’ESP32 interpole. Ambre doré `(255, 120, 12)` à 30 %,
-rose crépusculaire `(255, 40, 70)` à 2 % ; fondu au noir en 1,5 s à l’arrêt,
-à la fin de la durée ou à la préemption par une alarme.
+La cadence donne, en secondes, la pause poumons vides, l’inspiration, la pause
+poumons pleins et l’expiration (0 à 60 s chacune, inspiration et expiration
+non nulles). L’ESP32 calcule chaque image à partir de son horloge locale : la
+séance dure un nombre entier de respirations, `ceil(durée / respiration)`, et
+le ruban s’éteint seul après la dernière.
 
 Le transport est un driver : UART sur les GPIO 14/15 du Pi (lignes JSON,
-enveloppe API-002) par défaut, HTTP possible. Une panne de la veilleuse est
-journalisée une fois (`guide_light_failed`) et la séance continue
-(BRTH-007). Le démarrage d’une séance exige toujours une cible Hue.
+enveloppe API-002) par défaut, HTTP possible. Une panne du ruban est
+journalisée une fois (`guide_light_failed`) et la séance continue avec le son
+(BRTH-007).
+
+L’arrêt est idempotent et éteint le ruban. Le lancement d’une alarme arrête
+d’abord la respiration et laisse le ruban à l’aube du réveil. Une respiration
+est refusée tant qu’une session de réveil sonne.
+
+La durée va de 1 à 60 minutes. Un minuteur détenu par le Raspberry Pi arrête
+l’ambiance à la fin de la dernière respiration, même lorsque l’app n’est plus
+connectée.
 
 ## Contrôle iOS
 
-L’écran `Soir` permet de choisir une pièce ou zone, la durée, de démarrer la session et
-de l’arrêter. L’animation affichée est une aide visuelle seulement : l’autorité
+L’écran `Soir` permet de choisir la cadence, la durée et le volume, de démarrer
+la session et de l’arrêter. L’animation affichée est une aide visuelle seulement : l’autorité
 temporelle reste le réveil. L’état exposé contient la phase, son heure de début,
-le nombre de cycles, l’heure de fin, le temps restant et les paramètres 4/6. Les commandes v1 sont :
+l’heure de fin, le temps restant et les durées des quatre phases. Les commandes v1 sont :
 
-- `breathing.start` avec `{"target_id":"<grouped-light-id>","duration_minutes":10,"volume_percent":60}` ;
+- `breathing.start` avec `{"cadence":"0-4-0-6","duration_minutes":10,"volume_percent":60}` ;
 - `breathing.volume` avec `{"volume_percent":60}` pendant une séance ;
 - `breathing.stop` avec un corps vide.
 
@@ -75,7 +62,7 @@ harmonique sans imposer de mélodie. Un halo très discret évolue sur près d�
 minute.
 
 Le DSP produit du PCM stéréo signé 16 bits à 22,05 kHz, envoyé directement à
-`aplay`. Le gain matériel utilise la même horloge monotone que Hue. À la valeur
+`aplay`. Le gain matériel utilise la horloge monotone du réveil. À la valeur
 par défaut de 60 %, il monte de 18 à 36 pendant l’inspiration et redescend de 36
 à 18 pendant l'expiration. Le curseur iOS règle l’échelle globale de 0 à 100 %
 sans supprimer ce contraste et le firmware plafonne le pic à 60, sous le plafond
@@ -91,9 +78,9 @@ de phase :
 - courbe : `smoothstep`, sans rupture de gain ;
 - arrêt : fondu jusqu’au silence avant de libérer HiFiBerry ;
 - plafond indépendant du volume d’alarme et valeur sûre par défaut ;
-- synchronisation : même deadline monotone de phase que la transition Hue ;
+- synchronisation : cadence transmise au ruban ;
 - défaillance audio : la lumière continue et l’erreur est journalisée ;
-- défaillance Hue : le son continue et l’app signale l’état dégradé.
+- défaillance du ruban : le son continue et l’app signale l’état dégradé.
 
 Le design évite volontairement les paroles, les percussions, les événements
 sonores soudains et toute revendication liée à une « fréquence thérapeutique ».
@@ -123,17 +110,18 @@ sans modifier la cadence ni casser les clients existants qui omettent ces champs
 
 - `BRTH-001` — Le rythme nominal est exactement 4 s / 6 s et appartient au
   réveil, pas à l’app iOS.
-- `BRTH-002` — Chaque fondu lumineux utilise une transition native Hue.
+- `BRTH-002` — Le ruban calcule ses fondus lui-même à partir d’une seule
+  commande par séance.
 - `BRTH-003` — Les échéances monotones ne doivent pas accumuler de dérive
   logicielle d’un cycle au suivant.
-- `BRTH-004` — L’arrêt restaure l’état lumineux antérieur et reste idempotent.
-- `BRTH-005` — Une alarme et une respiration ne doivent jamais piloter Hue en
-  concurrence.
+- `BRTH-004` — L’arrêt éteint le ruban et reste idempotent.
+- `BRTH-005` — Une alarme et une respiration ne doivent jamais piloter le
+  ruban en concurrence.
 - `BRTH-006` — L’audio reste continu, sans clic ni redémarrage aux
   frontières de phase.
 - `BRTH-007` — La panne d’un média ne doit pas arrêter l’autre.
-- `BRTH-008` — Une durée parmi 3, 5, 10, 15, 20 ou 30 minutes doit être imposée par le
-  Raspberry Pi, avec arrêt automatique et restauration complète.
+- `BRTH-008` — Une durée de 1 à 60 minutes doit être imposée par le Raspberry
+  Pi, avec arrêt automatique après la dernière respiration complète.
 
 - `BRTH-009` — La vibration optionnelle doit partager la phase 4/6 et la durée
   de séance, avec intensité indépendante et absence de dérive cumulée.
@@ -145,7 +133,7 @@ sans modifier la cadence ni casser les clients existants qui omettent ces champs
 - Tests hôte des commandes 4 000/6 000 ms, de l’exclusion mutuelle et de la
   restauration.
 - Test de 30 minutes mesurant la dérive des deadlines monotones.
-- Sur pont et ampoule réels : capture vidéo à haute fréquence ou capteur de
+- Sur le ruban réel : capture vidéo à haute fréquence ou capteur de
   lumière pendant au moins 20 cycles.
 - Avec l’audio : enregistrement simultané lumière/audio pour mesurer le
   décalage de phase et vérifier l’absence de clic.

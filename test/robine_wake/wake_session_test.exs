@@ -1,7 +1,7 @@
 defmodule RobineWake.WakeSessionTest do
   use RobineWake.DomainCase
 
-  alias RobineWake.Hue.Driver.Test, as: HueDriver
+  alias RobineWake.GuideLight.Driver.Test, as: GuideLightDriver
 
   setup do
     previous_plateau = Application.fetch_env!(:robine_wake, :gentle_plateau_ms)
@@ -35,37 +35,54 @@ defmodule RobineWake.WakeSessionTest do
     assert %{active_session: nil} = Audio.status()
   end
 
-  test "starts the sunrise at one percent and spans the full prewake duration", %{alarm: alarm} do
-    assert {:ok, _status} = Hue.pair("192.168.1.42")
+  test "raises the dawn on the strip over the prewake, then turns it off", %{alarm: alarm} do
+    assert {:ok, alarm} =
+             Settings.update_alarm(alarm.id, %{revision: alarm.revision, prewake_seconds: 100})
 
+    assert {:ok, _pid} = WakeSession.start(alarm)
+    assert eventually(fn -> GuideLightDriver.requests() != [] end)
+
+    assert [{"light.program", %{program: "dawn", duration_ms: 100_000}}] =
+             GuideLightDriver.requests()
+
+    assert {:ok, %{state: :dismissed}} = WakeSession.dismiss(:test)
+
+    assert eventually(fn ->
+             List.last(GuideLightDriver.requests()) == {"light.program", %{program: "off"}}
+           end)
+  end
+
+  test "a late start runs only the rest of the dawn, and the strip can stay on", %{alarm: alarm} do
     assert {:ok, alarm} =
              Settings.update_alarm(alarm.id, %{
                revision: alarm.revision,
                prewake_seconds: 100,
-               light_profile: %{
-                 enabled: true,
-                 target_id: "bedroom-group",
-                 target_name: "Chambre",
-                 start_brightness: 20,
-                 end_brightness: 85,
-                 ramp_seconds: 5
-               }
+               light_profile: %{enabled: true, end_behavior: "leave"}
+             })
+
+    # Restarted 40 s into the prewake: daylight still lands on time.
+    assert {:ok, _pid} = WakeSession.start(alarm, DateTime.add(Clock.utc_now(), 60, :second))
+    assert eventually(fn -> GuideLightDriver.requests() != [] end)
+
+    assert [{"light.program", %{program: "dawn", duration_ms: 60_000}}] =
+             GuideLightDriver.requests()
+
+    assert {:ok, %{state: :dismissed}} = WakeSession.dismiss(:test)
+    _ = GuideLight.status()
+    assert [{"light.program", %{program: "dawn"}}] = GuideLightDriver.requests()
+  end
+
+  test "leaves the strip alone when the alarm has no dawn", %{alarm: alarm} do
+    assert {:ok, alarm} =
+             Settings.update_alarm(alarm.id, %{
+               revision: alarm.revision,
+               light_profile: %{enabled: false}
              })
 
     assert {:ok, _pid} = WakeSession.start(alarm)
-    assert eventually(fn -> length(HueDriver.commands()) >= 3 end)
-
-    assert [
-             {:get, "bedroom-group"},
-             {:set, "bedroom-group", %{"dimming" => %{"brightness" => 1}}},
-             {:set, "bedroom-group",
-              %{
-                "dimming" => %{"brightness" => 7.7},
-                "dynamics" => %{"duration" => 18_000}
-              }}
-           ] = HueDriver.commands()
-
     assert {:ok, %{state: :dismissed}} = WakeSession.dismiss(:test)
+    _ = GuideLight.status()
+    assert GuideLightDriver.requests() == []
   end
 
   test "switches from the gentle sound to the strong sound after the ramp", %{alarm: alarm} do

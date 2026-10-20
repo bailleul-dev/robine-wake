@@ -32,9 +32,7 @@ pub fn edit_alarm(alarm: Alarm) -> Nil {
 
 pub fn create_alarm() -> Nil {
   let clock = store.get_state().clock
-  set_editor(
-    Some(draft.new(clock.sounds, clock.hue_targets, platform.local_timezone())),
-  )
+  set_editor(Some(draft.new(clock.sounds, platform.local_timezone())))
 }
 
 pub fn close_editor() -> Nil {

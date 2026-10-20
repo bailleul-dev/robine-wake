@@ -27,15 +27,8 @@ defmodule RobineWake.Alarm do
     strong_sound_id: "default",
     prewake_seconds: 1_200,
     volume_profile: %{start: 15, ceiling: 85, strong: 85, ramp_seconds: 1_200},
-    light_profile: %{
-      enabled: false,
-      target_id: nil,
-      target_name: nil,
-      start_brightness: 1,
-      end_brightness: 70,
-      ramp_seconds: 900,
-      end_behavior: :restore
-    },
+    # Dawn on the LED strip, over the pre-wake: daylight at the alarm time.
+    light_profile: %{enabled: true, end_behavior: :off},
     dismiss_policy: :manual,
     snooze: %{enabled: true, duration_seconds: 480, maximum: 3},
     revision: 1
@@ -295,67 +288,24 @@ defmodule RobineWake.Alarm do
       else: {:error, %{prewake_seconds: "must be between 0 and 3600 seconds"}}
   end
 
+  # Alarms saved with a Philips Hue sunrise keep its switch and turn the
+  # strip off where Hue restored the room.
   defp parse_light(value) when is_map(value) do
-    enabled = truthy?(get(value, :enabled, false))
-    target_id = optional_text(get(value, :target_id))
-    behavior = parse_end_behavior(get(value, :end_behavior, :restore))
+    case parse_end_behavior(get(value, :end_behavior, :off)) do
+      nil ->
+        {:error, %{light_profile: "end_behavior must be off or leave"}}
 
-    profile = %{
-      enabled: enabled,
-      target_id: target_id,
-      target_name: optional_text(get(value, :target_name)),
-      start_brightness: integer(get(value, :start_brightness, 1), 1),
-      end_brightness: integer(get(value, :end_brightness, 70), 70),
-      ramp_seconds: integer(get(value, :ramp_seconds, 900), 900),
-      end_behavior: behavior
-    }
-
-    with :ok <- validate_light_target(profile),
-         :ok <- validate_light_brightness(profile),
-         :ok <- validate_light_ramp(profile) do
-      {:ok, profile}
+      behavior ->
+        {:ok, %{enabled: truthy?(get(value, :enabled, true)), end_behavior: behavior}}
     end
   end
 
   defp parse_light(_), do: {:error, %{light_profile: "must be an object"}}
 
-  defp validate_light_target(%{enabled: true, target_id: nil}),
-    do: {:error, %{light_profile: "requires a Hue target when enabled"}}
-
-  defp validate_light_target(%{target_id: target_id}) when not is_nil(target_id) do
-    if valid_target_id?(target_id),
-      do: :ok,
-      else: {:error, %{light_profile: "contains an invalid Hue target identifier"}}
-  end
-
-  defp validate_light_target(_profile), do: :ok
-
-  defp validate_light_brightness(%{start_brightness: start, end_brightness: finish})
-       when start not in 1..100 or finish not in 1..100,
-       do: {:error, %{light_profile: "brightness must be between 1 and 100"}}
-
-  defp validate_light_brightness(%{start_brightness: start, end_brightness: finish})
-       when finish < start,
-       do: {:error, %{light_profile: "end brightness must be at least the start brightness"}}
-
-  defp validate_light_brightness(_profile), do: :ok
-
-  defp validate_light_ramp(%{ramp_seconds: seconds, end_behavior: behavior})
-       when seconds not in 0..3600 or is_nil(behavior),
-       do: {:error, %{light_profile: "contains values outside supported bounds"}}
-
-  defp validate_light_ramp(_profile), do: :ok
-
-  defp parse_end_behavior(value) when value in [:restore, :off, :leave], do: value
-  defp parse_end_behavior("restore"), do: :restore
-  defp parse_end_behavior("off"), do: :off
+  defp parse_end_behavior(value) when value in [:off, :leave], do: value
+  defp parse_end_behavior(value) when value in [:restore, "restore", "off"], do: :off
   defp parse_end_behavior("leave"), do: :leave
   defp parse_end_behavior(_), do: nil
-
-  defp optional_text(nil), do: nil
-  defp optional_text(""), do: nil
-  defp optional_text(value), do: value |> to_string() |> String.slice(0, 120)
-  defp valid_target_id?(value), do: String.match?(value, ~r/\A[0-9A-Za-z-]{1,64}\z/)
 
   defp parse_snooze(value) when is_map(value) do
     snooze = %{

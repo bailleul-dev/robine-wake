@@ -1,7 +1,8 @@
 //! Guided breathing on an LED strip (30-003): a dim red sliding window. With
 //! empty lungs only the centre pixel glows; on the inhale a window slides
 //! from the centre to each end, widening linearly up to 10 pixels per side,
-//! and slides back on the exhale. It stays dim at its peak so it does not
+//! and slides back on the exhale, until the session ends with a full breath.
+//! It stays dim at its peak so it does not
 //! keep the sleeper awake.
 
 use crate::light::Rgb;
@@ -67,21 +68,30 @@ impl Cadence {
     }
 }
 
-/// A breathing session, from its first inhale until the next command.
+/// A breathing session of about `duration_ms`: the last breath is finished,
+/// lungs empty, then the strip goes dark.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Breathing {
     /// Monotonic start of the first breath.
     pub started_ms: u64,
+    pub duration_ms: u64,
     pub cadence: Cadence,
 }
 
 impl Breathing {
+    /// Length of the session in whole breaths: `duration_ms` rounded up.
+    pub fn session_ms(&self) -> u64 {
+        let breath_ms = self.cadence.breath_ms().max(1);
+        self.duration_ms.div_ceil(breath_ms) * breath_ms
+    }
+
     /// Colour of pixel `index` on a strip of `count` pixels.
     pub fn pixel_at(&self, monotonic_ms: u64, index: usize, count: usize) -> Rgb {
-        if count == 0 {
+        let elapsed = monotonic_ms.saturating_sub(self.started_ms);
+        if count == 0 || elapsed >= self.session_ms() {
             return Rgb::OFF;
         }
-        let fullness = self.cadence.fullness_at(monotonic_ms.saturating_sub(self.started_ms));
+        let fullness = self.cadence.fullness_at(elapsed);
         let centre = (count / 2) as f32;
         let distance = (index as f32 - centre).abs();
         // Window [front - width, front] in pixels from the centre: its front

@@ -45,7 +45,7 @@ defmodule RobineWake.AlarmTest do
              Alarm.new(%{volume_profile: %{start: 15, ceiling: 60, strong: 101}})
 
     assert {:error, %{light_profile: _}} =
-             Alarm.new(%{light_profile: %{enabled: true, target_id: nil}})
+             Alarm.new(%{light_profile: %{enabled: true, end_behavior: "blink"}})
   end
 
   test "the strong-phase volume defaults to the ceiling and can differ from it" do
@@ -59,22 +59,28 @@ defmodule RobineWake.AlarmTest do
              Alarm.new(%{"volume_profile" => %{"start" => 15, "ceiling" => 60, "strong" => 40}})
   end
 
-  test "normalizes a Philips Hue wake-light profile" do
+  test "a dawn on the strip by default, and Hue sunrises become strip dawns" do
+    assert {:ok, %{light_profile: %{enabled: true, end_behavior: :off}}} = Alarm.new(%{})
+
     assert {:ok, alarm} =
              Alarm.new(%{
-               light_profile: %{
-                 enabled: true,
-                 target_id: "bedroom-group",
-                 target_name: "Chambre",
-                 start_brightness: 2,
-                 end_brightness: 80,
-                 ramp_seconds: 1_200,
-                 end_behavior: "off"
+               "light_profile" => %{
+                 "enabled" => true,
+                 "target_id" => "bedroom-group",
+                 "target_name" => "Chambre",
+                 "start_brightness" => 2,
+                 "end_brightness" => 80,
+                 "ramp_seconds" => 1_200,
+                 "end_behavior" => "restore"
                }
              })
 
-    assert alarm.light_profile.end_behavior == :off
-    assert Alarm.to_map(alarm)["light_profile"]["target_name"] == "Chambre"
+    assert alarm.light_profile == %{enabled: true, end_behavior: :off}
+
+    assert Alarm.to_map(alarm)["light_profile"] == %{"enabled" => true, "end_behavior" => :off}
+
+    assert {:ok, %{light_profile: %{enabled: false, end_behavior: :leave}}} =
+             Alarm.new(%{light_profile: %{enabled: false, end_behavior: "leave"}})
   end
 
   test "moves a nonexistent DST local time to the first valid instant" do

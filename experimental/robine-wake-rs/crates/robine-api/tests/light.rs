@@ -151,9 +151,11 @@ fn starts_a_dawn_a_sunset_or_a_breathing_session() {
     ok(command(&mut device, 6_000, "light.program", json!({ "program": "sunset", "duration_ms": 60_000 })));
     assert!(matches!(device.light(), Some(LightScene::Sunset(_))));
 
-    ok(command(&mut device, 7_000, "light.program", json!({ "program": "breathing", "cadence": "0-4-0-6" })));
+    ok(command(&mut device, 7_000, "light.program", json!({ "program": "breathing", "cadence": "0-4-0-6", "duration_ms": 300_000 })));
     match device.light() {
-        Some(LightScene::Breathing(breathing)) => assert_eq!(breathing.cadence, Cadence::COHERENCE),
+        Some(LightScene::Breathing(breathing)) => {
+            assert_eq!((breathing.cadence, breathing.duration_ms), (Cadence::COHERENCE, 300_000))
+        }
         other => panic!("{other:?}"),
     }
 
@@ -165,7 +167,7 @@ fn starts_a_dawn_a_sunset_or_a_breathing_session() {
 #[test]
 fn a_transition_replaces_a_program_starting_from_dark() {
     let mut device = device();
-    ok(command(&mut device, 0, "light.program", json!({ "program": "breathing", "cadence": "0-4-0-6" })));
+    ok(command(&mut device, 0, "light.program", json!({ "program": "breathing", "cadence": "0-4-0-6", "duration_ms": 300_000 })));
     ok(command(&mut device, 1_000, "light.set", json!({ "color": color(AMBER), "brightness": 30, "transition_ms": 1_000 })));
     assert_eq!(fade(&device).from.brightness, 0.0);
     assert_eq!(ok(command(&mut device, 1_000, "light.get", json!({})))["program"], serde_json::Value::Null);
@@ -180,8 +182,9 @@ fn rejects_invalid_programs() {
         (json!({ "program": "dawn" }), "invalid_duration"),
         (json!({ "program": "dawn", "duration_ms": 0 }), "invalid_duration"),
         (json!({ "program": "sunset", "duration_ms": 7_200_001 }), "invalid_duration"),
-        (json!({ "program": "breathing" }), "invalid_cadence"),
-        (json!({ "program": "breathing", "cadence": "4-6" }), "invalid_cadence"),
+        (json!({ "program": "breathing", "duration_ms": 300_000 }), "invalid_cadence"),
+        (json!({ "program": "breathing", "cadence": "4-6", "duration_ms": 300_000 }), "invalid_cadence"),
+        (json!({ "program": "breathing", "cadence": "0-4-0-6" }), "invalid_duration"),
     ];
     for (body, code) in cases {
         let response = command(&mut device, 0, "light.program", body.clone());

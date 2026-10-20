@@ -4,13 +4,13 @@ defmodule RobineWake.Bluetooth.Command do
   alias RobineWake.{
     Alarm,
     Auth,
+    Breathing,
     Camera,
     ClockQuality,
     CommandCache,
     EventLog,
     GuideLight,
     Health,
-    Hue,
     Nap,
     RemoteButton,
     Scheduler,
@@ -40,9 +40,6 @@ defmodule RobineWake.Bluetooth.Command do
     "clock.confirm",
     "camera.calibrate",
     "history.erase",
-    "hue.pair",
-    "hue.refresh",
-    "hue.disconnect",
     "breathing.start",
     "breathing.volume",
     "breathing.stop",
@@ -179,34 +176,19 @@ defmodule RobineWake.Bluetooth.Command do
     with :ok <- Settings.erase_history(), do: {:ok, %{"erased" => true}}
   end
 
-  defp dispatch("hue.pair", %{"bridge_host" => host}) when is_binary(host) do
-    Hue.pair(host)
-  end
-
-  defp dispatch("hue.refresh", _body) do
-    Hue.refresh()
-  end
-
-  defp dispatch("hue.disconnect", _body) do
-    with :ok <- Hue.disconnect(), do: {:ok, %{"disconnected" => true}}
-  end
-
   defp dispatch(
          "breathing.start",
-         %{
-           "target_id" => target_id,
-           "duration_minutes" => duration_minutes
-         } = body
+         %{"cadence" => cadence, "duration_minutes" => duration_minutes} = body
        )
-       when is_binary(target_id) and is_integer(duration_minutes) do
-    Hue.start_breathing(target_id, duration_minutes, Map.get(body, "volume_percent", 60))
+       when is_binary(cadence) and is_integer(duration_minutes) do
+    Breathing.start(cadence, duration_minutes, Map.get(body, "volume_percent", 60))
   end
 
   defp dispatch("breathing.volume", %{"volume_percent" => volume_percent})
        when is_integer(volume_percent),
-       do: Hue.set_breathing_volume(volume_percent)
+       do: Breathing.set_volume(volume_percent)
 
-  defp dispatch("breathing.stop", _body), do: Hue.stop_breathing()
+  defp dispatch("breathing.stop", _body), do: Breathing.stop()
 
   # Forwarded to the ESP32, which renders the program on its LED strip.
   defp dispatch("light.program", body) when is_map(body) do
@@ -239,7 +221,7 @@ defmodule RobineWake.Bluetooth.Command do
   defp dispatch("device.factory_reset", %{"confirmation" => "RESET"}) do
     with :ok <- Settings.reset(),
          :ok <- RemoteButton.reset(),
-         :ok <- Hue.reset(),
+         {:ok, _breathing} <- Breathing.stop(),
          :ok <- maybe_reset_camera(),
          :ok <- EventLog.clear(),
          :ok <- Auth.factory_reset() do
@@ -265,8 +247,7 @@ defmodule RobineWake.Bluetooth.Command do
           Settings.smartphone_dismiss_enabled(),
           Settings.smartphone_dismiss_locked?()
         ),
-      "hue" => normalize(Hue.status()),
-      "hue_targets" => normalize(Hue.targets()),
+      "breathing" => normalize(Breathing.status()),
       "remote_button" => normalize(RemoteButton.status()),
       "lora" => normalize(LoRaServer.safe_status()),
       "transport" => transport_dto(health)

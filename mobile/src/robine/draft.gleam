@@ -2,17 +2,14 @@
 //// accepts; what remains is whether they agree with each other.
 
 import gleam/list
-import gleam/option.{type Option, None, Some}
 import gleam/set.{type Set}
 import gleam/string
 import robine/alarm.{
-  type Afterwards, type Alarm, type Ramp, type Settings, type Switch, Light,
-  Settings, SwitchedOff, SwitchedOn, Target, Volume,
+  type Afterwards, type Alarm, type Ramp, type Settings, Light, Settings, Volume,
 }
 import robine/calendar.{type Time, type Weekday}
-import robine/hue.{type HueTarget}
 import robine/id.{type Id}
-import robine/level.{type Brightness, type Percent}
+import robine/level.{type Percent}
 import robine/sound.{type Sound}
 
 pub type Draft {
@@ -30,10 +27,8 @@ pub type Draft {
     ceiling_volume: Percent,
     strong_volume: Percent,
     ramp: Ramp,
-    light: Switch,
-    light_start: Brightness,
-    light_end: Brightness,
-    light_ramp: Ramp,
+    /// A dawn on the strip over the ramp.
+    dawn: Bool,
     afterwards: Afterwards,
   )
 }
@@ -49,21 +44,9 @@ pub type Problem {
   NoLabel
   NoDay
   StartAboveCeiling
-  LightDimming
 }
 
-fn first_target(targets: List(HueTarget)) -> Option(alarm.Target) {
-  case targets {
-    [first, ..] -> Some(Target(id: first.id, name: Some(first.name)))
-    [] -> None
-  }
-}
-
-pub fn new(
-  sounds: List(Sound),
-  targets: List(HueTarget),
-  timezone: String,
-) -> Draft {
+pub fn new(sounds: List(Sound), timezone: String) -> Draft {
   let assert Ok(time) = calendar.time(7, 0)
   Draft(
     origin: New,
@@ -78,14 +61,8 @@ pub fn new(
     ceiling_volume: level.percent(85),
     strong_volume: level.percent(85),
     ramp: alarm.ramp(20),
-    light: case first_target(targets) {
-      Some(target) -> SwitchedOn(target)
-      None -> SwitchedOff(None)
-    },
-    light_start: level.brightness(1),
-    light_end: level.brightness(70),
-    light_ramp: alarm.ramp(15),
-    afterwards: alarm.Restore,
+    dawn: alarm.default_light().dawn,
+    afterwards: alarm.default_light().afterwards,
   )
 }
 
@@ -105,50 +82,13 @@ pub fn from_alarm(alarm: Alarm) -> Draft {
     ceiling_volume: level.to(settings.volume.rise),
     strong_volume: settings.volume.strong,
     ramp: settings.ramp,
-    light: light.switch,
-    light_start: level.from(light.glow),
-    light_end: level.to(light.glow),
-    light_ramp: light.ramp,
+    dawn: light.dawn,
     afterwards: light.afterwards,
   )
 }
 
 pub fn editing(draft: Draft) -> Bool {
   draft.origin != New
-}
-
-pub fn light_on(draft: Draft) -> Bool {
-  case draft.light {
-    SwitchedOn(_) -> True
-    SwitchedOff(_) -> False
-  }
-}
-
-pub fn light_target(draft: Draft) -> Option(alarm.Target) {
-  case draft.light {
-    SwitchedOn(target) -> Some(target)
-    SwitchedOff(last) -> last
-  }
-}
-
-/// Turns the light on, on the room it lit last or else the first one; it
-/// stays off when there is no room to light.
-pub fn switch_light(draft: Draft, on: Bool, targets: List(HueTarget)) -> Draft {
-  let target = option.or(light_target(draft), first_target(targets))
-  let light = case on, target {
-    True, Some(target) -> SwitchedOn(target)
-    True, None -> draft.light
-    False, last -> SwitchedOff(last)
-  }
-  Draft(..draft, light:)
-}
-
-pub fn choose_target(draft: Draft, target: HueTarget) -> Draft {
-  let target = Target(id: target.id, name: Some(target.name))
-  Draft(..draft, light: case draft.light {
-    SwitchedOn(_) -> SwitchedOn(target)
-    SwitchedOff(_) -> SwitchedOff(Some(target))
-  })
 }
 
 pub fn toggle_day(draft: Draft, day: Weekday) -> Draft {
@@ -163,9 +103,8 @@ pub fn validate(draft: Draft) -> Result(Settings, List(Problem)) {
   let label = string.trim(draft.label)
   let days = calendar.days(set.to_list(draft.days))
   let rise = level.percent_rise(draft.start_volume, draft.ceiling_volume)
-  let glow = level.brightness_rise(draft.light_start, draft.light_end)
-  case label, days, rise, glow {
-    _, Ok(days), Ok(rise), Ok(glow) if label != "" ->
+  case label, days, rise {
+    _, Ok(days), Ok(rise) if label != "" ->
       Ok(Settings(
         label:,
         enabled: draft.enabled,
@@ -176,19 +115,13 @@ pub fn validate(draft: Draft) -> Result(Settings, List(Problem)) {
         strong_sound: draft.strong_sound,
         ramp: draft.ramp,
         volume: Volume(rise:, strong: draft.strong_volume),
-        light: Light(
-          switch: draft.light,
-          glow:,
-          ramp: draft.light_ramp,
-          afterwards: draft.afterwards,
-        ),
+        light: Light(dawn: draft.dawn, afterwards: draft.afterwards),
       ))
-    _, _, _, _ ->
+    _, _, _ ->
       [
         #(label == "", NoLabel),
         #(days == Error(Nil), NoDay),
         #(rise == Error(Nil), StartAboveCeiling),
-        #(glow == Error(Nil), LightDimming),
       ]
       |> list.filter_map(fn(check) {
         case check.0 {
@@ -205,6 +138,5 @@ pub fn describe(problem: Problem) -> String {
     NoLabel -> "Donnez un nom à ce réveil."
     NoDay -> "Choisissez au moins un jour."
     StartAboveCeiling -> "Le volume de départ dépasse le plafond."
-    LightDimming -> "La lumière finale doit être au moins la première lueur."
   }
 }

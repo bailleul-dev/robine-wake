@@ -3,7 +3,6 @@
 import gleam/float
 import gleam/int
 import gleam/list
-import gleam/option
 import gleam/result
 import gleam/set
 import redraw.{type Element}
@@ -13,7 +12,6 @@ import robine/calendar
 import robine/challenge
 import robine/command
 import robine/draft.{type Draft, type Origin, Draft} as alarm_draft
-import robine/hue.{type HueTarget}
 import robine/id.{type Id}
 import robine/level
 import robine/native
@@ -324,133 +322,51 @@ fn sound_card(
   ])
 }
 
-fn light_card(
-  draft: Draft,
-  set_draft: SetDraft,
-  targets: List(HueTarget),
-  configured: Bool,
-) -> Element {
-  let available = configured && targets != []
+fn light_card(draft: Draft, set_draft: SetDraft) -> Element {
   theme.card(False, [], [
     column([s.gap(16)], [
-      heading("3", "Lever de lumière", "Une ambiance Philips Hue progressive"),
-      ..case available {
-        False -> [
-          label(
-            [s.font_size(14), s.color(theme.muted)],
-            "💡 Connectez d’abord un pont depuis l’onglet Réveil.",
-          ),
-        ]
+      heading(
+        "3",
+        "Lever de soleil",
+        "Le ruban lumineux s’éclaire pendant la montée, du premier orange à la lumière du jour à l’heure du réveil",
+      ),
+      row([s.align_items("center")], [
+        label(
+          [
+            s.flex(1),
+            s.font_size(14),
+            s.font_weight("700"),
+            s.color(theme.text),
+          ],
+          "Allumer le ruban",
+        ),
+        theme.toggle(draft.dawn, "Allumer le ruban", False, fn(dawn) {
+          set_draft(fn(current) { Draft(..current, dawn:) })
+        }),
+      ]),
+      ..case draft.dawn {
+        False -> []
         True -> [
-          row([s.align_items("center")], [
-            label(
-              [
-                s.flex(1),
-                s.font_size(14),
-                s.font_weight("700"),
-                s.color(theme.text),
-              ],
-              "Allumer progressivement",
-            ),
-            theme.toggle(
-              alarm_draft.light_on(draft),
-              "Allumer progressivement",
-              False,
-              fn(on) { set_draft(alarm_draft.switch_light(_, on, targets)) },
-            ),
-          ]),
-          ..case alarm_draft.light_on(draft) {
-            False -> []
-            True -> [
-              native.picker(
-                [
-                  native.prop(
-                    "selectedValue",
-                    alarm_draft.light_target(draft)
-                      |> option.map(fn(target) { id.to_string(target.id) })
-                      |> option.unwrap(""),
-                  ),
-                  native.prop("onValueChange", fn(text: String) {
-                    case id.find(targets, text, fn(target) { target.id }) {
-                      Ok(target) ->
-                        set_draft(alarm_draft.choose_target(_, target))
-                      Error(Nil) -> Nil
-                    }
-                  }),
-                  native.prop("dropdownIconColor", theme.moon),
-                  native.style(theme.picker_style([])),
-                ],
-                list.map(targets, fn(target) {
-                  #(id.to_string(target.id), target.name)
-                }),
+          native.picker(
+            [
+              native.prop(
+                "selectedValue",
+                alarm.afterwards_code(draft.afterwards),
               ),
-              value_slider(
-                "Première lueur",
-                level.brightness_to_int(draft.light_start),
-                1,
-                level.brightness_to_int(draft.light_end),
-                "%",
-                theme.moon,
-                fn(value) {
-                  set_draft(fn(current) {
-                    Draft(..current, light_start: level.brightness(value))
-                  })
-                },
-              ),
-              value_slider(
-                "Lumière finale",
-                level.brightness_to_int(draft.light_end),
-                level.brightness_to_int(draft.light_start),
-                100,
-                "%",
-                theme.mint,
-                fn(value) {
-                  set_draft(fn(current) {
-                    Draft(..current, light_end: level.brightness(value))
-                  })
-                },
-              ),
-              value_slider(
-                "Durée lumière",
-                alarm.ramp_minutes(draft.light_ramp),
-                1,
-                60,
-                " min",
-                theme.lavender,
-                fn(value) {
-                  set_draft(fn(current) {
-                    Draft(..current, light_ramp: alarm.ramp(value))
-                  })
-                },
-              ),
-              native.picker(
-                [
-                  native.prop(
-                    "selectedValue",
-                    alarm.afterwards_code(draft.afterwards),
-                  ),
-                  native.prop("onValueChange", fn(code: String) {
-                    case alarm.afterwards_from_code(code) {
-                      Ok(afterwards) ->
-                        set_draft(fn(current) { Draft(..current, afterwards:) })
-                      Error(Nil) -> Nil
-                    }
-                  }),
-                  native.prop("dropdownIconColor", theme.moon),
-                  native.style(theme.picker_style([])),
-                ],
-                list.map(
-                  [alarm.Restore, alarm.TurnOff, alarm.Leave],
-                  fn(choice) {
-                    #(
-                      alarm.afterwards_code(choice),
-                      alarm.afterwards_label(choice),
-                    )
-                  },
-                ),
-              ),
-            ]
-          }
+              native.prop("onValueChange", fn(code: String) {
+                case alarm.afterwards_from_code(code) {
+                  Ok(afterwards) ->
+                    set_draft(fn(current) { Draft(..current, afterwards:) })
+                  Error(Nil) -> Nil
+                }
+              }),
+              native.prop("dropdownIconColor", theme.moon),
+              native.style(theme.picker_style([])),
+            ],
+            list.map([alarm.TurnOff, alarm.Leave], fn(choice) {
+              #(alarm.afterwards_code(choice), alarm.afterwards_label(choice))
+            }),
+          ),
         ]
       }
     ]),
@@ -611,7 +527,6 @@ fn render_alarm_editor(initial_draft: Draft) -> Element {
   let editing = alarm_draft.editing(draft)
   let checked = alarm_draft.validate(draft)
   let width = [s.width_pct("100%"), ..pick(desktop, [s.max_width(960)], [])]
-  let configured = hue.is_paired(state.clock.hue)
   native.modal(
     [
       native.prop("visible", True),
@@ -666,7 +581,7 @@ fn render_alarm_editor(initial_draft: Draft) -> Element {
             time_card(draft, set_draft),
             schedule_card(draft, set_draft),
             sound_card(draft, set_draft, state.clock.sounds),
-            light_card(draft, set_draft, state.clock.hue_targets, configured),
+            light_card(draft, set_draft),
             ramp_card(draft, set_draft),
             case draft.origin {
               alarm_draft.Existing(alarm) -> test_card(alarm.id)
