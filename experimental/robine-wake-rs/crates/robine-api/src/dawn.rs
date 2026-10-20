@@ -20,7 +20,7 @@ const KEYFRAMES: [(f32, Rgb); 5] = [
 
 /// Intensity of the first pixel: faint, yet enough for the orange to show
 /// through the 8-bit channels.
-const START_INTENSITY: f32 = 0.03;
+pub(crate) const START_INTENSITY: f32 = 0.03;
 
 /// A dawn in progress, or finished and held at full daylight.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,9 +50,8 @@ impl Dawn {
             return Rgb::OFF;
         }
         // The edges lag behind the sun, warmer, until the strip flattens.
-        let color = sun_color(p * (0.55 + 0.45 * weight));
-        // Cubic rise: slow at first, as the eye perceives light (00-002).
-        let intensity = START_INTENSITY + (1.0 - START_INTENSITY) * p * p * p;
+        let color = keyframe_color(&KEYFRAMES, p * (0.55 + 0.45 * weight));
+        let intensity = intensity(p);
         let scale = intensity * weight * self.max_brightness.clamp(0.0, 100.0) / 100.0;
         let channel = |value: u8| (f32::from(value) * scale + 0.5) as u8;
         Rgb {
@@ -63,8 +62,15 @@ impl Dawn {
     }
 }
 
-/// Share of the sun a pixel receives, from 0 (dark) to 1 (centre).
-fn weight(p: f32, index: usize, count: usize) -> f32 {
+/// Intensity of the sun at height `p`, from one faint pixel to full light.
+/// Cubic: slow near the horizon, as the eye perceives light (00-002).
+pub(crate) fn intensity(p: f32) -> f32 {
+    START_INTENSITY + (1.0 - START_INTENSITY) * p * p * p
+}
+
+/// Share of the sun a pixel receives, from 0 (dark) to 1 (centre), at sun
+/// height `p` (0 one pixel on the horizon, 1 uniform over the strip).
+pub(crate) fn weight(p: f32, index: usize, count: usize) -> f32 {
     if count == 0 {
         return 0.0;
     }
@@ -81,12 +87,12 @@ fn weight(p: f32, index: usize, count: usize) -> f32 {
     falloff + (1.0 - falloff) * flat
 }
 
-/// Sun colour at position `k` (0 horizon, 1 daylight) between keyframes.
-fn sun_color(k: f32) -> Rgb {
+/// Colour at position `k` (0 to 1) between `keyframes`, sorted from 0 to 1.
+pub(crate) fn keyframe_color(keyframes: &[(f32, Rgb)], k: f32) -> Rgb {
     let k = k.clamp(0.0, 1.0);
-    let upper = KEYFRAMES.iter().position(|(at, _)| *at >= k).unwrap_or(KEYFRAMES.len() - 1).max(1);
-    let (from_at, from) = KEYFRAMES[upper - 1];
-    let (to_at, to) = KEYFRAMES[upper];
+    let upper = keyframes.iter().position(|(at, _)| *at >= k).unwrap_or(keyframes.len() - 1).max(1);
+    let (from_at, from) = keyframes[upper - 1];
+    let (to_at, to) = keyframes[upper];
     let t = (k - from_at) / (to_at - from_at);
     let mix = |a: u8, b: u8| (f32::from(a) + (f32::from(b) - f32::from(a)) * t + 0.5) as u8;
     Rgb {

@@ -21,6 +21,7 @@ mod dawn;
 mod device;
 mod dto;
 mod light;
+mod sunset;
 pub mod sounds;
 
 use alloc::vec::Vec;
@@ -31,6 +32,7 @@ pub use dawn::Dawn;
 pub use device::{AudioOutput, Device, SnapshotError};
 pub use light::{Easing, LightFade, LightLevel, Rgb, MAX_TRANSITION_MS};
 pub use sounds::Sound;
+pub use sunset::Sunset;
 
 /// Port of the HTTP command endpoint, shared with the Raspberry Pi build.
 pub const DEFAULT_HTTP_PORT: u16 = 4000;

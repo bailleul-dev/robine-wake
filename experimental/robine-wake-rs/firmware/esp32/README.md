@@ -73,6 +73,12 @@ petite alimentation 5 V. Elle reste allumée jusqu'à la commande suivante.
 | `+5V`, `GND` (fils d'injection) | alimentation 5 V séparée |
 | `GND` | GND de la carte : sans masse commune, le signal se brouille |
 
+`guide_light::start_sunset(duree_ms)` lance un coucher de soleil pour
+s'endormir, calculé par `robine_api::Sunset` : tout le ruban s'allume d'un
+coup en ambre (≈ 2200 K, 40 % du plafond), puis baisse sur la courbe de
+l'aube à l'envers et rougit, les bords s'éteignant en premier, jusqu'à une
+LED rouge faible au centre qui s'éteint. Jamais plus froid que 2200 K.
+
 `guide_light::start_breathing(Cadence::parse("0-4-0-6"))` lance une
 respiration guidée ([30-003](../../../../docs/specs/30/003-guided-breathing/spec.md)),
 calculée par `robine_api::Breathing`. La cadence s'écrit `pause poumons
@@ -86,6 +92,7 @@ Démos de banc, sans Wi-Fi ni Pi :
 
 ```sh
 cargo run --release --bin dawn_demo     # aube compressée à 1 minute
+cargo run --release --bin sunset_demo   # coucher compressé à 1 minute
 cargo run --release --bin breathing_demo  # respiration 0-4-0-6
 cargo run --release --bin strip_probe   # identifie le protocole d'un ruban inconnu
 ```
