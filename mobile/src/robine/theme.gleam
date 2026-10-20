@@ -377,10 +377,13 @@ fn native_glass_button(button: Button) -> Element {
           True -> 38
           False -> 48
         }),
-        s.align_self(case button.grow {
-          True -> "stretch"
-          False -> "center"
-        }),
+        ..case button.grow {
+          // A SwiftUI Host is a React Native child. Its SwiftUI frame only
+          // fills the width proposed by React Native, so it must participate
+          // in the row's flex layout before `frame(maxWidth:)` can expand it.
+          True -> [s.flex(1), s.align_self("stretch")]
+          False -> [s.align_self("center")]
+        },
       ]),
     ],
     [
@@ -437,7 +440,7 @@ fn fallback_button(button: Button) -> Element {
           }),
           ..list.flatten([
             case button.grow {
-              True -> [s.align_self("stretch")]
+              True -> [s.flex(1), s.align_self("stretch")]
               False -> []
             },
             [
