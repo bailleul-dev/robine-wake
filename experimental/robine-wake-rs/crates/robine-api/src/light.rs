@@ -1,19 +1,30 @@
-//! Low-level control of a light wired to the device (the ESP32's NeoPixel).
+//! Control of a light wired to the device (the ESP32's LED strip).
 //!
-//! The device keeps no rhythm of its own: the Raspberry Pi, master of the
-//! audio, owns the 4/6 breathing clock (30-003) and sends one `light.set` per
-//! phase with a transition, like `dynamics.duration` on Hue. The device only
-//! interpolates from the color shown when the command arrives.
+//! `light.set` is low level: the Raspberry Pi, master of the audio, owns the
+//! 4/6 breathing clock (30-003) and sends one per phase with a transition,
+//! like `dynamics.duration` on Hue. The device only interpolates from the
+//! color shown when the command arrives.
+//!
+//! `light.program` starts a program the device renders on its own, pixel by
+//! pixel: a dawn, a sunset or a breathing session at a given cadence.
 
 use alloc::string::String;
 
 use serde_json::{json, Map, Value};
 
+use crate::breathing::{Breathing, Cadence};
+use crate::dawn::Dawn;
 use crate::device::{Error, Result};
+use crate::sunset::Sunset;
 use crate::{Context, Device};
 
 /// Longest transition accepted, in milliseconds.
 pub const MAX_TRANSITION_MS: u64 = 60_000;
+/// Longest dawn or sunset accepted, in milliseconds: two hours.
+pub const MAX_PROGRAM_MS: u64 = 7_200_000;
+/// Ceiling of a program's light, in percent: 60 pixels near 2 A on a small
+/// 5 V supply.
+pub const PROGRAM_MAX_BRIGHTNESS: f32 = 60.0;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Rgb {
@@ -100,10 +111,78 @@ impl LightFade {
     }
 }
 
+/// What the light shows: a `light.set` transition or a program.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LightScene {
+    Fade(LightFade),
+    Dawn(Dawn),
+    Sunset(Sunset),
+    Breathing(Breathing),
+}
+
+impl LightScene {
+    /// Colour of pixel `index` on a strip of `count` pixels; a transition
+    /// shows the same colour on every pixel.
+    pub fn pixel_at(&self, monotonic_ms: u64, index: usize, count: usize) -> Rgb {
+        match self {
+            LightScene::Fade(fade) => fade.level_at(monotonic_ms).output(),
+            LightScene::Dawn(dawn) => dawn.pixel_at(monotonic_ms, index, count),
+            LightScene::Sunset(sunset) => sunset.pixel_at(monotonic_ms, index, count),
+            LightScene::Breathing(breathing) => breathing.pixel_at(monotonic_ms, index, count),
+        }
+    }
+
+    fn program(&self) -> Option<&'static str> {
+        match self {
+            LightScene::Fade(_) => None,
+            LightScene::Dawn(_) => Some("dawn"),
+            LightScene::Sunset(_) => Some("sunset"),
+            LightScene::Breathing(_) => Some("breathing"),
+        }
+    }
+}
+
 impl Device {
-    /// Current transition of the light; `None` until the first `light.set`.
-    pub fn light(&self) -> Option<LightFade> {
+    /// What the light shows; `None` until the first `light.set` or
+    /// `light.program`, and after `light.program` `off`.
+    pub fn light(&self) -> Option<LightScene> {
         self.light
+    }
+
+    /// `light.program`: `{"program":"dawn"|"sunset","duration_ms":…}`,
+    /// `{"program":"breathing","cadence":"0-4-0-6"}` or `{"program":"off"}`.
+    /// The program starts now and runs until the next light command.
+    pub(crate) fn start_light_program(&mut self, body: &Map<String, Value>, ctx: &Context) -> Result<Value> {
+        let duration_ms = || {
+            body.get("duration_ms")
+                .and_then(Value::as_u64)
+                .filter(|ms| (1..=MAX_PROGRAM_MS).contains(ms))
+                .ok_or(Error::Code("invalid_duration"))
+        };
+        let started_ms = ctx.monotonic_ms;
+        self.light = match body.get("program").and_then(Value::as_str) {
+            Some("dawn") => Some(LightScene::Dawn(Dawn {
+                started_ms,
+                duration_ms: duration_ms()?,
+                max_brightness: PROGRAM_MAX_BRIGHTNESS,
+            })),
+            Some("sunset") => Some(LightScene::Sunset(Sunset {
+                started_ms,
+                duration_ms: duration_ms()?,
+                max_brightness: PROGRAM_MAX_BRIGHTNESS,
+            })),
+            Some("breathing") => {
+                let cadence = body
+                    .get("cadence")
+                    .and_then(Value::as_str)
+                    .and_then(Cadence::parse)
+                    .ok_or(Error::Code("invalid_cadence"))?;
+                Some(LightScene::Breathing(Breathing { started_ms, cadence }))
+            }
+            Some("off") => None,
+            _ => return Err(Error::Code("invalid_program")),
+        };
+        Ok(self.light_status(ctx))
     }
 
     /// `light.set`: `{"color":{"r","g","b"},"brightness":0-100,
@@ -133,26 +212,28 @@ impl Device {
             Some(_) => return Err(Error::Code("invalid_easing")),
         };
 
-        self.light = Some(LightFade {
+        self.light = Some(LightScene::Fade(LightFade {
             from: current,
             to: LightLevel { color, brightness },
             started_ms: ctx.monotonic_ms,
             duration_ms,
             easing,
-        });
+        }));
         Ok(self.light_status(ctx))
     }
 
     /// `light.get`.
     pub(crate) fn light_status(&self, ctx: &Context) -> Value {
         let current = self.current_light(ctx);
-        let target = self.light.map_or(current, |fade| fade.to);
-        let (remaining_ms, easing) = self.light.map_or((0, Easing::Linear), |fade| {
+        let fade = self.fade();
+        let target = fade.map_or(current, |fade| fade.to);
+        let (remaining_ms, easing) = fade.map_or((0, Easing::Linear), |fade| {
             let end = fade.started_ms + fade.duration_ms;
             (end.saturating_sub(ctx.monotonic_ms), fade.easing)
         });
         json!({
             "name": self.platform.light,
+            "program": self.light.and_then(|scene| scene.program()),
             "color": color_json(current.color),
             "brightness": current.brightness,
             "target": { "color": color_json(target.color), "brightness": target.brightness },
@@ -162,8 +243,16 @@ impl Device {
         })
     }
 
+    fn fade(&self) -> Option<LightFade> {
+        match self.light {
+            Some(LightScene::Fade(fade)) => Some(fade),
+            _ => None,
+        }
+    }
+
+    /// Level a transition starts from: a program counts as dark.
     fn current_light(&self, ctx: &Context) -> LightLevel {
-        self.light.map_or_else(LightLevel::default, |fade| fade.level_at(ctx.monotonic_ms))
+        self.fade().map_or_else(LightLevel::default, |fade| fade.level_at(ctx.monotonic_ms))
     }
 }
 

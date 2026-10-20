@@ -46,8 +46,17 @@ pub async fn run(uart: Uart<'static, Async>, app: &'static App) {
             if !overflow && request.first() == Some(&b'{') {
                 let mut response = app.command(request).await;
                 response.push(b'\n');
-                if let Err(error) = tx.write_async(&response).await {
-                    warn!("serial: {error:?}");
+                // `write_async` only fills the 128-byte FIFO: loop until all
+                // of the response is sent.
+                let mut pending = response.as_slice();
+                while !pending.is_empty() {
+                    match tx.write_async(pending).await {
+                        Ok(written) => pending = &pending[written..],
+                        Err(error) => {
+                            warn!("serial: {error:?}");
+                            break;
+                        }
+                    }
                 }
             }
             (length, overflow) = (0, false);

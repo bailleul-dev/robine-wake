@@ -18,11 +18,12 @@ pub static RINGING: AtomicBool = AtomicBool::new(false);
 pub struct App {
     device: Mutex<CriticalSectionRawMutex, Device>,
     store: Mutex<CriticalSectionRawMutex, Option<Store>>,
-    stack: Stack<'static>,
+    /// `None` without Wi-Fi, on the Pi's light co-processor.
+    stack: Option<Stack<'static>>,
 }
 
 impl App {
-    pub fn new(device: Device, store: Option<Store>, stack: Stack<'static>) -> Self {
+    pub fn new(device: Device, store: Option<Store>, stack: Option<Stack<'static>>) -> Self {
         Self {
             device: Mutex::new(device),
             store: Mutex::new(store),
@@ -37,7 +38,7 @@ impl App {
             clock_trusted: clock::trusted(),
             ipv4: self
                 .stack
-                .config_v4()
+                .and_then(|stack| stack.config_v4())
                 .map(|config| config.address.address().octets()),
         }
     }

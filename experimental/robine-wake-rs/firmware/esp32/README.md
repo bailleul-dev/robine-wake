@@ -13,8 +13,8 @@ de l'app mobile et du bouton déporté, sur le port 4000 comme le Raspberry Pi :
 Le protocole vient de [`robine-api`](../../crates/robine-api), testé sur PC
 (`cargo test -p robine-api` à la racine du workspace).
 
-Sans ampli pour l'instant, la LED blanche (GPIO 25) clignote tant qu'une
-alarme sonne. Hue et caméra répondent `unsupported_operation`.
+Sans ampli pour l'instant, le GPIO 25 (la LED blanche de la Heltec V1,
+`D25` sans LED sur une DevKit) clignote tant qu'une alarme sonne. Hue et caméra répondent `unsupported_operation`.
 
 ## Veilleuse NeoPixel
 
@@ -53,10 +53,26 @@ persistée.
 
 Alimentée en 3,3 V, la WS2812B accepte directement les données 3,3 V de
 l'ESP32 : pas de level shifter. Elle éclaire un peu moins fort qu'en 5 V,
-sans importance la nuit. Le signal est produit par le RMT : le Wi-Fi ne
-peut pas déformer les bits.
+sans importance la nuit. Le signal sort du SPI2 par DMA (3 bits SPI à
+2,5 MHz par bit WS2812B) : toute la trame part sans le CPU, et ni le Wi-Fi
+ni une tâche occupée ne peuvent déformer ou rejouer des bits. Avec le RMT,
+rechargé par la tâche async, 60 LED flashaient dès que le Wi-Fi tournait.
 
 ## Ruban LED et aube
+
+`light.program` lance un programme que l'ESP32 joue seul jusqu'à la
+commande suivante ; le Raspberry Pi le relaie depuis l'app web (onglet
+Soir, carte « Ruban lumineux ») :
+
+```json
+{"v":1,"id":"1","op":"light.program","body":{"program":"dawn","duration_ms":1800000}}
+{"v":1,"id":"2","op":"light.program","body":{"program":"sunset","duration_ms":1800000}}
+{"v":1,"id":"3","op":"light.program","body":{"program":"breathing","cadence":"0-4-0-6"}}
+{"v":1,"id":"4","op":"light.program","body":{"program":"off"}}
+```
+
+Durées de 1 ms à 2 h ; erreurs `invalid_program`, `invalid_duration`,
+`invalid_cadence`. Un `light.set` remplace le programme en cours.
 
 La même sortie (GPIO 13) pilote un ruban WS2812B de 60 LED : une
 transition `light.set` met tout le ruban de la même couleur.
@@ -99,18 +115,24 @@ cargo run --release --bin strip_probe   # identifie le protocole d'un ruban inco
 
 ## Liaison série avec le Raspberry Pi
 
+Sur le réveil, l'ESP32 tourne `pi_light` : le ruban et cette liaison,
+sans Wi-Fi, HTTP ni AirPlay (le firmware `robine-esp32` complet reste
+l'expérience autonome). Le Pi relaie les commandes de l'app web.
+
 UART2 à 115 200 bauds, 8N1. Une requête JSON par ligne (`\n`), une réponse
 par ligne avec le même `id`, traitée comme `POST /api/v1/command`. Les
 lignes qui ne commencent pas par `{` sont ignorées sans réponse : la console
 noyau du Pi écrit sur le même UART.
 
-| Raspberry Pi 3 | Heltec WiFi Kit 32 V1 |
+| Raspberry Pi 3 (sous la HiFiBerry Amp2) | ESP32 DevKit 30 broches |
 |---|---|
-| GPIO 14 TXD (broche 8) | GPIO 18 (RX) |
-| GPIO 15 RXD (broche 10) | GPIO 17 (TX) |
-| GND (broche 6) | GND |
+| GPIO 14 TXD (broche 8, 4ᵉ de la rangée extérieure) | `D18` (GPIO 18, RX) |
+| GPIO 15 RXD (broche 10, 5ᵉ de la rangée extérieure) | `TX2` (GPIO 17, TX) |
+| GND (broche 6, 3ᵉ de la rangée extérieure) | `GND` |
+| port USB | USB-C : alimentation, et flashage si le câble porte les données |
 
-Les deux cartes sont en 3,3 V : fils directs. Côté Pi, c'est le mini UART
+Les deux cartes sont en 3,3 V : fils directs. Sur la DevKit, le GPIO 17 est
+marqué `TX2` ; `RX2` (GPIO 16) n'est pas utilisé. Côté Pi, c'est le mini UART
 `ttyS0` (le PL011 sert au Bluetooth), réglé par
 `config :robine_wake, guide_light: [driver: RobineWake.GuideLight.Driver.UART, device: "ttyS0"]`
 dans `config/target.exs`. Pour passer par le Wi-Fi à la place :

@@ -10,11 +10,9 @@ use embassy_executor::Spawner;
 use embassy_time::Timer;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
-use esp_hal::rmt::{Rmt, TxChannelConfig, TxChannelCreator};
-use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use log::info;
-use robine_api::{Easing, LightFade, LightLevel, Rgb};
+use robine_api::{Easing, LightFade, LightLevel, LightScene, Rgb};
 use robine_esp32::{clock, guide_light};
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -27,13 +25,13 @@ const fn level(r: u8, g: u8, b: u8, brightness: f32) -> LightLevel {
 
 /// Fades from `from` to `to`, then waits for the end of the transition.
 async fn fade(from: LightLevel, to: LightLevel, duration_ms: u64, easing: Easing) -> LightLevel {
-    guide_light::publish(Some(LightFade {
+    guide_light::publish(Some(LightScene::Fade(LightFade {
         from,
         to,
         started_ms: clock::monotonic_ms(),
         duration_ms,
         easing,
-    }));
+    })));
     Timer::after_millis(duration_ms).await;
     to
 }
@@ -46,18 +44,7 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    let rmt = Rmt::new(peripherals.RMT, Rate::from_mhz(guide_light::RMT_FREQUENCY_MHZ))
-        .expect("RMT")
-        .into_async();
-    let guide = rmt
-        .channel0
-        .configure_tx(
-            &TxChannelConfig::default()
-                .with_clk_divider(1)
-                .with_memsize(guide_light::RMT_MEMSIZE),
-        )
-        .expect("RMT channel")
-        .with_pin(peripherals.GPIO13);
+    let guide = guide_light::strip(peripherals.SPI2, peripherals.DMA_SPI2, peripherals.GPIO13);
     spawner.spawn(guide_light::run(guide).unwrap());
 
     let amber = level(255, 120, 12, 30.0);

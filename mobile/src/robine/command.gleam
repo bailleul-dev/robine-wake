@@ -9,6 +9,7 @@ import robine/alarm.{type Alarm, type Settings}
 import robine/hue.{type BreathingLength, type HueTarget}
 import robine/id.{type Id}
 import robine/level.{type Percent}
+import robine/light
 import robine/nap
 import robine/session.{type Active}
 import robine/snapshot.{type RemoteButton, type Snapshot}
@@ -39,6 +40,7 @@ pub type Command {
   )
   SetBreathingVolume(Percent)
   StopBreathing
+  StartLightProgram(light.Program)
   BeginButtonPairing
   RemoveButton(Id(RemoteButton))
 }
@@ -78,6 +80,8 @@ pub type Refusal {
   RemoteButtonNotPaired
   SmartphoneDismissDisabled
   SmartphoneDismissLocked
+  /// The clock cannot reach the ESP32 that drives the LED strip.
+  LightUnavailable
   OtherRefusal(code: String)
 }
 
@@ -110,6 +114,7 @@ pub fn operation(command: Command) -> String {
     StartBreathing(..) -> "breathing.start"
     SetBreathingVolume(..) -> "breathing.volume"
     StopBreathing -> "breathing.stop"
+    StartLightProgram(..) -> "light.program"
     BeginButtonPairing -> "remote_button.pairing.begin"
     RemoveButton(..) -> "remote_button.remove"
   }
@@ -153,6 +158,7 @@ pub fn body(command: Command) -> Json {
       ])
     SetBreathingVolume(volume) ->
       json.object([#("volume_percent", json.int(level.percent_to_int(volume)))])
+    StartLightProgram(program) -> light.encode(program)
     BeginButtonPairing -> json.object([#("duration_seconds", json.int(120))])
     RemoveButton(button) ->
       json.object([#("button_id", json.string(id.to_string(button)))])
@@ -245,6 +251,7 @@ pub fn refusal(code: String) -> Refusal {
     "remote_button_not_paired" -> RemoteButtonNotPaired
     "smartphone_dismiss_disabled" -> SmartphoneDismissDisabled
     "smartphone_dismiss_setting_locked" -> SmartphoneDismissLocked
+    "light_unavailable" -> LightUnavailable
     other -> OtherRefusal(other)
   }
 }
@@ -281,6 +288,7 @@ fn describe_refusal(refusal: Refusal) -> String {
     RemoteButtonNotPaired -> "Ce bouton n’est plus associé au réveil."
     SmartphoneDismissDisabled -> "L’arrêt depuis le smartphone est désactivé."
     SmartphoneDismissLocked -> "Ce réglage est verrouillé pendant une alarme."
+    LightUnavailable -> "Le réveil ne joint pas le ruban lumineux."
     OtherRefusal(code) -> "Le réveil a refusé la commande (" <> code <> ")"
   }
 }

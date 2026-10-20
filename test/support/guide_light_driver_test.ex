@@ -11,6 +11,11 @@ defmodule RobineWake.GuideLight.Driver.Test do
 
   @doc "Bodies of the `light.set` requests, in order."
   def commands do
+    for {"light.set", body} <- requests(), do: body
+  end
+
+  @doc "Operations and bodies of every request, in order."
+  def requests do
     table()
 
     @table
@@ -26,23 +31,41 @@ defmodule RobineWake.GuideLight.Driver.Test do
     :ok
   end
 
+  @doc "How many links were opened and closed since the last reset."
+  def link_counts do
+    table()
+
+    count = fn key ->
+      with [{^key, count}] <- :ets.lookup(@table, key), do: count, else: (_ -> 0)
+    end
+
+    %{opened: count.(:opened), closed: count.(:closed)}
+  end
+
   @impl true
-  def open(_options), do: {:ok, :test_link}
+  def open(_options) do
+    :ets.update_counter(table(), :opened, 1, {:opened, 0})
+    {:ok, :test_link}
+  end
 
   @impl true
   def request(:test_link, id, request) do
-    %{v: 1, id: ^id, op: "light.set", body: body} = Jason.decode!(request, keys: :atoms)
+    %{v: 1, id: ^id, op: operation, body: body} = Jason.decode!(request, keys: :atoms)
     sequence = :erlang.unique_integer([:positive, :monotonic])
-    :ets.insert(table(), {{:command, sequence}, body})
+    :ets.insert(table(), {{:command, sequence}, {operation, body}})
 
     case :ets.lookup(table(), :result) do
       [{:result, {:error, _reason} = error}] -> error
+      [{:result, {:response, response}}] -> {:ok, Jason.encode!(Map.put(response, :id, id))}
       _ -> {:ok, Jason.encode!(%{v: 1, id: id, status: "ok", body: %{}})}
     end
   end
 
   @impl true
-  def close(:test_link), do: :ok
+  def close(:test_link) do
+    :ets.update_counter(table(), :closed, 1, {:closed, 0})
+    :ok
+  end
 
   defp table do
     case :ets.whereis(@table) do

@@ -9,6 +9,9 @@ defmodule RobineWake.GuideLight do
   `off` never overtakes the last fade, and never block the caller. A
   failure is logged and the breathing session continues without the light.
 
+  `program/1` starts a program the ESP32 renders on its own strip (dawn,
+  sunset, breathing at a cadence) and waits for its answer, for the web UI.
+
   This module speaks the API-002 envelope; the configured driver only moves
   bytes (UART on the GPIO header, or HTTP over Wi-Fi):
 
@@ -36,6 +39,15 @@ defmodule RobineWake.GuideLight do
   @spec off(non_neg_integer()) :: :ok
   def off(transition_ms \\ 0), do: set(%{brightness: 0, transition_ms: transition_ms})
 
+  @doc """
+  Starts a `light.program` on the ESP32: `%{"program" => "dawn" | "sunset",
+  "duration_ms" => ms}`, `%{"program" => "breathing", "cadence" => "0-4-0-6"}`
+  or `%{"program" => "off"}`. Returns the light status sent back by the ESP32.
+  """
+  @spec program(map()) :: {:ok, map()} | {:error, term()}
+  def program(body) when is_map(body),
+    do: GenServer.call(__MODULE__, {:request, "light.program", body}, 5_000)
+
   def status, do: GenServer.call(__MODULE__, :status)
 
   def configured?, do: is_list(Application.get_env(:robine_wake, :guide_light))
@@ -52,6 +64,17 @@ defmodule RobineWake.GuideLight do
   end
 
   @impl true
+  def handle_call({:request, operation, body}, _from, state) do
+    case Application.get_env(:robine_wake, :guide_light) do
+      nil ->
+        {:reply, {:error, :capability_unavailable}, state}
+
+      config ->
+        {state, result} = send_request(state, config, operation, body)
+        {:reply, result, state}
+    end
+  end
+
   def handle_call(:status, _from, state) do
     status =
       cond do
@@ -64,18 +87,32 @@ defmodule RobineWake.GuideLight do
   end
 
   defp send_level(state, config, level) do
+    {state, _result} = send_request(state, config, "light.set", encode(level))
+    state
+  end
+
+  defp send_request(state, config, operation, body) do
     {driver, options} = Keyword.pop!(config, :driver)
     id = "guide-light-#{state.sequence + 1}"
     state = %{state | sequence: state.sequence + 1}
-    request = Jason.encode!(%{"v" => 1, "id" => id, "op" => "light.set", "body" => encode(level)})
+    request = Jason.encode!(%{"v" => 1, "id" => id, "op" => operation, "body" => body})
 
-    with {:ok, conn} <- connect(state, driver, options),
-         state = %{state | conn: conn},
-         {:ok, response} <- driver.request(conn, id, request),
-         :ok <- check_response(response) do
-      %{state | last_error: nil}
-    else
-      {:error, reason} -> failed(state, driver, reason)
+    case connect(state, driver, options) do
+      {:ok, conn} ->
+        # Kept in the state before the request, so a failure closes it.
+        state = %{state | conn: conn}
+
+        with {:ok, response} <- driver.request(conn, id, request),
+             {:ok, result} <- check_response(response) do
+          {%{state | last_error: nil}, {:ok, result}}
+        else
+          # A rejected request is the caller's mistake: the link stays up.
+          {:error, {:guide_light_rejected, _code} = reason} -> {state, {:error, reason}}
+          {:error, reason} -> {failed(state, driver, reason), {:error, reason}}
+        end
+
+      {:error, reason} ->
+        {failed(state, driver, reason), {:error, reason}}
     end
   end
 
@@ -84,7 +121,7 @@ defmodule RobineWake.GuideLight do
 
   defp check_response(response) do
     case Jason.decode(response) do
-      {:ok, %{"status" => "ok"}} -> :ok
+      {:ok, %{"status" => "ok"} = response} -> {:ok, Map.get(response, "body", %{})}
       {:ok, %{"error" => %{"code" => code}}} -> {:error, {:guide_light_rejected, code}}
       _ -> {:error, :invalid_guide_light_response}
     end

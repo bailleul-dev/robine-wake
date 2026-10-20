@@ -30,7 +30,9 @@ use chrono::{DateTime, Utc};
 pub use breathing::{Breathing, Cadence};
 pub use dawn::Dawn;
 pub use device::{AudioOutput, Device, SnapshotError};
-pub use light::{Easing, LightFade, LightLevel, Rgb, MAX_TRANSITION_MS};
+pub use light::{
+    Easing, LightFade, LightLevel, LightScene, Rgb, MAX_PROGRAM_MS, MAX_TRANSITION_MS, PROGRAM_MAX_BRIGHTNESS,
+};
 pub use sounds::Sound;
 pub use sunset::Sunset;
 

@@ -17,9 +17,7 @@ use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Level, Output, OutputConfig};
-use esp_hal::rmt::{Rmt, TxChannelConfig, TxChannelCreator};
 use esp_hal::rng::Rng;
-use esp_hal::time::Rate;
 use esp_hal::uart::{self, Uart};
 use esp_hal::timer::timg::TimerGroup;
 use esp_radio::wifi::sta::StationConfig;
@@ -60,7 +58,7 @@ static PLATFORM: Platform = Platform {
     // Production rule: only the remote button stops a real alarm.
     remote_dismiss_enabled: false,
     audio_available: false,
-    light: Some("Flora NeoPixel"),
+    light: Some("WS2812B strip"),
 };
 
 /// Raised by the NTP task when the wall clock is set.
@@ -119,7 +117,7 @@ async fn main(spawner: Spawner) -> ! {
     );
 
     static APP: StaticCell<App> = StaticCell::new();
-    let app: &'static App = APP.init(App::new(device, store, stack));
+    let app: &'static App = APP.init(App::new(device, store, Some(stack)));
 
     let mac: [u8; 6] = esp_hal::efuse::base_mac_address().as_bytes().try_into().expect("6-byte MAC");
     static AIRPLAY: StaticCell<Airplay> = StaticCell::new();
@@ -129,18 +127,7 @@ async fn main(spawner: Spawner) -> ! {
     let led = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
 
     // WS2812B strip of the breathing guide: data on GPIO 13.
-    let rmt = Rmt::new(peripherals.RMT, Rate::from_mhz(guide_light::RMT_FREQUENCY_MHZ))
-        .expect("RMT")
-        .into_async();
-    let guide = rmt
-        .channel0
-        .configure_tx(
-            &TxChannelConfig::default()
-                .with_clk_divider(1)
-                .with_memsize(guide_light::RMT_MEMSIZE),
-        )
-        .expect("RMT channel")
-        .with_pin(peripherals.GPIO13);
+    let guide = guide_light::strip(peripherals.SPI2, peripherals.DMA_SPI2, peripherals.GPIO13);
 
     // Link to the Raspberry Pi: UART2, TX on GPIO 17, RX on GPIO 18.
     let pi_link = Uart::new(peripherals.UART2, uart::Config::default().with_baudrate(serial::BAUDRATE))

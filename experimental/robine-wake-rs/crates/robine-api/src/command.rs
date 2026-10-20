@@ -42,7 +42,7 @@ const OPERATIONS: &[&str] = &[
 ];
 
 /// Operations of a device with a light wired to it.
-const LIGHT_OPERATIONS: &[&str] = &["light.set", "light.get"];
+const LIGHT_OPERATIONS: &[&str] = &["light.set", "light.program", "light.get"];
 
 /// Read-only operations: replays are answered by executing them again, so
 /// only their fingerprint is kept.
@@ -258,6 +258,7 @@ impl Device {
             "remote_button.dismiss" => self.remote_dismiss(body, ctx, out),
 
             "light.set" => self.set_light(body, ctx),
+            "light.program" => self.start_light_program(body, ctx),
             "light.get" => Ok(self.light_status(ctx)),
 
             "device.factory_reset" => match text("confirmation") {

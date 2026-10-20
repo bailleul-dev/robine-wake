@@ -19,6 +19,7 @@ import robine/command
 import robine/hue.{type Breathing, Guided, Paired, Unpaired}
 import robine/id
 import robine/level
+import robine/light
 import robine/link
 import robine/nap.{type Nap}
 import robine/native
@@ -1171,6 +1172,98 @@ fn render_evening_screen(desktop: Bool) -> Element {
             ]
           }
         ]),
+      ]),
+      light_card(desktop),
+    ]),
+  ])
+}
+
+/// The clock's LED strip: dawn, sunset and breathing programs it plays on
+/// its own.
+fn light_card(desktop: Bool) -> Element {
+  native.component("LightCard", render_light_card)(desktop)
+}
+
+fn render_light_card(desktop: Bool) -> Element {
+  let busy = store.use_app_state().busy
+  let #(minutes, set_minutes) = redraw.use_state(30)
+  let #(cadence_text, set_cadence_text) = redraw.use_state(light.coherence)
+  let length = light.length(minutes)
+  let cadence = light.cadence(cadence_text)
+  let start = fn(program) {
+    ignore(actions.send(command.StartLightProgram(program)))
+  }
+  theme.card(False, dashboard_card_style(desktop), [
+    column([s.gap(14)], [
+      header(
+        theme.eyebrow("Ruban lumineux", theme.moon),
+        theme.icon("bulb", 20, theme.moon),
+      ),
+      row([], [
+        label(
+          [
+            s.flex(1),
+            s.font_size(14),
+            s.font_weight("700"),
+            s.color(theme.text),
+          ],
+          "Durée de l’aube ou du coucher",
+        ),
+        label(
+          [s.font_size(14), s.font_weight("700"), s.color(theme.moon)],
+          int.to_string(minutes) <> " min",
+        ),
+      ]),
+      slider(minutes, 1, 60, 1, theme.moon, set_minutes, None),
+      row([s.gap(10)], [
+        theme.button("Lever de soleil", fn() { start(light.Dawn(length)) })
+          |> theme.with_icon("sunny")
+          |> theme.grow
+          |> theme.disabled(busy)
+          |> theme.render,
+        theme.button("Coucher de soleil", fn() { start(light.Sunset(length)) })
+          |> theme.with_icon("moon")
+          |> theme.grow
+          |> theme.disabled(busy)
+          |> theme.render,
+      ]),
+      label(
+        [s.font_size(14), s.font_weight("700"), s.color(theme.text)],
+        "Cadence de respiration",
+      ),
+      native.text_input([
+        native.prop("value", cadence_text),
+        native.prop("onChangeText", set_cadence_text),
+        native.prop("placeholder", light.coherence),
+        native.prop("placeholderTextColor", theme.muted),
+        native.prop("autoCapitalize", "none"),
+        native.prop("autoCorrect", False),
+        native.style(theme.input_style([])),
+      ]),
+      label(
+        [
+          s.font_size(12),
+          s.color(pick(result.is_ok(cadence), theme.muted, theme.rose)),
+        ],
+        "Pause poumons vides - inspiration - pause poumons pleins - expiration, en secondes. 0-4-0-6 : cohérence cardiaque.",
+      ),
+      row([s.gap(10)], [
+        theme.button("Respirer", fn() {
+          case cadence {
+            Ok(cadence) -> start(light.Breathing(cadence))
+            Error(Nil) -> Nil
+          }
+        })
+          |> theme.with_icon("play")
+          |> theme.primary
+          |> theme.grow
+          |> theme.disabled(busy || result.is_error(cadence))
+          |> theme.render,
+        theme.button("Éteindre", fn() { start(light.Off) })
+          |> theme.with_icon("stop")
+          |> theme.grow
+          |> theme.disabled(busy)
+          |> theme.render,
       ]),
     ]),
   ])

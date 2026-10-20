@@ -8,6 +8,7 @@ defmodule RobineWake.Bluetooth.Command do
     ClockQuality,
     CommandCache,
     EventLog,
+    GuideLight,
     Health,
     Hue,
     Nap,
@@ -45,6 +46,7 @@ defmodule RobineWake.Bluetooth.Command do
     "breathing.start",
     "breathing.volume",
     "breathing.stop",
+    "light.program",
     "remote_button.status",
     "remote_button.pairing.begin",
     "remote_button.pair",
@@ -206,6 +208,16 @@ defmodule RobineWake.Bluetooth.Command do
 
   defp dispatch("breathing.stop", _body), do: Hue.stop_breathing()
 
+  # Forwarded to the ESP32, which renders the program on its LED strip.
+  defp dispatch("light.program", body) when is_map(body) do
+    case GuideLight.program(body) do
+      {:ok, status} -> {:ok, status}
+      {:error, {:guide_light_rejected, code}} -> {:error, code}
+      {:error, :capability_unavailable} -> {:error, :capability_unavailable}
+      {:error, _unreachable} -> {:error, :light_unavailable}
+    end
+  end
+
   defp dispatch("remote_button.status", _body), do: {:ok, RemoteButton.status()}
 
   defp dispatch("remote_button.pairing.begin", body) when is_map(body) do
@@ -310,8 +322,13 @@ defmodule RobineWake.Bluetooth.Command do
   defp camera_enabled?, do: Application.get_env(:robine_wake, :camera_enabled, true)
 
   defp available_operations do
-    if camera_enabled?(), do: @operations, else: List.delete(@operations, "camera.calibrate")
+    @operations
+    |> drop_unless(camera_enabled?(), "camera.calibrate")
+    |> drop_unless(GuideLight.configured?(), "light.program")
   end
+
+  defp drop_unless(operations, true, _operation), do: operations
+  defp drop_unless(operations, false, operation), do: List.delete(operations, operation)
 
   defp maybe_reset_camera do
     if camera_enabled?(), do: Camera.reset(), else: :ok
