@@ -6,7 +6,7 @@ import gleam/order.{type Order}
 import gleam/result
 import gleam/set.{type Set}
 import gleam/string
-import gleam/time/timestamp
+import gleam/time/timestamp.{type Timestamp}
 
 pub type Weekday {
   Monday
@@ -150,10 +150,7 @@ pub fn two_digits(value: Int) -> String {
   string.pad_start(int.to_string(value), 2, "0")
 }
 
-/// Milliseconds since the Unix epoch of an RFC 3339 date.
-pub fn parse_instant(text: String) -> Result(Int, Nil) {
-  use parsed <- result.map(timestamp.parse_rfc3339(text))
-  let #(seconds, nanoseconds) =
-    timestamp.to_unix_seconds_and_nanoseconds(parsed)
-  seconds * 1000 + nanoseconds / 1_000_000
+/// An RFC 3339 date, as the clock writes them.
+pub fn parse_instant(text: String) -> Result(Timestamp, Nil) {
+  timestamp.parse_rfc3339(text)
 }

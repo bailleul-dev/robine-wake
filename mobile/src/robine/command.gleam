@@ -5,18 +5,25 @@ import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/option.{type Option}
 import gleam/result
-import robine/alarm.{type Settings}
-import robine/snapshot.{type Session, type Snapshot}
+import robine/alarm.{type Alarm, type Settings}
+import robine/hue.{type BreathingLength, type HueTarget}
+import robine/id.{type Id}
+import robine/level.{type Percent}
+import robine/nap
+import robine/session.{type Active}
+import robine/snapshot.{type RemoteButton, type Snapshot}
 
 pub type Command {
   GetState
   GetSession
   CreateAlarm(Settings)
-  UpdateAlarm(id: String, revision: Int, settings: Settings)
-  DeleteAlarm(id: String, revision: Int)
-  TriggerAlarm(id: String)
-  TriggerStrong(id: String)
-  StartNap(minutes: Int)
+  /// Changes the alarm as it was read: the clock refuses it if it changed
+  /// meanwhile.
+  UpdateAlarm(alarm: Alarm, settings: Settings)
+  DeleteAlarm(Alarm)
+  TriggerAlarm(Id(Alarm))
+  TriggerStrong(Id(Alarm))
+  StartNap(nap.Length)
   CancelNap
   Dismiss
   SetSmartphoneDismiss(enabled: Bool)
@@ -25,16 +32,20 @@ pub type Command {
   PairHue(host: String)
   RefreshHue
   DisconnectHue
-  StartBreathing(target_id: String, minutes: Int, volume: Int)
-  SetBreathingVolume(volume: Int)
+  StartBreathing(
+    target: Id(HueTarget),
+    length: BreathingLength,
+    volume: Percent,
+  )
+  SetBreathingVolume(Percent)
   StopBreathing
   BeginButtonPairing
-  RemoveButton(id: String)
+  RemoveButton(Id(RemoteButton))
 }
 
 pub type Reply {
   StateReply(Snapshot)
-  SessionReply(Option(Session))
+  SessionReply(Option(Active))
   /// The clock did it; a later `state.get` shows the result.
   Done
 }
@@ -117,32 +128,34 @@ pub fn body(command: Command) -> Json {
     | StopBreathing -> json.object([])
     CreateAlarm(settings) ->
       json.object([#("alarm", alarm.encode(settings, option.None))])
-    UpdateAlarm(id:, revision:, settings:) ->
+    UpdateAlarm(alarm:, settings:) ->
       json.object([
-        #("alarm_id", json.string(id)),
-        #("alarm", alarm.encode(settings, option.Some(revision))),
+        #("alarm_id", json.string(id.to_string(alarm.id))),
+        #("alarm", alarm.encode(settings, option.Some(alarm.revision))),
       ])
-    DeleteAlarm(id:, revision:) ->
+    DeleteAlarm(alarm) ->
       json.object([
-        #("alarm_id", json.string(id)),
-        #("revision", json.int(revision)),
+        #("alarm_id", json.string(id.to_string(alarm.id))),
+        #("revision", json.int(alarm.revision)),
       ])
-    TriggerAlarm(id) | TriggerStrong(id) ->
-      json.object([#("alarm_id", json.string(id))])
-    StartNap(minutes) -> json.object([#("duration_minutes", json.int(minutes))])
+    TriggerAlarm(alarm_id) | TriggerStrong(alarm_id) ->
+      json.object([#("alarm_id", json.string(id.to_string(alarm_id)))])
+    StartNap(length) ->
+      json.object([#("duration_minutes", json.int(nap.minutes(length)))])
     SetSmartphoneDismiss(enabled) ->
       json.object([#("enabled", json.bool(enabled))])
     PairHue(host) -> json.object([#("bridge_host", json.string(host))])
-    StartBreathing(target_id:, minutes:, volume:) ->
+    StartBreathing(target:, length:, volume:) ->
       json.object([
-        #("target_id", json.string(target_id)),
-        #("duration_minutes", json.int(minutes)),
-        #("volume_percent", json.int(volume)),
+        #("target_id", json.string(id.to_string(target))),
+        #("duration_minutes", json.int(hue.breathing_minutes(length))),
+        #("volume_percent", json.int(level.percent_to_int(volume))),
       ])
     SetBreathingVolume(volume) ->
-      json.object([#("volume_percent", json.int(volume))])
+      json.object([#("volume_percent", json.int(level.percent_to_int(volume)))])
     BeginButtonPairing -> json.object([#("duration_seconds", json.int(120))])
-    RemoveButton(id) -> json.object([#("button_id", json.string(id))])
+    RemoveButton(button) ->
+      json.object([#("button_id", json.string(id.to_string(button)))])
   }
 }
 

@@ -1,21 +1,28 @@
 //// What the clock reports of itself in a `state.get` response.
 
 import gleam/dynamic/decode.{type Decoder}
-import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
+import gleam/time/timestamp.{type Timestamp}
 import robine/alarm.{type Alarm}
 import robine/calendar
-import robine/decoding.{defaulted, number, optional}
+import robine/decoding.{defaulted, optional}
+import robine/hue.{type Breathing, type Hue, type HueTarget}
+import robine/id.{type Id}
+import robine/nap.{type Nap}
+import robine/session.{type Active, type Past}
+import robine/sound.{type Sound}
 
 pub type Snapshot {
   Snapshot(
+    /// The user's alarms, by time of day.
     alarms: List(Alarm),
+    nap: Option(Nap),
     sounds: List(Sound),
     device: Option(Device),
-    recent_sessions: List(Session),
-    active_session: Option(Session),
+    recent_sessions: List(Past),
+    active_session: Option(Active),
     smartphone_dismiss: SmartphoneDismiss,
     hue: Hue,
     breathing: Breathing,
@@ -24,20 +31,6 @@ pub type Snapshot {
     /// Where the clock answers commands over Wi-Fi, best first.
     http_endpoints: List(String),
   )
-}
-
-pub type Sound {
-  Sound(id: String, title: String, artist: Option(String), intensity: Intensity)
-}
-
-pub type Intensity {
-  Gentle
-  Bright
-  Strong
-  Meditation
-  Custom
-  Unrated
-  OtherIntensity(String)
 }
 
 pub type Device {
@@ -56,68 +49,8 @@ pub type Health {
   OtherHealth(String)
 }
 
-/// A wake-up, ringing or finished.
-pub type Session {
-  Session(
-    id: String,
-    state: SessionState,
-    phase: AudioPhase,
-    test_mode: Bool,
-    phone_may_dismiss: Bool,
-    ended_at: Option(Int),
-  )
-}
-
-pub type SessionState {
-  Starting
-  Ringing
-  Snoozed
-  /// The sleeper seems to have left the bed.
-  LeavingBed
-  /// The sound failed; the clock plays its safe fallback.
-  FailedSafe
-  Dismissed
-  TimedOut
-  Missed
-  OtherState(String)
-}
-
-pub type AudioPhase {
-  GentlePhase
-  StrongPhase
-}
-
 pub type SmartphoneDismiss {
   SmartphoneDismiss(enabled: Bool, locked: Bool)
-}
-
-pub type Hue {
-  Unpaired
-  Paired(bridge: String, reachable: Bool, target_count: Int)
-}
-
-pub type HueTarget {
-  HueTarget(id: String, name: String)
-}
-
-/// The evening breathing session, led by the Hue light.
-pub type Breathing {
-  Resting
-  Guided(
-    phase: BreathingPhase,
-    phase_ms: Int,
-    phase_started_at: Option(Int),
-    phase_elapsed_ms: Int,
-    remaining_seconds: Option(Int),
-    target_id: Option(String),
-    ambience: Bool,
-    volume: Option(Int),
-  )
-}
-
-pub type BreathingPhase {
-  Inhale
-  Exhale
 }
 
 pub type RemoteButtons {
@@ -125,48 +58,28 @@ pub type RemoteButtons {
 }
 
 pub type RemoteButton {
-  RemoteButton(id: String, name: String, last_seen_at: Option(Int))
+  RemoteButton(
+    id: Id(RemoteButton),
+    name: String,
+    last_seen_at: Option(Timestamp),
+  )
 }
 
 pub const empty =
   Snapshot(
     alarms: [],
+    nap: None,
     sounds: [],
     device: None,
     recent_sessions: [],
     active_session: None,
     smartphone_dismiss: SmartphoneDismiss(enabled: True, locked: False),
-    hue: Unpaired,
-    breathing: Resting,
+    hue: hue.Unpaired,
+    breathing: hue.Resting,
     hue_targets: [],
     remote: RemoteButtons(pairing: False, buttons: []),
     http_endpoints: [],
   )
-
-pub fn is_strong(sound: Sound) -> Bool {
-  sound.intensity == Strong
-}
-
-pub fn intensity_label(intensity: Intensity) -> String {
-  case intensity {
-    Gentle -> "Doux"
-    Bright -> "Lumineux"
-    Strong -> "Fort"
-    Meditation -> "Méditation"
-    Custom -> "Personnel"
-    Unrated -> ""
-    OtherIntensity(other) -> string.capitalise(other)
-  }
-}
-
-/// The first sound of this intensity, or the first sound at all.
-pub fn default_sound(sounds: List(Sound), intensity: Intensity) -> String {
-  case list.find(sounds, fn(sound) { sound.intensity == intensity }), sounds {
-    Ok(sound), _ -> sound.id
-    Error(Nil), [first, ..] -> first.id
-    Error(Nil), [] -> "default"
-  }
-}
 
 pub fn health_label(health: Health) -> String {
   case health {
@@ -177,53 +90,18 @@ pub fn health_label(health: Health) -> String {
   }
 }
 
-pub fn hue_paired(hue: Hue) -> Bool {
-  case hue {
-    Paired(..) -> True
-    Unpaired -> False
-  }
-}
-
-pub fn hue_ready(hue: Hue) -> Bool {
-  case hue {
-    Paired(reachable: True, ..) -> True
-    _ -> False
-  }
-}
-
-pub fn finished(state: SessionState) -> Bool {
-  case state {
-    Dismissed | TimedOut | Missed -> True
-    _ -> False
-  }
-}
-
-pub fn state_label(state: SessionState) -> String {
-  case state {
-    Starting -> "Démarrage"
-    Ringing -> "En cours"
-    Snoozed -> "En pause"
-    LeavingBed -> "Sortie du lit"
-    FailedSafe -> "Son de secours"
-    Dismissed -> "Réveil réussi"
-    TimedOut -> "Arrêt automatique"
-    Missed -> "Manqué"
-    OtherState(other) -> string.capitalise(other)
-  }
-}
-
 // Decoding --------------------------------------------------------------------
 
 pub fn decoder() -> Decoder(Snapshot) {
-  use alarms <- defaulted("alarms", [], decode.list(alarm.decoder()))
-  use sounds <- defaulted("sounds", [], decode.list(sound_decoder()))
+  use entries <- defaulted("alarms", [], decode.list(alarm.entry_decoder()))
+  use sounds <- defaulted("sounds", [], decode.list(sound.decoder()))
   use device <- optional("device", device_decoder())
   use recent_sessions <- defaulted(
     "recent_sessions",
     [],
-    decode.list(session_decoder()),
+    decode.list(session.past_decoder()),
   )
-  use active_session <- optional("active_session", session_decoder())
+  use active_session <- optional("active_session", session.active_decoder())
   use smartphone_dismiss <- defaulted(
     "smartphone_dismiss",
     empty.smartphone_dismiss,
@@ -233,27 +111,29 @@ pub fn decoder() -> Decoder(Snapshot) {
       decode.success(SmartphoneDismiss(enabled:, locked:))
     },
   )
-  use #(hue, breathing) <- defaulted("hue", #(Unpaired, Resting), hue_decoder())
+  use #(hue, breathing) <- defaulted(
+    "hue",
+    #(hue.Unpaired, hue.Resting),
+    hue.decoder(),
+  )
   use hue_targets <- defaulted(
     "hue_targets",
     [],
-    decode.list({
-      use id <- decode.field("id", decode.string)
-      use name <- defaulted("name", id, decode.string)
-      decode.success(HueTarget(id:, name:))
-    }),
+    decode.list(hue.target_decoder()),
   )
   use remote <- defaulted("remote_button", empty.remote, remote_decoder())
   use http_endpoints <- defaulted("transport", [], {
     use endpoints <- defaulted("http_endpoints", [], decode.list(decode.string))
     decode.success(endpoints)
   })
+  let #(alarms, nap) = split(entries)
   decode.success(Snapshot(
     alarms: alarm.by_time(alarms),
+    nap:,
     sounds:,
     device:,
     recent_sessions:,
-    active_session:,
+    active_session: option.flatten(active_session),
     smartphone_dismiss:,
     hue:,
     breathing:,
@@ -263,76 +143,30 @@ pub fn decoder() -> Decoder(Snapshot) {
   ))
 }
 
-/// The body of a `session.get` response.
-pub fn active_session_decoder() -> Decoder(Option(Session)) {
-  use session <- optional("active_session", session_decoder())
-  decode.success(session)
-}
-
-fn instant(text: Option(String)) -> Option(Int) {
-  option.then(text, fn(text) {
-    calendar.parse_instant(text) |> option.from_result
-  })
-}
-
-fn sound_decoder() -> Decoder(Sound) {
-  use id <- decode.field("id", decode.string)
-  use title <- defaulted("title", id, decode.string)
-  use artist <- optional("artist", decode.string)
-  use intensity <- optional("intensity", decode.string)
-  let artist =
-    option.then(artist, fn(artist) {
-      case string.trim(artist) {
-        "" -> None
-        _ -> Some(artist)
+/// The user's alarms, and the nap when one is set to ring.
+fn split(entries: List(alarm.Entry)) -> #(List(Alarm), Option(Nap)) {
+  let alarms =
+    list.filter_map(entries, fn(entry) {
+      case entry {
+        alarm.Recurring(alarm) -> Ok(alarm)
+        alarm.OneShot(..) -> Error(Nil)
       }
     })
-  let intensity = case intensity {
-    None | Some("") -> Unrated
-    Some("gentle") -> Gentle
-    Some("bright") -> Bright
-    Some("strong") -> Strong
-    Some("meditation") -> Meditation
-    Some("custom") -> Custom
-    Some(other) -> OtherIntensity(other)
-  }
-  decode.success(Sound(id:, title:, artist:, intensity:))
+  let nap =
+    list.find_map(entries, fn(entry) {
+      case entry {
+        alarm.OneShot(enabled: True, next_rings: [rings_at, ..]) ->
+          Ok(nap.Nap(rings_at:))
+        _ -> Error(Nil)
+      }
+    })
+  #(alarms, option.from_result(nap))
 }
 
-fn session_decoder() -> Decoder(Session) {
-  use id <- decode.field("id", decode.string)
-  use state <- defaulted("state", "", decode.string)
-  use phase <- optional("audio_phase", decode.string)
-  use test_mode <- defaulted("test_mode", False, decode.bool)
-  use phone_may_dismiss <- defaulted(
-    "smartphone_dismiss_allowed",
-    True,
-    decode.bool,
-  )
-  use ended_at <- optional("ended_at", decode.string)
-  let state = case state {
-    "starting" -> Starting
-    "ringing" -> Ringing
-    "snoozed" -> Snoozed
-    "exit_candidate" -> LeavingBed
-    "failed_safe" -> FailedSafe
-    "dismissed" -> Dismissed
-    "timed_out" -> TimedOut
-    "missed" -> Missed
-    other -> OtherState(other)
-  }
-  let phase = case phase {
-    Some("strong") -> StrongPhase
-    _ -> GentlePhase
-  }
-  decode.success(Session(
-    id:,
-    state:,
-    phase:,
-    test_mode:,
-    phone_may_dismiss:,
-    ended_at: instant(ended_at),
-  ))
+/// The body of a `session.get` response.
+pub fn active_session_decoder() -> Decoder(Option(Active)) {
+  use active <- optional("active_session", session.active_decoder())
+  decode.success(option.flatten(active))
 }
 
 /// The state of a part of the clock, as `{"state": "available"}`.
@@ -361,58 +195,6 @@ fn device_decoder() -> Decoder(Device) {
   decode.success(Device(clock_trusted:, network:, audio:, firmware:))
 }
 
-fn hue_decoder() -> Decoder(#(Hue, Breathing)) {
-  use configured <- defaulted("configured", False, decode.bool)
-  use state <- optional("state", decode.string)
-  use bridge <- defaulted("bridge_host", "", decode.string)
-  use target_count <- defaulted("target_count", 0, number())
-  use breathing <- defaulted("breathing", Resting, breathing_decoder())
-  let hue = case configured {
-    True ->
-      Paired(bridge:, reachable: state == Some("available"), target_count:)
-    False -> Unpaired
-  }
-  decode.success(#(hue, breathing))
-}
-
-fn breathing_decoder() -> Decoder(Breathing) {
-  use active <- defaulted("active", False, decode.bool)
-  case active {
-    False -> decode.success(Resting)
-    True -> {
-      use phase <- defaulted("phase", "inhale", decode.string)
-      let phase = case phase {
-        "exhale" -> Exhale
-        _ -> Inhale
-      }
-      let usual_ms = case phase {
-        Inhale -> 4000
-        Exhale -> 6000
-      }
-      use phase_ms <- defaulted("phase_duration_ms", usual_ms, number())
-      use phase_started_at <- optional("phase_started_at", decode.string)
-      use phase_elapsed_ms <- defaulted("phase_elapsed_ms", 0, number())
-      use remaining_seconds <- optional("remaining_seconds", number())
-      use target_id <- optional("target_id", decode.string)
-      use #(ambience, volume) <- defaulted("audio", #(False, None), {
-        use active <- defaulted("active", False, decode.bool)
-        use volume <- optional("volume_percent", number())
-        decode.success(#(active, volume))
-      })
-      decode.success(Guided(
-        phase:,
-        phase_ms: int.max(1, phase_ms),
-        phase_started_at: instant(phase_started_at),
-        phase_elapsed_ms:,
-        remaining_seconds:,
-        target_id:,
-        ambience:,
-        volume:,
-      ))
-    }
-  }
-}
-
 fn remote_decoder() -> Decoder(RemoteButtons) {
   use pairing <- defaulted("pairing", False, {
     use active <- defaulted("active", False, decode.bool)
@@ -422,13 +204,15 @@ fn remote_decoder() -> Decoder(RemoteButtons) {
     "buttons",
     [],
     decode.list({
-      use id <- decode.field("id", decode.string)
-      use name <- defaulted("name", id, decode.string)
+      use button_id <- decode.field("id", decode.string)
+      use name <- defaulted("name", button_id, decode.string)
       use last_seen_at <- optional("last_seen_at", decode.string)
       decode.success(RemoteButton(
-        id:,
+        id: id.from_string(button_id),
         name:,
-        last_seen_at: instant(last_seen_at),
+        last_seen_at: option.then(last_seen_at, fn(text) {
+          calendar.parse_instant(text) |> option.from_result
+        }),
       ))
     }),
   )

@@ -10,7 +10,7 @@ import robine/editor
 import robine/native
 import robine/routes.{type Tab, Alarms, Evening, Morning, System}
 import robine/screens
-import robine/snapshot.{type Session}
+import robine/session.{type Active}
 import robine/store.{type AppState, AppState}
 import robine/style.{type Style} as s
 import robine/theme
@@ -301,7 +301,7 @@ fn desktop_sidebar(state: AppState) -> Element {
   )
 }
 
-fn global_alarm_controls(session: Session, desktop: Bool) -> Element {
+fn global_alarm_controls(session: Active, desktop: Bool) -> Element {
   theme.glass_panel(
     theme.Glass(
       effect: "regular",
@@ -346,8 +346,8 @@ fn global_alarm_controls(session: Session, desktop: Bool) -> Element {
           "Alarme en cours",
         ),
         label([s.font_size(12), s.color(theme.muted)], case session.phase {
-          snapshot.StrongPhase -> "Son de renfort"
-          snapshot.GentlePhase -> "Réveil progressif"
+          session.StrongPhase -> "Son de renfort"
+          session.GentlePhase -> "Réveil progressif"
         }),
       ]),
       native.when(session.test_mode, fn() {
@@ -495,7 +495,7 @@ pub fn app(_props: Nil) -> Element {
           None -> native.none()
         },
         native.when(
-          option.is_some(state.challenge),
+          option.is_some(store.challenged(state)),
           wake_challenge.wake_challenge,
         ),
         case state.failure {

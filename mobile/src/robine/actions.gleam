@@ -5,7 +5,9 @@ import gleam/option.{None, Some}
 import robine/alarm.{type Alarm, Settings}
 import robine/command.{type Command, type Failure, type Reply}
 import robine/draft.{type Draft}
+import robine/id.{type Id}
 import robine/platform
+import robine/session.{type Session}
 import robine/store.{AppState}
 import robine/transport
 
@@ -46,8 +48,7 @@ pub fn save_alarm(draft: Draft) -> Nil {
     Ok(settings) -> {
       close_editor()
       send(case draft.origin {
-        draft.Existing(id:, revision:) ->
-          command.UpdateAlarm(id:, revision:, settings:)
+        draft.Existing(alarm) -> command.UpdateAlarm(alarm:, settings:)
         draft.New -> command.CreateAlarm(settings)
       })
       Nil
@@ -55,22 +56,21 @@ pub fn save_alarm(draft: Draft) -> Nil {
   }
 }
 
-pub fn delete_alarm(id: String, revision: Int) -> Nil {
+pub fn delete_alarm(alarm: Alarm) -> Nil {
   close_editor()
-  send(command.DeleteAlarm(id:, revision:))
+  send(command.DeleteAlarm(alarm))
   Nil
 }
 
 pub fn set_alarm_enabled(alarm: Alarm, enabled: Bool) -> Nil {
   send(command.UpdateAlarm(
-    id: alarm.id,
-    revision: alarm.revision,
+    alarm:,
     settings: Settings(..alarm.settings, enabled:),
   ))
   Nil
 }
 
-pub fn open_challenge(session_id: String) -> Nil {
+pub fn open_challenge(session_id: Id(Session)) -> Nil {
   store.update(fn(state) { AppState(..state, challenge: Some(session_id)) })
 }
 

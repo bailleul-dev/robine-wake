@@ -1,6 +1,15 @@
 import gleam/list
+import gleam/option.{None, Some}
 import robine/challenge
 import robine/command
+import robine/draft_test
+import robine/hue
+import robine/id
+import robine/level
+import robine/nap
+import robine/session
+import robine/snapshot
+import robine/store
 
 pub fn replies_are_checked_against_their_request_test() {
   let ok = "{\"v\":1,\"id\":\"a\",\"status\":\"ok\",\"body\":{}}"
@@ -27,10 +36,20 @@ pub fn refusals_are_typed_test() {
 }
 
 pub fn requests_carry_the_operation_and_its_body_test() {
-  assert command.encode(command.StartNap(20), "id-1")
+  assert command.encode(command.StartNap(nap.length(20)), "id-1")
     == "{\"v\":1,\"id\":\"id-1\",\"op\":\"nap.start\",\"body\":{\"duration_minutes\":20}}"
-  assert command.encode(command.DeleteAlarm("a", 3), "id-2")
-    == "{\"v\":1,\"id\":\"id-2\",\"op\":\"alarm.delete\",\"body\":{\"alarm_id\":\"a\",\"revision\":3}}"
+  // The revision deleted is the one read with the alarm.
+  assert command.encode(command.DeleteAlarm(draft_test.week_alarm()), "id-2")
+    == "{\"v\":1,\"id\":\"id-2\",\"op\":\"alarm.delete\",\"body\":{\"alarm_id\":\"alarm-1\",\"revision\":4}}"
+  let assert [three, ..] = hue.breathing_lengths()
+  let breathing =
+    command.StartBreathing(
+      target: id.from_string("room"),
+      length: three,
+      volume: level.percent(250),
+    )
+  assert command.encode(breathing, "id-3")
+    == "{\"v\":1,\"id\":\"id-3\",\"op\":\"breathing.start\",\"body\":{\"target_id\":\"room\",\"duration_minutes\":3,\"volume_percent\":100}}"
   assert !command.changes_state(command.GetState)
   assert command.changes_state(command.Dismiss)
 }
@@ -63,4 +82,39 @@ pub fn puzzles_have_four_choices_including_the_answer_test() {
     assert list.contains(puzzle.options, puzzle.answer)
     assert list.unique(puzzle.options) == puzzle.options
   })
+}
+
+pub fn naps_last_from_one_to_180_minutes_test() {
+  assert nap.minutes(nap.length(0)) == 1
+  assert nap.minutes(nap.length(500)) == 180
+  assert nap.ramp_minutes(nap.length(1)) == 1
+  assert nap.ramp_minutes(nap.length(20)) == 2
+}
+
+pub fn a_challenge_outlives_its_session_harmlessly_test() {
+  let ringing = fn(name) {
+    session.Active(
+      id: id.from_string(name),
+      stage: session.Ringing,
+      phase: session.GentlePhase,
+      test_mode: False,
+      phone_may_dismiss: True,
+    )
+  }
+  let state =
+    store.AppState(
+      ..store.initial_state,
+      challenge: Some(id.from_string("monday")),
+    )
+  let with = fn(active) {
+    store.AppState(
+      ..state,
+      clock: snapshot.Snapshot(..state.clock, active_session: active),
+    )
+  }
+  assert store.challenged(with(Some(ringing("monday"))))
+    == Some(ringing("monday"))
+  // Stopped on the clock, then another alarm rings: the old challenge is gone.
+  assert store.challenged(with(None)) == None
+  assert store.challenged(with(Some(ringing("tuesday")))) == None
 }

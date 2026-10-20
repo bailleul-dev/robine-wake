@@ -8,13 +8,16 @@ import gleam/result
 import gleam/set
 import redraw.{type Element}
 import robine/actions
-import robine/alarm
+import robine/alarm.{type Alarm}
 import robine/calendar
 import robine/challenge
 import robine/command
 import robine/draft.{type Draft, type Origin, Draft} as alarm_draft
+import robine/hue.{type HueTarget}
+import robine/id.{type Id}
+import robine/level
 import robine/native
-import robine/snapshot.{type HueTarget, type Sound}
+import robine/sound.{type Sound}
 import robine/store
 import robine/style.{type Style} as s
 import robine/theme
@@ -105,13 +108,13 @@ fn value_slider(
 }
 
 fn sound_picker(
-  value: String,
+  value: Id(Sound),
   title: String,
   detail: String,
   icon: String,
   color: String,
   sounds: List(Sound),
-  on_change: fn(String) -> Nil,
+  on_change: fn(Id(Sound)) -> Nil,
 ) -> Element {
   row([s.align_items("center"), s.gap(13)], [
     native.view(
@@ -133,43 +136,60 @@ fn sound_picker(
     ]),
     native.picker(
       [
-        native.prop("selectedValue", value),
-        native.prop("onValueChange", on_change),
+        native.prop("selectedValue", id.to_string(value)),
+        native.prop("onValueChange", fn(text: String) {
+          case id.find(sounds, text, fn(sound) { sound.id }) {
+            Ok(sound) -> on_change(sound.id)
+            Error(Nil) -> Nil
+          }
+        }),
         native.prop("dropdownIconColor", theme.moon),
         native.style(theme.picker_style([s.width(180)])),
       ],
-      list.map(sounds, fn(sound) { #(sound.id, sound.title) }),
+      list.map(sounds, fn(sound) { #(id.to_string(sound.id), sound.title) }),
     ),
   ])
 }
 
+/// Moves the draft to this time; pickers only offer valid hours and minutes.
+fn set_time(set_draft: SetDraft, hour: Int, minute: Int) -> Nil {
+  set_draft(fn(current) {
+    Draft(
+      ..current,
+      time: calendar.time(hour, minute) |> result.unwrap(current.time),
+    )
+  })
+}
+
 fn time_card(draft: Draft, set_draft: SetDraft) -> Element {
+  let hour = calendar.hour(draft.time)
+  let minute = calendar.minute(draft.time)
   theme.card(True, [], [
     column([s.align_items("center"), s.gap(12)], [
       theme.eyebrow("Quand commence le matin ?", theme.moon),
       case native.web() {
         True ->
           row([s.align_items("center"), s.gap(8)], [
-            number_picker(draft.hour, 24, fn(hour) {
-              set_draft(fn(current) { Draft(..current, hour:) })
+            number_picker(hour, 24, fn(hour) {
+              set_time(set_draft, hour, minute)
             }),
             label(
               [s.font_size(28), s.font_weight("700"), s.color(theme.moon)],
               ":",
             ),
-            number_picker(draft.minute, 60, fn(minute) {
-              set_draft(fn(current) { Draft(..current, minute:) })
+            number_picker(minute, 60, fn(minute) {
+              set_time(set_draft, hour, minute)
             }),
           ])
         False ->
           native.date_time_picker([
-            native.prop("value", native.date_at(draft.hour, draft.minute)),
+            native.prop("value", native.date_at(hour, minute)),
             native.prop("mode", "time"),
             native.prop("display", "spinner"),
             native.prop("themeVariant", "dark"),
             native.prop("minuteInterval", 1),
             native.on_time_change(fn(hour, minute) {
-              set_draft(fn(current) { Draft(..current, hour:, minute:) })
+              set_time(set_draft, hour, minute)
             }),
             native.style([s.height(126), s.width(260)]),
           ])
@@ -333,63 +353,73 @@ fn light_card(
               "Allumer progressivement",
             ),
             theme.toggle(
-              draft.light_on,
+              alarm_draft.light_on(draft),
               "Allumer progressivement",
               False,
               fn(on) { set_draft(alarm_draft.switch_light(_, on, targets)) },
             ),
           ]),
-          ..case draft.light_on {
+          ..case alarm_draft.light_on(draft) {
             False -> []
             True -> [
               native.picker(
                 [
                   native.prop(
                     "selectedValue",
-                    draft.light_target
-                      |> option.map(alarm.target_id)
+                    alarm_draft.light_target(draft)
+                      |> option.map(fn(target) { id.to_string(target.id) })
                       |> option.unwrap(""),
                   ),
-                  native.prop("onValueChange", fn(id: String) {
-                    set_draft(alarm_draft.choose_target(_, id, targets))
+                  native.prop("onValueChange", fn(text: String) {
+                    case id.find(targets, text, fn(target) { target.id }) {
+                      Ok(target) ->
+                        set_draft(alarm_draft.choose_target(_, target))
+                      Error(Nil) -> Nil
+                    }
                   }),
                   native.prop("dropdownIconColor", theme.moon),
                   native.style(theme.picker_style([])),
                 ],
-                list.map(targets, fn(target) { #(target.id, target.name) }),
+                list.map(targets, fn(target) {
+                  #(id.to_string(target.id), target.name)
+                }),
               ),
               value_slider(
                 "Première lueur",
-                draft.light_start,
+                level.brightness_to_int(draft.light_start),
                 1,
-                draft.light_end,
+                level.brightness_to_int(draft.light_end),
                 "%",
                 theme.moon,
                 fn(value) {
-                  set_draft(fn(current) { Draft(..current, light_start: value) })
+                  set_draft(fn(current) {
+                    Draft(..current, light_start: level.brightness(value))
+                  })
                 },
               ),
               value_slider(
                 "Lumière finale",
-                draft.light_end,
-                draft.light_start,
+                level.brightness_to_int(draft.light_end),
+                level.brightness_to_int(draft.light_start),
                 100,
                 "%",
                 theme.mint,
                 fn(value) {
-                  set_draft(fn(current) { Draft(..current, light_end: value) })
+                  set_draft(fn(current) {
+                    Draft(..current, light_end: level.brightness(value))
+                  })
                 },
               ),
               value_slider(
                 "Durée lumière",
-                draft.light_ramp_minutes,
+                alarm.ramp_minutes(draft.light_ramp),
                 1,
                 60,
                 " min",
                 theme.lavender,
                 fn(value) {
                   set_draft(fn(current) {
-                    Draft(..current, light_ramp_minutes: value)
+                    Draft(..current, light_ramp: alarm.ramp(value))
                   })
                 },
               ),
@@ -428,6 +458,7 @@ fn light_card(
 }
 
 fn ramp_card(draft: Draft, set_draft: SetDraft) -> Element {
+  let ceiling = level.percent_to_int(draft.ceiling_volume)
   theme.card(False, [], [
     column([s.gap(18)], [
       heading(
@@ -437,46 +468,52 @@ fn ramp_card(draft: Draft, set_draft: SetDraft) -> Element {
       ),
       value_slider(
         "Départ",
-        draft.start_volume,
+        level.percent_to_int(draft.start_volume),
         0,
-        draft.ceiling_volume,
+        ceiling,
         "%",
         theme.mint,
         fn(value) {
-          set_draft(fn(current) { Draft(..current, start_volume: value) })
+          set_draft(fn(current) {
+            Draft(..current, start_volume: level.percent(value))
+          })
         },
       ),
       value_slider(
         "Plafond",
-        draft.ceiling_volume,
-        draft.start_volume,
+        ceiling,
+        level.percent_to_int(draft.start_volume),
         100,
         "%",
         theme.rose,
         fn(value) {
-          set_draft(fn(current) { Draft(..current, ceiling_volume: value) })
+          set_draft(fn(current) {
+            Draft(..current, ceiling_volume: level.percent(value))
+          })
         },
       ),
       value_slider(
         "Commencer avant l’heure",
-        draft.ramp_minutes,
+        alarm.ramp_minutes(draft.ramp),
         1,
         60,
         " min avant",
         theme.lavender,
         fn(value) {
-          set_draft(fn(current) { Draft(..current, ramp_minutes: value) })
+          set_draft(fn(current) { Draft(..current, ramp: alarm.ramp(value)) })
         },
       ),
       value_slider(
         "Volume du son de renfort",
-        draft.strong_volume,
+        level.percent_to_int(draft.strong_volume),
         0,
         100,
         "%",
         theme.rose,
         fn(value) {
-          set_draft(fn(current) { Draft(..current, strong_volume: value) })
+          set_draft(fn(current) {
+            Draft(..current, strong_volume: level.percent(value))
+          })
         },
       ),
       label(
@@ -494,7 +531,7 @@ fn ramp_card(draft: Draft, set_draft: SetDraft) -> Element {
                 s.raw("height", 5.0 +. int.to_float(index) *. 1.5),
                 s.border_radius(999),
                 s.background_color(pick(
-                  index * 100 < 12 * draft.ceiling_volume,
+                  index * 100 < 12 * ceiling,
                   theme.lavender,
                   "rgba(255,255,255,0.05)",
                 )),
@@ -509,7 +546,7 @@ fn ramp_card(draft: Draft, set_draft: SetDraft) -> Element {
   ])
 }
 
-fn test_card(id: String) -> Element {
+fn test_card(alarm_id: Id(Alarm)) -> Element {
   theme.card(False, [], [
     column([s.gap(14)], [
       row([s.align_items("center"), s.gap(13)], [
@@ -528,14 +565,14 @@ fn test_card(id: String) -> Element {
       row([s.gap(10)], [
         column([s.flex(1)], [
           theme.button("Réveil complet", fn() {
-            ignore(actions.send(command.TriggerAlarm(id)))
+            ignore(actions.send(command.TriggerAlarm(alarm_id)))
           })
           |> theme.grow
           |> theme.render,
         ]),
         column([s.flex(1)], [
           theme.button("Tester fort", fn() {
-            ignore(actions.send(command.TriggerStrong(id)))
+            ignore(actions.send(command.TriggerStrong(alarm_id)))
           })
           |> theme.primary
           |> theme.grow
@@ -546,16 +583,16 @@ fn test_card(id: String) -> Element {
   ])
 }
 
-fn confirm_delete(id: String, revision: Int) -> Nil {
+fn confirm_delete(alarm: Alarm) -> Nil {
   native.alert("Supprimer cette alarme ?", "", [
     #("Annuler", "cancel", fn() { Nil }),
-    #("Supprimer", "destructive", fn() { actions.delete_alarm(id, revision) }),
+    #("Supprimer", "destructive", fn() { actions.delete_alarm(alarm) }),
   ])
 }
 
 fn origin_key(origin: Origin) -> String {
   case origin {
-    alarm_draft.Existing(id:, ..) -> id
+    alarm_draft.Existing(alarm) -> id.to_string(alarm.id)
     alarm_draft.New -> "new"
   }
 }
@@ -574,7 +611,7 @@ fn render_alarm_editor(initial_draft: Draft) -> Element {
   let editing = alarm_draft.editing(draft)
   let checked = alarm_draft.validate(draft)
   let width = [s.width_pct("100%"), ..pick(desktop, [s.max_width(960)], [])]
-  let configured = snapshot.hue_paired(state.clock.hue)
+  let configured = hue.is_paired(state.clock.hue)
   native.modal(
     [
       native.prop("visible", True),
@@ -632,7 +669,7 @@ fn render_alarm_editor(initial_draft: Draft) -> Element {
             light_card(draft, set_draft, state.clock.hue_targets, configured),
             ramp_card(draft, set_draft),
             case draft.origin {
-              alarm_draft.Existing(id:, ..) -> test_card(id)
+              alarm_draft.Existing(alarm) -> test_card(alarm.id)
               alarm_draft.New -> native.none()
             },
             theme.button(
@@ -652,9 +689,9 @@ fn render_alarm_editor(initial_draft: Draft) -> Element {
               _ -> native.none()
             },
             case draft.origin {
-              alarm_draft.Existing(id:, revision:) ->
+              alarm_draft.Existing(alarm) ->
                 theme.button("Supprimer l’alarme", fn() {
-                  confirm_delete(id, revision)
+                  confirm_delete(alarm)
                 })
                 |> theme.danger
                 |> theme.grow

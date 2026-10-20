@@ -15,10 +15,6 @@ function request(url, options) {
   return expoFetch.call(globalThis, url, options);
 }
 
-export function now() {
-  return Date.now();
-}
-
 export function storage_get(key) {
   return AsyncStorage.getItem(key)
     .then((value) => (typeof value === "string" ? new Ok(value) : new Error(undefined)))

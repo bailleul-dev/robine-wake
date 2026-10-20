@@ -45,7 +45,7 @@ fn progress_bar(step: Int) -> Element {
 }
 
 fn complete() -> Nil {
-  case store.get_state().challenge {
+  case store.challenged(store.get_state()) {
     Some(_) -> {
       actions.close_challenge()
       actions.send(command.Dismiss)

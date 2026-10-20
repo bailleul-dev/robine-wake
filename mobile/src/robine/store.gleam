@@ -1,13 +1,16 @@
 //// The app state shared by every screen, and the hook that renders it.
 
 import gleam/list
-import gleam/option.{type Option, None}
+import gleam/option.{type Option, None, Some}
+import gleam/time/timestamp.{type Timestamp}
 import redraw
 import robine/command.{type Failure}
 import robine/draft.{type Draft}
 import robine/global.{type Ref}
+import robine/id.{type Id}
 import robine/link.{type Connection}
 import robine/routes.{type Tab, Morning}
+import robine/session.{type Active, type Session}
 import robine/snapshot.{type Snapshot}
 
 pub type AppState {
@@ -20,11 +23,11 @@ pub type AppState {
     busy: Bool,
     failure: Option(Failure),
     clock: Snapshot,
-    /// When the clock last answered `state.get`, in milliseconds.
-    synced_at: Option(Int),
+    /// When the clock last answered `state.get`.
+    synced_at: Option(Timestamp),
     editor: Option(Draft),
     /// The wake-up session whose challenge is open.
-    challenge: Option(String),
+    challenge: Option(Id(Session)),
   )
 }
 
@@ -78,6 +81,15 @@ pub fn update(change: fn(AppState) -> AppState) -> Nil {
 
 pub fn use_app_state() -> AppState {
   redraw.use_sync_external_store(subscribe, get_state)
+}
+
+/// The session whose challenge is open, while it is still ringing: a challenge
+/// left open after its alarm stopped elsewhere shows nothing and stops nothing.
+pub fn challenged(state: AppState) -> Option(Active) {
+  case state.challenge, state.clock.active_session {
+    Some(wanted), Some(active) if active.id == wanted -> Some(active)
+    _, _ -> None
+  }
 }
 
 pub fn clear_failure() -> Nil {

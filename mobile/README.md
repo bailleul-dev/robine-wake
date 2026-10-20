@@ -85,13 +85,22 @@ chaque modification pour que Metro recharge l’app.
 
 Le domaine est modélisé en types Gleam, sans I/O :
 
-- `alarm`, `calendar` : une alarme et ses réglages (jours au moins un,
-  heure valide, lumière qui garde sa pièce quand elle est éteinte) ;
-- `draft` : le brouillon de l’éditeur, validé en réglages acceptés par le
-  réveil ou en liste de problèmes affichés à l’utilisateur ;
+- `id`, `level` : les identifiants typés par genre (`Id(Alarm)`, `Id(Sound)`…
+  ne se confondent pas) et les niveaux bornés (pourcentage, luminosité Hue,
+  montée ordonnée de l’un à l’autre) ;
+- `alarm`, `calendar` : une alarme et ses réglages, valides par construction
+  (jours au moins un, heure valide, volume de départ sous le plafond, lumière
+  qui ne baisse pas, montée d’une heure au plus, lumière qui garde sa pièce
+  quand elle est éteinte) ;
+- `nap`, `sound`, `hue`, `session` : la sieste (séparée des alarmes), les sons,
+  Hue et la respiration du soir, la session qui sonne et l’historique ;
+- `draft` : le brouillon de l’éditeur, dont chaque contrôle tient déjà une
+  valeur acceptée ; `validate` ne vérifie que leur cohérence (nom, jours,
+  volume, lumière) ;
 - `snapshot` : ce que le réveil rapporte (`state.get`), décodé une fois en
-  types précis (session, respiration, Hue, santé des composants) ;
-- `command` : les commandes du protocole v1, leurs réponses et leurs refus ;
+  ces types ; une valeur hors des bornes du réveil est refusée ;
+- `command` : les commandes du protocole v1, leurs réponses et leurs refus.
+  Une modification d’alarme porte l’alarme lue, donc sa révision ;
 - `link` : la machine à états du transport (Wi-Fi, Bluetooth, flux
   d’événements avec reprise, une commande à la fois). `link.update` est pure
   et renvoie les effets que `transport` exécute avec les services du

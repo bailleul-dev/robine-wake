@@ -1,6 +1,7 @@
 //// Phone services used by the transport, implemented in `platform_ffi.mjs`.
 
 import gleam/javascript/promise.{type Promise}
+import gleam/time/timestamp.{type Timestamp}
 
 pub type Stream
 
@@ -9,8 +10,9 @@ pub type Timer
 /// A Bluetooth device found by a scan.
 pub type Device
 
-@external(javascript, "./platform_ffi.mjs", "now")
-pub fn now() -> Int
+pub fn now() -> Timestamp {
+  timestamp.system_time()
+}
 
 @external(javascript, "./platform_ffi.mjs", "storage_get")
 pub fn storage_get(key: String) -> Promise(Result(String, Nil))
@@ -103,16 +105,33 @@ pub fn set_interval(ms: Int, callback: fn() -> Nil) -> Interval
 pub fn clear_interval(timer: Interval) -> Nil
 
 /// `07:45`.
+fn milliseconds(at: Timestamp) -> Int {
+  let #(seconds, nanoseconds) = timestamp.to_unix_seconds_and_nanoseconds(at)
+  seconds * 1000 + nanoseconds / 1_000_000
+}
+
+pub fn format_time(at: Timestamp) -> String {
+  format_time_ms(milliseconds(at))
+}
+
 @external(javascript, "./platform_ffi.mjs", "format_time")
-pub fn format_time(ms: Int) -> String
+fn format_time_ms(ms: Int) -> String
 
 /// `lundi 19 octobre`.
+pub fn format_day(at: Timestamp) -> String {
+  format_day_ms(milliseconds(at))
+}
+
 @external(javascript, "./platform_ffi.mjs", "format_day")
-pub fn format_day(ms: Int) -> String
+fn format_day_ms(ms: Int) -> String
 
 /// `19/10/2026 07:45`.
+pub fn format_date_time(at: Timestamp) -> String {
+  format_date_time_ms(milliseconds(at))
+}
+
 @external(javascript, "./platform_ffi.mjs", "format_date_time")
-pub fn format_date_time(ms: Int) -> String
+fn format_date_time_ms(ms: Int) -> String
 
 @external(javascript, "./platform_ffi.mjs", "http_get")
 pub fn http_get(url: String) -> Promise(Result(String, String))
