@@ -252,7 +252,7 @@ pub fn refusal(code: String) -> Refusal {
 pub fn describe(failure: Failure) -> String {
   case failure {
     Busy -> "Une synchronisation est déjà en cours"
-    NoRoute -> "Bluetooth indisponible"
+    NoRoute -> "Réveil injoignable, ni en Wi-Fi ni en Bluetooth"
     Unreachable(reason) -> reason
     BluetoothDenied ->
       "Autorisez le Bluetooth dans Réglages pour joindre le réveil."

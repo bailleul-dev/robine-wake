@@ -123,7 +123,6 @@ pub type Effect(device) {
   WaitToRetry(epoch: Int, delay: Int)
   CancelRetry
   SaveEndpoint(url: String)
-  ForgetEndpoint
   /// Replaces any adapter listener.
   WatchAdapter
   UnwatchAdapter
@@ -458,6 +457,13 @@ fn send(link: Link(device), command: Command, origin: Origin) -> Step(device) {
         Automatic -> []
       }
       case link.wifi, link.radio {
+        // Away from the clock's network, Bluetooth answers without waiting
+        // for Wi-Fi to fail again.
+        Endpoint(reached: False, ..), Paired(device) ->
+          emit(Link(..link, request: request(ViaRadio)), [
+            Write(id:, device:, line:),
+            ..clear
+          ])
         Endpoint(url:, ..), _ ->
           emit(Link(..link, request: request(ViaWifi)), [
             Post(id:, url:, line:),
@@ -499,22 +505,19 @@ fn wifi_answered(
         request,
         Error(command.Unreachable(reason)),
       )
-    // The phone left the clock's network: Bluetooth takes over.
-    Error(_), Phone(_) -> {
-      let #(link, effects) = stop_events(Link(..link, wifi: NoEndpoint))
-      let effects = list.append(effects, [ForgetEndpoint])
+    // The phone may have left the clock's network: Bluetooth takes over. The
+    // endpoint is kept, a single failure is no proof the clock moved.
+    Error(reason), Phone(_) -> {
+      let link = Link(..link, wifi: unreached(link.wifi))
       case link.radio {
-        Paired(device) -> #(
-          Link(..link, request: Some(Request(..request, via: ViaRadio))),
-          list.append(effects, [Write(request.id, device, request.line)]),
-        )
+        Paired(device) ->
+          emit(Link(..link, request: Some(Request(..request, via: ViaRadio))), [
+            Write(request.id, device, request.line),
+          ])
         Idle ->
-          #(link, effects)
-          |> then(finish(_, request, Error(command.NoRoute)))
+          finish(link, request, Error(command.Unreachable(reason)))
           |> then(scan)
-        _ ->
-          #(link, effects)
-          |> then(finish(_, request, Error(command.NoRoute)))
+        _ -> finish(link, request, Error(command.Unreachable(reason)))
       }
     }
   }

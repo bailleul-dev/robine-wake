@@ -115,20 +115,59 @@ pub fn bluetooth_takes_over_when_wifi_fails_on_the_phone_test() {
       link.DeviceFound("clock"),
       link.DeviceConnected(Ok("clock")),
       link.RadioAnswered("seed-0", Ok(state_reply("seed-0", [clock]))),
+      link.StreamOpened(1),
     ])
   let #(link, effects) = link.update(link, link.Send(command.CancelNap))
-  assert posted(effects) == ["seed-1"]
+  let assert [Post(id: "seed-1", ..), link.ClearReport] = effects
   let #(link, effects) =
     link.update(link, link.WifiAnswered("seed-1", Error("offline")))
   let line = command.encode(command.CancelNap, "seed-1")
-  assert effects
-    == [link.CloseStream, link.ForgetEndpoint, Write("seed-1", "clock", line)]
-  assert link.endpoint(link) == None
+  assert effects == [Write("seed-1", "clock", line)]
+  // The endpoint is kept for when the phone is back on the clock's network.
+  assert link.endpoint(link) == Some(clock)
+  assert link.connection(link) == link.Online(link.Nearby)
   // Once done, the change is read back.
   let #(_, effects) =
     link.update(link, link.RadioAnswered("seed-1", Ok(ok("seed-1"))))
   let assert [Settle("seed-1", Ok(command.Done)), Write(id: "seed-2", ..)] =
     effects
+}
+
+pub fn without_bluetooth_a_wifi_failure_keeps_the_endpoint_test() {
+  let #(link, _) =
+    run(phone(), [
+      link.Started(Some(clock)),
+      link.WifiAnswered("seed-0", Ok(state_reply("seed-0", [clock]))),
+    ])
+  let #(link, _) = link.update(link, link.Send(command.CancelNap))
+  let #(link, effects) =
+    link.update(link, link.WifiAnswered("seed-1", Error("offline")))
+  assert effects
+    == [
+      Settle("seed-1", Error(command.Unreachable("offline"))),
+      link.Report(command.Unreachable("offline")),
+      link.StopScan,
+      link.WatchAdapter,
+    ]
+  assert link.endpoint(link) == Some(clock)
+  // The next command tries Wi-Fi again.
+  let #(_, effects) = link.update(link, link.Send(command.CancelNap))
+  let assert [Post(id: "seed-2", url:, ..), link.ClearReport] = effects
+  assert url == clock
+}
+
+pub fn away_from_the_clock_bluetooth_answers_first_test() {
+  let #(link, _) =
+    run(phone(), [
+      link.Started(None),
+      link.AdapterChanged(link.PoweredOn),
+      link.DeviceFound("clock"),
+      link.DeviceConnected(Ok("clock")),
+      link.RadioAnswered("seed-0", Ok(state_reply("seed-0", [clock]))),
+    ])
+  // The endpoint is known but not reached: no wait on Wi-Fi.
+  let #(_, effects) = link.update(link, link.Send(command.CancelNap))
+  let assert [Write(id: "seed-1", ..), link.ClearReport] = effects
 }
 
 pub fn one_command_at_a_time_test() {

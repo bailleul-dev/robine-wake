@@ -164,7 +164,6 @@ fn perform(effect: Effect(Device)) -> Nil {
     }
     link.CancelRetry -> cancel_retry()
     link.SaveEndpoint(url) -> platform.storage_set(endpoint_storage_key, url)
-    link.ForgetEndpoint -> platform.storage_remove(endpoint_storage_key)
     link.WatchAdapter -> {
       unwatch_adapter()
       let remove =
