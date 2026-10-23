@@ -112,11 +112,11 @@ config :robine_wake,
   alsa_device: "auto",
   web_ip: {0, 0, 0, 0}
 
-# Pi Zero W: only the amplifier is wired so far. The amplifier HAT takes GPIO
-# 14/15 (ESP32 UART) and GPIO 8 (SPI CE0), so these stay off while it is fitted.
+# Pi Zero W: the SX1276 (SPI CE0 on GPIO 8) is not wired. The ESP32 guide light
+# keeps the UART on GPIO 14/15 (ttyS0, as on the Pi 3): the rpi0 boot config loads
+# merus-amp-uart, which leaves those pins free.
 if Mix.target() == :rpi0 do
   config :robine_wake,
-    guide_light: nil,
     lora_enabled: false,
     # InnoMaker MA12070P HAT: master volume of the ma120x0p codec.
     alsa_mixer_control: "A.Mstr Vol"

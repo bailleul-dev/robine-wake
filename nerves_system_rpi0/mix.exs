@@ -126,6 +126,7 @@ defmodule NervesSystemRpi0.MixProject do
       "nerves_defconfig",
       "post-build.sh",
       "post-createfs.sh",
+      "merus-amp-uart-overlay.dts",
       "ramoops-overlay.dts",
       "README.md",
       "REUSE.toml",

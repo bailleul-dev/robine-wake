@@ -15,13 +15,14 @@ dtparam=audio=off
 dtoverlay=dwc2
 
 # InnoMaker HiFi AMP Pro Mini HAT (Infineon MA12070P, I2S + I2C 0x20). It is a
-# Merus-Audio design: the kernel's merus-amp overlay drives it as the ALSA card
-# "snd_rpi_merus_amp". The overlay claims GPIO 14 (enable), 15 (mute), 17
-# (booster) and 23 (error) and GPIO 8: the ESP32 UART (14/15) and the SX1276
-# (SPI0 CE0) cannot share the Zero with this HAT. The driver accepts sample
-# rates up to 48 kHz only. Ignore the HAT EEPROM, if any.
+# Merus-Audio design, driven by the ma120x0p codec as the ALSA card
+# "snd_rpi_merus_amp". The driver accepts sample rates up to 48 kHz only.
+# merus-amp-uart is the stock merus-amp overlay without its enable (GPIO14) and
+# mute (GPIO15) lines, which are the UART pins to the ESP32 light controller
+# (mini UART /dev/ttyS0). Use `dtoverlay=merus-amp` instead if the HAT needs
+# those two lines and no ESP32 is wired. Ignore the HAT EEPROM, if any.
 force_eeprom_read=0
-dtoverlay=merus-amp
+dtoverlay=merus-amp-uart
 
 # The camera feature is disabled; do not probe or load camera overlays.
 camera_auto_detect=0

@@ -229,8 +229,10 @@ make burn-sd MIX_TARGET=rpi0 DEVICE=/dev/diskN
 
 The Zero has no Ethernet: the micro-USB *data* port is an Ethernet gadget
 (`usb0`) for a first access, and `wlan0` takes the Wi-Fi values from `.env`.
-The LoRa radio and the ESP32 guide light are disabled on this target until they
-are wired (`config/target.exs`). The I2S amplifier overlay is set in
-`config/rpi0-config.txt` (InnoMaker MA12070P HAT, `merus-amp`, by default). The first build
+The LoRa radio is disabled on this target (its SPI chip select is claimed by the
+amplifier HAT). The ESP32 guide light uses the same UART as the Pi 3 (GPIO 14/15):
+the amplifier overlay is `merus-amp-uart` in `config/rpi0-config.txt`
+(InnoMaker MA12070P HAT), the stock `merus-amp` overlay without its enable/mute
+lines. See the wiring guide before connecting the ESP32. The first build
 compiles the whole Buildroot system, which takes a while; it is not
 cross-built from the Pi 3 artifacts.

@@ -28,6 +28,7 @@ file_resources = [
   %{name: "overlays/hifiberry-dac.dtbo", path: "${NERVES_SYSTEM}/images/rpi-firmware/overlays/hifiberry-dac.dtbo"},
   %{name: "overlays/hifiberry-dacplus.dtbo", path: "${NERVES_SYSTEM}/images/rpi-firmware/overlays/hifiberry-dacplus.dtbo"},
   %{name: "overlays/merus-amp.dtbo", path: "${NERVES_SYSTEM}/images/rpi-firmware/overlays/merus-amp.dtbo"},
+  %{name: "overlays/merus-amp-uart.dtbo", path: "${NERVES_SYSTEM}/images/merus-amp-uart-overlay.dtb"},
   %{name: "overlays/i2c-mux.dtbo", path: "${NERVES_SYSTEM}/images/rpi-firmware/overlays/i2c-mux.dtbo"},
   %{name: "overlays/imx219.dtbo", path: "${NERVES_SYSTEM}/images/rpi-firmware/overlays/imx219.dtbo"},
   %{name: "overlays/imx296.dtbo", path: "${NERVES_SYSTEM}/images/rpi-firmware/overlays/imx296.dtbo"},
