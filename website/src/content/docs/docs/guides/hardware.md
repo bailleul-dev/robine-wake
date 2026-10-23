@@ -20,10 +20,12 @@ make firmware-rpi0            # Pi Zero W
 
 ## Wiring
 
-Step-by-step diagrams: [Raspberry Pi 3](../wiring-pi3/) (amplifier, light strip,
-LoRa button) and [Raspberry Pi Zero W](../wiring-pi-zero/) (InnoMaker amplifier).
-The breadboard bench for the future all-in-one board (ESP32-S3 + ESP32) is in
-[`hardware/dev_bench`](https://github.com/bailleul-dev/robine-wake/tree/main/hardware/dev_bench).
+Step-by-step diagrams:
+
+- [Current setup, Raspberry Pi 3](../wiring-pi3/): amplifier, ESP32 light strip, LoRa button.
+- [Raspberry Pi Zero W](../wiring-pi-zero/): InnoMaker amplifier.
+- [Wi-Fi bedside button](../wiring-remote-button/): ESP32 / Heltec, optional external button.
+- [Future board bench](../wiring-bench/) (not the current build): ESP32-S3 + ESP32, amplifier, LoRa and status LED on a breadboard.
 
 ## Amplifiers
 
@@ -37,9 +39,12 @@ sets the volume through the card's own mixer control (`Digital` on the
 HiFiBerry, `A.Mstr Vol` on the MA12070P).
 
 :::caution
-The MA12070P overlay claims GPIO 14, 15, 17, 23 and 8, and its driver accepts
-sample rates up to 48 kHz. The ESP32 UART (GPIO 14/15) and the SX1276 LoRa
-radio (SPI CE0 on GPIO 8) therefore cannot share a Zero with this HAT.
+The Linux driver of the MA12070P accepts sample rates up to 48 kHz only. The
+stock `merus-amp` overlay claims GPIO 14/15 (enable, mute), which are the ESP32
+UART pins: the `rpi0` firmware loads `merus-amp-uart`, a variant without them.
+That is only valid if the HAT does not depend on those pins: do the continuity
+check in the [Pi Zero W wiring guide](../wiring-pi-zero/). The SX1276 LoRa radio
+(SPI CE0 on GPIO 8) cannot be used on a Zero with this HAT.
 :::
 
 ## Light

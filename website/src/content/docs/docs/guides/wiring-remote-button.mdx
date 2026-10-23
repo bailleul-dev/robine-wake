@@ -1,0 +1,78 @@
+---
+title: Wiring — Wi-Fi bedside button (ESP32)
+description: The Wi-Fi stop button on a Heltec WiFi Kit 32 V1 — what is on the board, what to wire, and the optional external push-button.
+sidebar:
+  order: 7
+---
+
+import Wiring from "../../../../components/Wiring.astro";
+
+The bedside stop button is an ESP32 board (Heltec WiFi Kit 32 V1) that calls the
+clock over Wi-Fi. **Nothing has to be wired**: the button and the screen are on
+the board. You only power it.
+
+## What is already on the board
+
+| Function | Where | Pin |
+|---|---|---|
+| Stop button | `PRG` push-button | GPIO0 (pressed = low, internal pull-up) |
+| Screen (SSD1306 128 × 64) | on board, I²C | SDA GPIO4 · SCL GPIO15 · RST GPIO16 |
+| Reset | `RST` push-button | not usable by the application |
+| Power and flashing | micro-USB | 5 V |
+
+<Wiring
+  width={620}
+  height={125}
+  alt="A 5 volt USB charger or computer connected to the Heltec board micro-USB connector"
+  caption="Power: any 5 V USB source. The same cable flashes the firmware."
+  parts={[
+    { id: "usb", title: "5 V USB source", sub: "charger or computer", x: 0, y: 20, w: 190,
+      pins: [{ id: "u", label: "USB", side: "r" }] },
+    { id: "heltec", title: "Heltec WiFi Kit 32 V1", sub: "PRG + OLED on board", x: 380, y: 20, w: 240,
+      pins: [{ id: "u", label: "micro-USB", side: "l" }] },
+  ]}
+  wires={[{ a: "usb.u", b: "heltec.u", kind: "usb", label: "USB cable" }]}
+/>
+
+Set `ROBINE_WIFI_SSID`, `ROBINE_WIFI_PASSPHRASE` and, once paired,
+`REMOTE_BUTTON_ID` and `REMOTE_BUTTON_SECRET_HEX` in `.env`, then:
+
+```sh
+make button-build
+make button-upload PORT=/dev/ttyUSB0
+make button-monitor PORT=/dev/ttyUSB0
+```
+
+## Optional: a bigger external push-button
+
+To press something larger than `PRG` (for example through the enclosure), wire a
+normally-open push-button **in parallel with `PRG`**: between GPIO0 and GND. No
+resistor is needed, the firmware enables the internal pull-up.
+
+<Wiring
+  width={620}
+  height={140}
+  alt="A normally-open push-button wired between GPIO0 and ground of the Heltec board"
+  caption="Check that GPIO0 and GND are broken out on your board's header. Do not hold the button while powering up: GPIO0 low at reset puts the ESP32 in download mode."
+  parts={[
+    { id: "btn", title: "Push-button", sub: "normally open", x: 0, y: 20, w: 190,
+      pins: [{ id: "a", label: "contact 1", side: "r" }, { id: "b", label: "contact 2", side: "r" }] },
+    { id: "heltec", title: "Heltec WiFi Kit 32 V1", sub: "header", x: 380, y: 20, w: 240,
+      pins: [{ id: "io0", label: "GPIO0", side: "l" }, { id: "gnd", label: "GND", side: "l" }] },
+  ]}
+  wires={[
+    { a: "btn.a", b: "heltec.io0", kind: "signal", label: "to GPIO0" },
+    { a: "btn.b", b: "heltec.gnd", kind: "gnd", label: "to GND" },
+  ]}
+/>
+
+To use another pin, change `STOP_BUTTON_PIN` in `hardware/remote_button/platformio.ini`.
+The screen pins are fixed in the firmware for the Heltec V1; another ESP32 board
+needs a code change.
+
+## LoRa button
+
+A radio version of the button (Arduino Pro Mini 3.3 V + RFM95) is described in
+the [remote button note](../../notes/remote-alarm-button/). The wiring of the
+**receiver** on the Pi is in [Wiring — Raspberry Pi 3](../wiring-pi3/#3-bedside-button--lora-module-sx1276--rfm95);
+the button-side wiring is not documented yet.

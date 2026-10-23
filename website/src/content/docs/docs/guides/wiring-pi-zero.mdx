@@ -7,18 +7,20 @@ sidebar:
 
 import Wiring from "../../../../components/Wiring.astro";
 import PiHeader from "../../../../components/PiHeader.astro";
+import PinFinder from "../../../../components/PinFinder.astro";
 
-The Zero W build is one board and one amplifier: the HAT plugs onto the Pi, you
-add a power supply and two speakers.
+The Zero W build is a Pi Zero W, the InnoMaker amplifier HAT, two speakers and
+the ESP32 that drives the light strip. The Wi-Fi bedside button needs no wiring
+to the Pi.
 
 :::danger[Before you start]
 - Wire with everything **unplugged**; the supply goes last.
 - Speakers are **bridged (BTL)**: the "−" of a speaker is never tied to ground.
 - The HAT outputs **5 V on the header** and normally powers the Pi through it.
   Do **not** also power the Pi from its `PWR` micro-USB port.
-- The overlay used here (`merus-amp`) is the Linux driver for Infineon MA12 amps;
-  the pin assignment below comes from it and has to be confirmed on your board
-  (see *First power-up*).
+- The pin assignment below comes from the Linux `merus-amp` overlay for Infineon
+  MA12 amplifiers and has to be confirmed on your board: do the **continuity
+  check** of section 2 before connecting the ESP32.
 :::
 
 ## The 40-pin header at a glance
@@ -29,7 +31,7 @@ pins on the right (outer row, nearest the board edge); pin 1 is the square pad.
 
 <PiHeader
   alt="Raspberry Pi Zero W 40-pin header with the pins used by the InnoMaker HAT highlighted"
-  caption="The pins claimed by the merus-amp overlay. Nothing else can use them while the HAT is fitted."
+  caption="Pins taken by the HAT (I²C, I²S, booster, error) and by the ESP32 UART. Pins 8 and 10 are the UART, not the amplifier's enable/mute: see section 2."
   used={{
     2: { kind: "power", label: "5 V from HAT" },
     4: { kind: "power", label: "5 V from HAT" },
@@ -38,24 +40,66 @@ pins on the right (outer row, nearest the board edge); pin 1 is the square pad.
     12: { kind: "i2s", label: "I²S clock" },
     35: { kind: "i2s", label: "I²S frame" },
     40: { kind: "i2s", label: "I²S data out" },
-    8: { kind: "signal", label: "GPIO14 · amp enable" },
-    10: { kind: "signal", label: "GPIO15 · amp mute" },
+    6: { kind: "gnd", label: "GND → ESP32" },
+    8: { kind: "uart", label: "TXD → ESP32" },
+    10: { kind: "uart", label: "RXD ← ESP32" },
     11: { kind: "signal", label: "GPIO17 · booster" },
     16: { kind: "signal", label: "GPIO23 · amp error" },
-    24: { kind: "signal", label: "GPIO8 · reserved" },
   }}
 />
 
-:::caution[What this removes from the Zero]
-The ESP32 light (UART on pins 8/10) and the LoRa radio (SPI chip select on pin
-24) cannot share a Zero with this HAT. Both are switched off in the `rpi0`
-configuration. For the light or the button, use the [Pi 3 build](../wiring-pi3/).
+:::caution[No LoRa on the Zero]
+The LoRa radio (SPI chip select on pin 24) cannot share a Zero with this HAT; it
+is switched off in the `rpi0` configuration. For the LoRa button receiver, use
+the [Pi 3 build](../wiring-pi3/).
 :::
+
+## Finding the pins when the HAT hides the names
+
+With the amplifier fitted, the names printed on the Pi are covered. Find a pin
+by **position**, not by name:
+
+1. Turn the board so the **SD card slot is on your left** and the 40-pin header
+   runs along the **top edge**.
+2. The header has two rows of 20 pins. The **top row** (nearest the board edge)
+   is the **even** pins `2, 4, 6 … 40`; the **bottom row** is the **odd** pins
+   `1, 3, 5 … 39`.
+3. Count from the **left** end: pin 1 is the first of the bottom row, pin 2 the
+   first of the top row. Pin `n` is the **⌈n ÷ 2⌉-th** pin of its row.
+
+<PinFinder
+  alt="The 40 header positions seen from above, SD card on the left, with the pins used in this build highlighted"
+  caption="Positions only: this is where to land each wire, whatever is printed on the board."
+  used={{
+    6: { kind: "gnd", label: "GND → ESP32" },
+    8: { kind: "uart", label: "TXD → ESP32" },
+    10: { kind: "uart", label: "RXD ← ESP32" },
+    3: { kind: "i2c", label: "SDA (HAT)" },
+    5: { kind: "i2c", label: "SCL (HAT)" },
+    12: { kind: "i2s", label: "I²S clk (HAT)" },
+    35: { kind: "i2s", label: "I²S frame (HAT)" },
+    40: { kind: "i2s", label: "I²S data (HAT)" },
+  }}
+/>
+
+| Pin | Row | Count from the left | Function here |
+|---|---|---|---|
+| 6 | top | 3rd | GND → ESP32 |
+| 8 | top | 4th | TXD → ESP32 `D18` |
+| 10 | top | 5th | RXD ← ESP32 `TX2` |
+
+**Check you are on the right pin** with a continuity tester, everything
+unpowered: pin 6 must beep with pins 9, 14, 20, 25, 30, 34 and 39 (all ground).
+If it does not, you are one position off, or on the wrong row.
+
+The other highlighted pins belong to the HAT (I²C, I²S): no wire of yours goes
+there.
 
 ## 1. Audio — InnoMaker HiFi AMP Pro Mini (MA12070P)
 
-**You need:** Pi Zero W, the InnoMaker HAT, a **19–20 V, ≥ 3 A** DC supply with a
-5.5 mm jack (the HAT accepts 9–24 V), two passive 4–8 Ω speakers.
+**You need:** Pi Zero W, the InnoMaker HAT, a **regulated 19–20 V DC supply,
+4 A or more**, with a 5.5 mm jack (see *Power tolerances* below), two passive
+4–8 Ω speakers.
 
 <Wiring
   width={730}
@@ -63,7 +107,7 @@ configuration. For the light or the button, use the [Pi 3 build](../wiring-pi3/)
   alt="Power supply to the InnoMaker amplifier HAT, and the HAT to the left and right speakers"
   caption="The HAT plugs onto the Zero's header and feeds the Zero with 5 V through it."
   parts={[
-    { id: "psu", title: "Power supply", sub: "19–20 V · ≥ 3 A · 5.5 mm jack", x: 0, y: 30, w: 190,
+    { id: "psu", title: "Power supply", sub: "regulated · ≥ 4 A · not 24 V", x: 0, y: 30, w: 190,
       pins: [{ id: "p", label: "+ (centre)", side: "r" }, { id: "n", label: "− (sleeve)", side: "r" }] },
     { id: "amp", title: "InnoMaker AMP Pro Mini", sub: "MA12070P · on the Zero header", x: 290, y: 30, w: 220,
       pins: [
@@ -78,7 +122,7 @@ configuration. For the light or the button, use the [Pi 3 build](../wiring-pi3/)
       ] },
   ]}
   wires={[
-    { a: "psu.p", b: "amp.vin", kind: "power", label: "+19–20 V" },
+    { a: "psu.p", b: "amp.vin", kind: "power", label: "+19–20 V DC" },
     { a: "psu.n", b: "amp.gnd", kind: "gnd", label: "GND" },
     { a: "amp.lp", b: "spk.lp", kind: "audio", label: "L +" },
     { a: "amp.ln", b: "spk.ln", kind: "audio", label: "L −" },
@@ -96,7 +140,148 @@ configuration. For the light or the button, use the [Pi 3 build](../wiring-pi3/)
    Zero with its 5 V (as the bench notes found); if the Zero stays dark, switch
    off and check that the header is fully seated before trying anything else.
 
-## 2. First access, before Wi-Fi
+### Power tolerances
+
+| What | Value | Source |
+|---|---|---|
+| Amplifier chip (MA12070P) supply, recommended | **4 – 26 V** | Infineon datasheet, table 6-1 |
+| Amplifier chip, absolute maximum | **27.5 V** (damage above) | datasheet, table 5-1 |
+| HAT DC input (5.5 mm jack **or** green terminal) | **9 – 24 V** | InnoMaker AMP Pro page (the Mini has the same power inputs) |
+| Jack and green terminal together | **forbidden** — one source only | InnoMaker |
+| Speaker load | **4 – 8 Ω** per channel; never below 3.2 Ω | datasheet table 6-1 (bridged output) |
+| Supply power to provide | 1.1 – 1.3 × the combined speaker power | InnoMaker |
+| Ratings | 2 × 30 W continuous (8 Ω, 22 V) · 2 × 80 W peak (4 Ω, 26 V) | InnoMaker / Infineon |
+| Hot-plugging the supply | **not allowed** (inrush, sparks) | InnoMaker |
+
+What it means for this build:
+
+- **Use a regulated 19 or 20 V adapter** (a laptop-style brick). That sits inside
+  the HAT's 9–24 V window and the chip's 26 V limit with margin: even +5 % is
+  21 V.
+- **Do not use a "24 V" adapter.** InnoMaker warns that some surge to 30 V or more at
+  switch-on, above the chip's 27.5 V absolute maximum. Avoid unregulated
+  supplies for the same reason.
+- **Current:** for the full 2 × 30 W, 1.3 × 60 W ≈ 78 W, so 20 V and about 4 A.
+  InnoMaker's example is 20 V / 5–6 A. A 3 A supply is enough only if the
+  volume stays moderate; the project's rule is 25 % margin over the *measured*
+  peak, so measure it first (3 A is fine if the peak is under 2.4 A).
+- **Never put two speakers in parallel on one channel** unless the result stays
+  at or above 4 Ω: two 8 Ω speakers in parallel make 4 Ω, two 4 Ω make 2 Ω, which
+  is below the chip's limit.
+- **Only one 5 V source for the Zero.** The HAT powers it through the header
+  (InnoMaker: *"the HAT will provide power to the Raspberry Pi"*) and warns
+  that extra 5 V into the Pi may damage it. So: nothing in the `PWR` micro-USB,
+  and a computer cable on the data port must be data-only.
+- **Order:** plug the supply into the HAT first, and only then switch the
+  adapter on. Never hot-plug the DC jack.
+- **Unknown:** the current the HAT's 5 V rail can deliver to the Pi is not
+  documented. A Zero W needs roughly 0.1 – 0.35 A; if it reboots while the amp
+  plays loud, measure the 5 V at header pin 2 under load.
+- **Speaker terminals (Mini):** InnoMaker states the *right* speaker is on
+  `PIN-3` (+) and `PIN-4` (−) of the speaker connector; the left speaker is
+  then presumably on `PIN-1` and `PIN-2` (not stated). Read the silkscreen: the Mini is wired differently from the full-size
+  AMP Pro.
+
+Sources: [Infineon MA12070 datasheet](https://cdn.sparkfun.com/assets/8/6/d/d/4/MA12070_Datasheet.pdf)
+(V1.0, 2018-07-17) and [InnoMaker AMP-Pro](https://github.com/INNO-MAKER/AMP-Pro).
+
+## 2. Light — ESP32 and LED strip
+
+The ESP32 and the strip are wired exactly as on the Pi 3 (see
+[Wiring — current setup](../wiring-pi3/#2-light--esp32-and-led-strip)). Two
+things differ on the Zero: the UART pins are shared with the amplifier HAT, and
+the Zero has no free USB port to power the ESP32.
+
+:::danger[Continuity check first — Pi pins 8 and 10]
+The stock amplifier overlay uses GPIO14 (pin 8) as *enable* and GPIO15 (pin 10)
+as *mute*. The `rpi0` firmware loads `merus-amp-uart`, which does **not** use
+them, so the UART can. That only works if the HAT does not depend on those two
+pins.
+
+With **everything unpowered**, take the HAT alone and test with a continuity
+tester whether its connector pins 8 and 10 go to the amplifier chip (enable,
+mute) or nowhere.
+
+- **Nowhere** → go ahead: the HAT stays enabled by its own resistors.
+- **They go to the chip** → do not wire the UART on these pins: the ESP32's idle
+  UART line (high) would hold the amplifier muted or disabled. Bend out or cut
+  pins 8 and 10 on the HAT's connector so they do not touch the Zero, and tell
+  me: the HAT then needs the stock `merus-amp` overlay, so the ESP32 needs
+  another link (Wi-Fi).
+:::
+
+<Wiring
+  width={760}
+  height={400}
+  alt="Raspberry Pi Zero W to ESP32 over UART, ESP32 data pin to the LED strip, ESP32 and strip on their own 5 volt supplies"
+  caption="The ESP32 has its own USB charger (the Zero's USB port is taken by usb0). All grounds are joined."
+  parts={[
+    { id: "pi", title: "Pi Zero W", sub: "header, under the HAT", x: 0, y: 30, w: 190,
+      pins: [
+        { id: "tx", label: "GPIO14 TXD · pin 8", side: "r" },
+        { id: "rx", label: "GPIO15 RXD · pin 10", side: "r" },
+        { id: "gnd", label: "GND · pin 6", side: "r" },
+      ] },
+    { id: "esp", title: "ESP32 DevKit", sub: "30-pin · runs pi_light", x: 290, y: 30, w: 220,
+      pins: [
+        { id: "rx", label: "D18 (GPIO18) RX", side: "l" },
+        { id: "tx", label: "TX2 (GPIO17) TX", side: "l" },
+        { id: "gnd", label: "GND", side: "l" },
+        { id: "usb", label: "USB-C", side: "l" },
+        { id: "d13", label: "D13 (GPIO13)", side: "r" },
+        { id: "gnd2", label: "GND", side: "r" },
+      ] },
+    { id: "strip", title: "WS2812B strip", sub: "60 LED", x: 610, y: 30, w: 150,
+      pins: [
+        { id: "din", label: "DIN", side: "l" },
+        { id: "gnd", label: "GND", side: "l" },
+        { id: "v5", label: "+5 V", side: "l" },
+      ] },
+    { id: "chg", title: "5 V USB charger", sub: "for the ESP32", x: 0, y: 205, w: 190,
+      pins: [{ id: "u", label: "USB", side: "r" }] },
+    { id: "psu", title: "5 V supply", sub: "strip only", x: 610, y: 220, w: 150,
+      pins: [{ id: "v5", label: "+5 V", side: "l" }, { id: "gnd", label: "GND", side: "l" }] },
+  ]}
+  wires={[
+    { a: "pi.tx", b: "esp.rx", kind: "uart", label: "TXD → RX" },
+    { a: "pi.rx", b: "esp.tx", kind: "uart", label: "RXD ← TX" },
+    { a: "pi.gnd", b: "esp.gnd", kind: "gnd", label: "GND" },
+    { a: "chg.u", b: "esp.usb", kind: "usb", label: "USB cable" },
+    { a: "esp.d13", b: "strip.din", kind: "signal", label: "via 330 Ω" },
+    { a: "esp.gnd2", b: "psu.gnd", kind: "gnd", label: "common GND", dashed: true },
+    { a: "strip.gnd", b: "psu.gnd", kind: "gnd" },
+    { a: "strip.v5", b: "psu.v5", kind: "power" },
+  ]}
+  notes={[
+    { x: 0, y: 385, text: "UART2 · 115 200 baud · 8N1 · 3.3 V: straight wires. TX goes to RX." },
+  ]}
+/>
+
+1. Pass the continuity check above.
+2. Join all grounds: Pi pin 6, ESP32 GND, strip GND, 5 V supply GND.
+3. Wire the UART: Pi pin 8 → ESP32 `D18`, Pi pin 10 ← ESP32 `TX2`.
+4. 330 Ω in series on the data line, close to the strip's `DIN`; the strip's
+   `+5V`/`GND` come from the 5 V supply, not from the ESP32 or the Pi.
+5. Power the ESP32 from its own USB charger. (Taking it from the HAT's 5 V on
+   header pins 2/4 into the ESP32 `VIN` pin is possible but untested: the HAT's
+   5 V budget is unknown.)
+6. Flash the ESP32 from your computer over its USB-C cable; on the Pi 3 it is
+   flashed through the Pi, which is not set up on the Zero.
+7. From the web interface, start a sunrise or the reading light.
+
+:::note
+`guide_light` is enabled on the `rpi0` target with the same UART device
+(`ttyS0`) as the Pi 3.
+:::
+
+## 3. Bedside button
+
+The Wi-Fi button calls the clock over Wi-Fi: **no wire goes to the Zero**, so it
+does not conflict with the HAT. See [Wiring — Wi-Fi bedside button](../wiring-remote-button/).
+The LoRa button receiver (SPI on pins 19/21/23/24) is not available on the
+Zero with this HAT: chip select GPIO8 is claimed by the amplifier overlay.
+
+## 4. First access, before Wi-Fi
 
 The Zero W has no Ethernet. The firmware turns its micro-USB **data** port (the
 one nearer the middle of the board, labelled `USB`) into an Ethernet gadget
@@ -120,11 +305,11 @@ Two 5 V sources (the computer's USB and the HAT) feeding the Zero at once is the
 risk to avoid. Once Wi-Fi is configured (`ROBINE_WIFI_SSID` /
 `ROBINE_WIFI_PASSPHRASE` in `.env` at build time) the cable is no longer needed.
 
-## First power-up checks
+## First power-up checks (audio)
 
-1. **Unpowered**, with a continuity tester: pins 8, 10 and 16 go to the amplifier
-   chip's *enable*, *mute* and *error* functions. If not, the overlay does not
-   match your board.
+1. **Unpowered**, with a continuity tester: pin 16 goes to the amplifier chip's
+   *error* output and pin 11 to its booster control (pins 8 and 10: see the
+   continuity check in section 2). If not, the overlay does not match your board.
 2. Power the HAT **alone** (not on the Zero) and measure the header: pin 1
    should be 3.3 V or nothing, SDA and SCL (pins 3 and 5) 0 V or 3.3 V — **never 5 V**.
 3. Fit it on the Zero, power up at **low volume**, and play a manual test
@@ -143,11 +328,9 @@ does not answer on I²C address `0x20`, or the overlay does not fit it.
 | I²S clock | 12 | 18 | bit clock |
 | I²S frame | 35 | 19 | left/right clock |
 | I²S data out | 40 | 21 | audio to the amplifier |
-| Amplifier enable | 8 | 14 | overlay `enable_gp` |
-| Amplifier mute | 10 | 15 | overlay `mute_gp` |
+| ESP32 UART TXD / RXD | 8 / 10 | 14 / 15 | `ttyS0`; not the amplifier enable/mute (overlay `merus-amp-uart`) |
 | Booster | 11 | 17 | overlay `booster_gp` |
 | Amplifier error | 16 | 23 | overlay `error_gp` |
-| Reserved | 24 | 8 | claimed as an input by the overlay |
 | 5 V out of the HAT | 2, 4 | — | powers the Zero |
 
 The audio chain is limited to 48 kHz by the Linux driver: music and alarms play
