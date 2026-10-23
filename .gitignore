@@ -20,6 +20,8 @@ erl_crash.dump
 /hardware/remote_button/include/local_config.h
 /nerves_system_rpi3/.nerves/
 /nerves_system_rpi3/build.log
+/nerves_system_rpi0/.nerves/
+/nerves_system_rpi0/build.log
 
 .derived/
 

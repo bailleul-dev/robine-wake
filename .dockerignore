@@ -11,6 +11,7 @@ docs
 .env.*
 !.env.dist
 nerves_system_rpi3/.nerves
+nerves_system_rpi0/.nerves
 hardware/remote_button
 hardware/robine_enclosure/*.FCStd
 **/.DS_Store

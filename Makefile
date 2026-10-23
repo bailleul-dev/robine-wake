@@ -3,7 +3,7 @@ SHELL := /bin/bash
 MIX_TARGET ?= rpi3
 DEVICE ?=
 WITH_ENV ?= ./scripts/with-env
-SIGNED_FIRMWARE ?= _build/rpi3_dev/nerves/images/robine_wake-signed.fw
+SIGNED_FIRMWARE ?= _build/$(MIX_TARGET)_dev/nerves/images/robine_wake-signed.fw
 FWUP_PUBLIC_KEY ?= rootfs_overlay/etc/robine-wake/fwup-key.pub
 MOBILE_DIR ?= mobile
 EXPO_IPHONE_DERIVED_DATA ?= .derived/expo-iphone
@@ -36,11 +36,15 @@ AIRPLAYD_DIR := experimental/robine-wake-rs
 AIRPLAYD_TARGET := arm-unknown-linux-musleabihf
 AIRPLAYD := rootfs_overlay/usr/bin/robine-airplayd
 
-.PHONY: firmware airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
+.PHONY: firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
 
 firmware: airplayd
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix firmware
+
+# Raspberry Pi Zero W (ARMv6). The musl armv6 hard-float airplayd is shared with the Pi 3.
+firmware-rpi0:
+	@$(MAKE) firmware MIX_TARGET=rpi0
 
 airplayd:
 	cd $(AIRPLAYD_DIR) && cargo build --release --locked --target $(AIRPLAYD_TARGET) -p robine-airplayd

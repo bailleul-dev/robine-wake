@@ -1,6 +1,6 @@
 import Config
 
-config :nerves, :firmware, fwup_conf: "config/rpi3-fwup.conf"
+config :nerves, :firmware, fwup_conf: "config/#{Mix.target()}-fwup.conf"
 
 config :logger, backends: [RingLogger]
 config :shoehorn, init: [:nerves_runtime, :nerves_pack]
@@ -57,11 +57,17 @@ wifi_config =
       raise "ROBINE_WIFI_SSID and ROBINE_WIFI_PASSPHRASE must both be set; SSID length is 1-32 bytes and passphrase length is 8-63 bytes"
   end
 
+# The Pi 3 has Ethernet; the Pi Zero W has none, but its USB data port acts as
+# an Ethernet gadget (usb0, 172.31.x.x), a way in before Wi-Fi is configured.
+wired_config =
+  case Mix.target() do
+    :rpi0 -> [{"usb0", %{type: VintageNetDirect}}]
+    _ -> [{"eth0", %{type: VintageNetEthernet, ipv4: %{method: :dhcp}}}]
+  end
+
 config :vintage_net,
   regulatory_domain: "FR",
-  config:
-    [{"eth0", %{type: VintageNetEthernet, ipv4: %{method: :dhcp}}}] ++
-      if(wifi_config, do: [{"wlan0", wifi_config}], else: [])
+  config: wired_config ++ if(wifi_config, do: [{"wlan0", wifi_config}], else: [])
 
 config :mdns_lite,
   hosts: [:hostname, "robine-wake"],
@@ -105,3 +111,13 @@ config :robine_wake,
   airplay_data_dir: "/data/airplay",
   alsa_device: "auto",
   web_ip: {0, 0, 0, 0}
+
+# Pi Zero W: only the amplifier is wired so far. The amplifier HAT takes GPIO
+# 14/15 (ESP32 UART) and GPIO 8 (SPI CE0), so these stay off while it is fitted.
+if Mix.target() == :rpi0 do
+  config :robine_wake,
+    guide_light: nil,
+    lora_enabled: false,
+    # InnoMaker MA12070P HAT: master volume of the ma120x0p codec.
+    alsa_mixer_control: "A.Mstr Vol"
+end

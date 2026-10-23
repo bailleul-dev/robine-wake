@@ -207,3 +207,24 @@ reste disponible. Le réglage distant est verrouillé, y compris lorsqu’une an
 préférence autorisait l’arrêt depuis le smartphone. La fonctionnalité est conservée
 et peut être réactivée dans le firmware avec `remote_dismiss_enabled: true` dans
 `config/config.exs`.
+
+## Build for Raspberry Pi Zero W
+
+The `rpi0` target (ARMv6, one core, 512 MB) reuses the application and the
+Pi 3 build options, with its own system in `nerves_system_rpi0` (upstream Nerves
+Zero system plus BlueZ/A2DP, `speaker-test` and the HiFiBerry overlays) and
+its own `config/rpi0-config.txt` / `config/rpi0-fwup.conf`. The Pi 3 files are
+unchanged.
+
+```sh
+make firmware-rpi0                      # MIX_TARGET=rpi0 make firmware
+make burn-sd MIX_TARGET=rpi0 DEVICE=/dev/diskN
+```
+
+The Zero has no Ethernet: the micro-USB *data* port is an Ethernet gadget
+(`usb0`) for a first access, and `wlan0` takes the Wi-Fi values from `.env`.
+The LoRa radio and the ESP32 guide light are disabled on this target until they
+are wired (`config/target.exs`). The I2S amplifier overlay is set in
+`config/rpi0-config.txt` (InnoMaker MA12070P HAT, `merus-amp`, by default). The first build
+compiles the whole Buildroot system, which takes a while; it is not
+cross-built from the Pi 3 artifacts.

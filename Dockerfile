@@ -30,6 +30,7 @@ COPY mix.exs mix.lock ./
 # Mix loads every path dependency to fetch deps for all targets, even the
 # rpi3 system that the host target never compiles: its project needs VERSION.
 COPY nerves_system_rpi3/mix.exs nerves_system_rpi3/VERSION nerves_system_rpi3/
+COPY nerves_system_rpi0/mix.exs nerves_system_rpi0/VERSION nerves_system_rpi0/
 COPY config config
 RUN mix deps.get --only prod && mix deps.compile
 

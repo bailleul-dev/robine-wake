@@ -3,7 +3,7 @@ defmodule RobineWake.MixProject do
 
   @app :robine_wake
   @version "0.1.0"
-  @all_targets [:rpi3]
+  @all_targets [:rpi3, :rpi0]
 
   def project do
     [
@@ -64,7 +64,9 @@ defmodule RobineWake.MixProject do
       {:circuits_uart, "~> 1.5", targets: @all_targets},
       {:blue_heron, "~> 0.5.4", targets: @all_targets, runtime: false},
       {:nerves_system_rpi3,
-       path: "nerves_system_rpi3", nerves: [compile: true], runtime: false, targets: :rpi3}
+       path: "nerves_system_rpi3", nerves: [compile: true], runtime: false, targets: :rpi3},
+      {:nerves_system_rpi0,
+       path: "nerves_system_rpi0", nerves: [compile: true], runtime: false, targets: :rpi0}
     ]
   end
 

@@ -1,0 +1,26 @@
+From: Robine Wake <noreply@robine-wake.local>
+Subject: [PATCH] src: pass -static to libtool, not to the compiler
+
+-static in AM_CFLAGS is meant for libtool (build libbluealsad.la as a static
+convenience library), but AM_CFLAGS also reaches the final bluealsad link,
+where gcc turns it into a fully static link. That fails on toolchains that
+only provide shared libdbus-1 ("attempted static link of dynamic object").
+Declare it as the library's LDFLAGS instead.
+
+Upstream-Status: Pending
+---
+--- a/src/Makefile.am	2026-10-02 00:46:06
++++ b/src/Makefile.am	2026-10-02 00:46:06
+@@ -171,9 +171,10 @@
+ 	@MPG123_CFLAGS@ \
+ 	@OPUS_CFLAGS@ \
+ 	@SBC_CFLAGS@ \
+-	@SPANDSP_CFLAGS@ \
+-	-static
++	@SPANDSP_CFLAGS@
+ 
++libbluealsad_la_LDFLAGS = -static
++
+ libbluealsad_la_LIBADD = \
+ 	shared/libshared.la \
+ 	@AAC_LIBS@ \

@@ -1,0 +1,20 @@
+config BR2_PACKAGE_BLUEZ_ALSA5
+	bool "bluez-alsa5"
+	depends on !BR2_PACKAGE_BLUEZ_ALSA
+	depends on !BR2_STATIC_LIBS # bluez5
+	depends on BR2_TOOLCHAIN_HAS_THREADS_NPTL
+	depends on BR2_USE_MMU # bluez5 -> dbus
+	depends on BR2_USE_WCHAR # libglib2
+	select BR2_PACKAGE_ALSA_LIB
+	select BR2_PACKAGE_ALSA_LIB_MIXER
+	select BR2_PACKAGE_BLUEZ5_UTILS
+	select BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_AUDIO
+	select BR2_PACKAGE_LIBGLIB2
+	select BR2_PACKAGE_SBC
+	help
+	  Bluetooth Audio ALSA Backend, release 5.
+
+	  Buildroot ships 4.3.1; release 5 adds A2DP sink delay
+	  reporting, which lets the phone keep video in sync.
+
+	  https://github.com/arkq/bluez-alsa

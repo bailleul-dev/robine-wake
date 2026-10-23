@@ -235,7 +235,9 @@ defmodule RobineWake.Audio.Driver.Alsa do
   end
 
   defp hifiberry_card([header, details]) do
-    if String.contains?(String.downcase(header <> details), "hifiberry") do
+    text = String.downcase(header <> details)
+
+    if String.contains?(text, "hifiberry") or String.contains?(text, "merus") do
       extract_alsa_card(header)
     end
   end

@@ -1,0 +1,42 @@
+# Robine Wake Raspberry Pi Zero W boot configuration
+
+kernel=zImage
+disable_splash=1
+gpu_mem=192
+
+# Hardware buses and the I2S amplifier. Disable the PWM audio device so the
+# amplifier receives a stable ALSA card identity.
+dtparam=i2c_arm=on
+dtparam=spi=on
+dtparam=audio=off
+
+# USB gadget (Ethernet over the data micro-USB port): first access to the board
+# before Wi-Fi is configured (usb0, see config/target.exs).
+dtoverlay=dwc2
+
+# InnoMaker HiFi AMP Pro Mini HAT (Infineon MA12070P, I2S + I2C 0x20). It is a
+# Merus-Audio design: the kernel's merus-amp overlay drives it as the ALSA card
+# "snd_rpi_merus_amp". The overlay claims GPIO 14 (enable), 15 (mute), 17
+# (booster) and 23 (error) and GPIO 8: the ESP32 UART (14/15) and the SX1276
+# (SPI0 CE0) cannot share the Zero with this HAT. The driver accepts sample
+# rates up to 48 kHz only. Ignore the HAT EEPROM, if any.
+force_eeprom_read=0
+dtoverlay=merus-amp
+
+# The camera feature is disabled; do not probe or load camera overlays.
+camera_auto_detect=0
+
+# The ramoops overlay works with the pstore driver to preserve crash
+# information across reboots in DRAM.
+dtoverlay=ramoops
+
+# The onboard Bluetooth controller keeps the full-speed PL011 UART and is
+# driven by the kernel (hci_uart, BlueZ) for the A2DP music receiver; the
+# serial console stays on the mini UART.
+enable_uart=1
+dtparam=krnbt=on
+core_freq=250
+
+# The active LED is active low on the Zero. Heartbeat shows the CPU is alive.
+dtparam=act_led_activelow=on
+dtparam=act_led_trigger=heartbeat
