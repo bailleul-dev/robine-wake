@@ -1,0 +1,59 @@
+/* Wire / pin colours shared by Wiring.astro and PiHeader.astro. Each kind is
+   also named in the legend and on the wire, never colour alone. */
+:root {
+  --w-power: #e5484d;
+  --w-3v3: #f0883e;
+  --w-gnd: #8b949e;
+  --w-uart: #4c8dff;
+  --w-i2s: #b07cf0;
+  --w-i2c: #3fb872;
+  --w-spi: #19b3b3;
+  --w-signal: #e5a50a;
+  --w-audio: #ff6fa5;
+  --w-usb: #7d8ba3;
+}
+:root[data-theme="light"] {
+  --w-power: #c62828;
+  --w-3v3: #c25e0a;
+  --w-gnd: #4d5560;
+  --w-uart: #1f5fd0;
+  --w-i2s: #7d3fc2;
+  --w-i2c: #1f8a4c;
+  --w-spi: #0f7f7f;
+  --w-signal: #9a6a00;
+  --w-audio: #c2306c;
+  --w-usb: #55627a;
+}
+.wiring-fig { margin: 1.5rem 0; }
+.wiring-fig svg { width: 100%; height: auto; display: block; }
+.wiring-scroll { overflow-x: auto; border: 1px solid var(--sl-color-hairline); border-radius: 10px; background: var(--sl-color-bg-nav); padding: 8px; }
+.wiring-scroll svg { min-width: 560px; }
+.wiring-fig figcaption { color: var(--sl-color-gray-3); font-size: 0.85rem; margin-top: 0.5rem; }
+.wiring-fig text { font-family: var(--sl-font-mono); fill: var(--sl-color-white); }
+.wiring-fig .muted { fill: var(--sl-color-gray-3); }
+.wiring-fig .box { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-3); stroke-width: 1.5; }
+.wiring-fig .box-head { font-family: var(--sl-font); font-weight: 700; font-size: 14px; }
+.wiring-fig .box-sub { font-family: var(--sl-font); font-size: 11px; }
+.wiring-fig .pin-label { font-size: 12px; }
+.wiring-fig .wire { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.wiring-fig .wire-label { font-size: 11px; font-weight: 700; paint-order: stroke; stroke: var(--sl-color-bg-nav); stroke-width: 4px; stroke-linejoin: round; }
+.wiring-fig .note { font-family: var(--sl-font); font-size: 12px; }
+.wiring-fig .k-power { --c: var(--w-power); }
+.wiring-fig .k-3v3 { --c: var(--w-3v3); }
+.wiring-fig .k-gnd { --c: var(--w-gnd); }
+.wiring-fig .k-uart { --c: var(--w-uart); }
+.wiring-fig .k-i2s { --c: var(--w-i2s); }
+.wiring-fig .k-i2c { --c: var(--w-i2c); }
+.wiring-fig .k-spi { --c: var(--w-spi); }
+.wiring-fig .k-signal { --c: var(--w-signal); }
+.wiring-fig .k-audio { --c: var(--w-audio); }
+.wiring-fig .k-usb { --c: var(--w-usb); }
+.wiring-fig .wire, .wiring-fig .pin-dot-used { stroke: var(--c); }
+.wiring-fig .pin-dot-used { fill: var(--c); }
+.wiring-fig .wire-label, .wiring-fig .used-label { fill: var(--c); }
+.wiring-fig .wire-label { stroke: var(--sl-color-bg-nav); }
+.wiring-fig .pin-dot { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-3); stroke-width: 1.5; }
+.wiring-fig .wire.dashed { stroke-dasharray: 7 5; }
+.wiring-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; margin: 0.5rem 0 0; }
+.wiring-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.wiring-legend i { display: inline-block; width: 22px; height: 4px; border-radius: 2px; background: var(--c); }

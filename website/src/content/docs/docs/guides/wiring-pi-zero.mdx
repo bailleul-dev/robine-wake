@@ -1,0 +1,154 @@
+---
+title: Wiring — Raspberry Pi Zero W
+description: Wiring of the Pi Zero W build with the InnoMaker MA12070P amplifier HAT.
+sidebar:
+  order: 5
+---
+
+import Wiring from "../../../../components/Wiring.astro";
+import PiHeader from "../../../../components/PiHeader.astro";
+
+The Zero W build is one board and one amplifier: the HAT plugs onto the Pi, you
+add a power supply and two speakers.
+
+:::danger[Before you start]
+- Wire with everything **unplugged**; the supply goes last.
+- Speakers are **bridged (BTL)**: the "−" of a speaker is never tied to ground.
+- The HAT outputs **5 V on the header** and normally powers the Pi through it.
+  Do **not** also power the Pi from its `PWR` micro-USB port.
+- The overlay used here (`merus-amp`) is the Linux driver for Infineon MA12 amps;
+  the pin assignment below comes from it and has to be confirmed on your board
+  (see *First power-up*).
+:::
+
+## The 40-pin header at a glance
+
+The HAT sits on the Zero's header (same 40 pins and numbering as the Pi 3).
+Pin numbers are *physical* pin numbers. Odd pins on the left (inner row), even
+pins on the right (outer row, nearest the board edge); pin 1 is the square pad.
+
+<PiHeader
+  alt="Raspberry Pi Zero W 40-pin header with the pins used by the InnoMaker HAT highlighted"
+  caption="The pins claimed by the merus-amp overlay. Nothing else can use them while the HAT is fitted."
+  used={{
+    2: { kind: "power", label: "5 V from HAT" },
+    4: { kind: "power", label: "5 V from HAT" },
+    3: { kind: "i2c", label: "SDA · amp 0x20" },
+    5: { kind: "i2c", label: "SCL · amp 0x20" },
+    12: { kind: "i2s", label: "I²S clock" },
+    35: { kind: "i2s", label: "I²S frame" },
+    40: { kind: "i2s", label: "I²S data out" },
+    8: { kind: "signal", label: "GPIO14 · amp enable" },
+    10: { kind: "signal", label: "GPIO15 · amp mute" },
+    11: { kind: "signal", label: "GPIO17 · booster" },
+    16: { kind: "signal", label: "GPIO23 · amp error" },
+    24: { kind: "signal", label: "GPIO8 · reserved" },
+  }}
+/>
+
+:::caution[What this removes from the Zero]
+The ESP32 light (UART on pins 8/10) and the LoRa radio (SPI chip select on pin
+24) cannot share a Zero with this HAT. Both are switched off in the `rpi0`
+configuration. For the light or the button, use the [Pi 3 build](../wiring-pi3/).
+:::
+
+## 1. Audio — InnoMaker HiFi AMP Pro Mini (MA12070P)
+
+**You need:** Pi Zero W, the InnoMaker HAT, a **19–20 V, ≥ 3 A** DC supply with a
+5.5 mm jack (the HAT accepts 9–24 V), two passive 4–8 Ω speakers.
+
+<Wiring
+  width={730}
+  height={250}
+  alt="Power supply to the InnoMaker amplifier HAT, and the HAT to the left and right speakers"
+  caption="The HAT plugs onto the Zero's header and feeds the Zero with 5 V through it."
+  parts={[
+    { id: "psu", title: "Power supply", sub: "19–20 V · ≥ 3 A · 5.5 mm jack", x: 0, y: 30, w: 190,
+      pins: [{ id: "p", label: "+ (centre)", side: "r" }, { id: "n", label: "− (sleeve)", side: "r" }] },
+    { id: "amp", title: "InnoMaker AMP Pro Mini", sub: "MA12070P · on the Zero header", x: 290, y: 30, w: 220,
+      pins: [
+        { id: "vin", label: "DC IN +", side: "l" }, { id: "gnd", label: "DC IN −", side: "l" },
+        { id: "lp", label: "LEFT +", side: "r" }, { id: "ln", label: "LEFT −", side: "r" },
+        { id: "rp", label: "RIGHT +", side: "r" }, { id: "rn", label: "RIGHT −", side: "r" },
+      ] },
+    { id: "spk", title: "Speakers", sub: "2 × passive, 4–8 Ω", x: 600, y: 30, w: 130,
+      pins: [
+        { id: "lp", label: "L +", side: "l" }, { id: "ln", label: "L −", side: "l" },
+        { id: "rp", label: "R +", side: "l" }, { id: "rn", label: "R −", side: "l" },
+      ] },
+  ]}
+  wires={[
+    { a: "psu.p", b: "amp.vin", kind: "power", label: "+19–20 V" },
+    { a: "psu.n", b: "amp.gnd", kind: "gnd", label: "GND" },
+    { a: "amp.lp", b: "spk.lp", kind: "audio", label: "L +" },
+    { a: "amp.ln", b: "spk.ln", kind: "audio", label: "L −" },
+    { a: "amp.rp", b: "spk.rp", kind: "audio", label: "R +" },
+    { a: "amp.rn", b: "spk.rn", kind: "audio", label: "R −" },
+  ]}
+  notes={[{ x: 0, y: 236, text: "Follow the polarity printed on the HAT's terminals." }]}
+/>
+
+1. Fit the HAT on the Zero's header, all 40 pins seated (solder the header on
+   the Zero first if it has none).
+2. Connect both speakers, respecting polarity. Do not join the two "−" wires.
+3. Leave the Zero's `PWR` micro-USB **empty**.
+4. Connect the supply last, then switch it on. The HAT is expected to feed the
+   Zero with its 5 V (as the bench notes found); if the Zero stays dark, switch
+   off and check that the header is fully seated before trying anything else.
+
+## 2. First access, before Wi-Fi
+
+The Zero W has no Ethernet. The firmware turns its micro-USB **data** port (the
+one nearer the middle of the board, labelled `USB`) into an Ethernet gadget
+(`usb0`).
+
+<Wiring
+  width={520}
+  height={150}
+  alt="A computer connected by a data-only USB cable to the Zero W USB data port"
+  caption="Use a data-only cable (no 5 V wire), or unplug the amplifier supply while it is connected."
+  parts={[
+    { id: "pc", title: "Your computer", x: 0, y: 30, w: 170,
+      pins: [{ id: "usb", label: "USB-A", side: "r" }] },
+    { id: "zero", title: "Pi Zero W", sub: "micro-USB, data port", x: 330, y: 30, w: 190,
+      pins: [{ id: "usb", label: "USB (data)", side: "l" }] },
+  ]}
+  wires={[{ a: "pc.usb", b: "zero.usb", kind: "usb", label: "data-only cable" }]}
+/>
+
+Two 5 V sources (the computer's USB and the HAT) feeding the Zero at once is the
+risk to avoid. Once Wi-Fi is configured (`ROBINE_WIFI_SSID` /
+`ROBINE_WIFI_PASSPHRASE` in `.env` at build time) the cable is no longer needed.
+
+## First power-up checks
+
+1. **Unpowered**, with a continuity tester: pins 8, 10 and 16 go to the amplifier
+   chip's *enable*, *mute* and *error* functions. If not, the overlay does not
+   match your board.
+2. Power the HAT **alone** (not on the Zero) and measure the header: pin 1
+   should be 3.3 V or nothing, SDA and SCL (pins 3 and 5) 0 V or 3.3 V — **never 5 V**.
+3. Fit it on the Zero, power up at **low volume**, and play a manual test
+   sound from the web interface.
+4. The firmware's volume curve was tuned on the HiFiBerry; the MA12070P master
+   volume starts from −144 dB. Raise the level in small steps.
+
+If the card does not appear (no sound, `snd_rpi_merus_amp` absent), the HAT
+does not answer on I²C address `0x20`, or the overlay does not fit it.
+
+## Reference table
+
+| Function | Pin | GPIO | Note |
+|---|---|---|---|
+| I²C data / clock | 3 / 5 | 2 / 3 | amplifier control, address `0x20` |
+| I²S clock | 12 | 18 | bit clock |
+| I²S frame | 35 | 19 | left/right clock |
+| I²S data out | 40 | 21 | audio to the amplifier |
+| Amplifier enable | 8 | 14 | overlay `enable_gp` |
+| Amplifier mute | 10 | 15 | overlay `mute_gp` |
+| Booster | 11 | 17 | overlay `booster_gp` |
+| Amplifier error | 16 | 23 | overlay `error_gp` |
+| Reserved | 24 | 8 | claimed as an input by the overlay |
+| 5 V out of the HAT | 2, 4 | — | powers the Zero |
+
+The audio chain is limited to 48 kHz by the Linux driver: music and alarms play
+normally at 44.1 or 48 kHz.

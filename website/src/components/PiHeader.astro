@@ -1,0 +1,58 @@
+---
+import "../styles/wiring.css";
+import { KINDS, type Kind } from "./kinds";
+
+interface Props {
+  /** physical pin number -> what it does in this build */
+  used: Record<number, { kind: Kind; label: string }>;
+  caption?: string;
+  alt: string;
+}
+const { used, caption, alt } = Astro.props;
+
+const NAMES = [
+  "3V3", "5V", "GPIO2 SDA", "5V", "GPIO3 SCL", "GND", "GPIO4", "GPIO14 TXD", "GND", "GPIO15 RXD",
+  "GPIO17", "GPIO18 PCM CLK", "GPIO27", "GND", "GPIO22", "GPIO23", "3V3", "GPIO24", "GPIO10 MOSI", "GND",
+  "GPIO9 MISO", "GPIO25", "GPIO11 SCLK", "GPIO8 CE0", "GND", "GPIO7 CE1", "ID_SD", "ID_SC", "GPIO5", "GND",
+  "GPIO6", "GPIO12", "GPIO13", "GND", "GPIO19 PCM FS", "GPIO16", "GPIO26", "GPIO20 PCM DIN", "GND", "GPIO21 PCM DOUT",
+];
+const W = 640, ROW = 26, TOP = 34, CX = W / 2;
+const pins = NAMES.map((name, i) => {
+  const n = i + 1;
+  const odd = n % 2 === 1;
+  const row = Math.floor(i / 2);
+  return { n, name, odd, x: CX + (odd ? -18 : 18), y: TOP + row * ROW, use: used[n] };
+});
+const H = TOP + 20 * ROW + 6;
+const kinds = [...new Set(Object.values(used).map((u) => u.kind))];
+---
+<figure class="wiring-fig">
+  <div class="wiring-scroll">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={alt}>
+      <text class="note muted" x={CX - 60} y="16" text-anchor="end">odd pins · inner row</text>
+      <text class="note muted" x={CX + 60} y="16" text-anchor="start">even pins · outer row</text>
+      <rect class="box" x={CX - 36} y={TOP - 16} width="72" height={20 * ROW + 6} rx="8" />
+      {pins.map((p) => {
+        const base = p.name.startsWith("GND") ? "gnd" : p.name === "5V" ? "power" : p.name === "3V3" ? "3v3" : null;
+        const kind = p.use?.kind ?? null;
+        return (
+          <g class={kind ? `k-${kind}` : base ? `k-${base}` : ""}>
+            <circle class={kind ? "pin-dot-used" : "pin-dot"} cx={p.x} cy={p.y} r="10" style={!kind && base ? "stroke:var(--c)" : ""} />
+            <text x={p.x} y={p.y + 3.5} text-anchor="middle" style={`font-size:10px;font-weight:700;${kind ? "fill:var(--sl-color-bg)" : ""}`}>{p.n}</text>
+            <text
+              class={kind ? "pin-label used-label" : "pin-label muted"}
+              style={kind ? "font-weight:700" : "font-size:11px"}
+              x={p.odd ? p.x - 22 : p.x + 22}
+              y={p.y + 4}
+              text-anchor={p.odd ? "end" : "start"}
+            >{kind ? `${p.use!.label}` : p.name}</text>
+          </g>
+        );
+      })}
+    </svg>
+  </div>
+  <div class="wiring-legend">
+    {kinds.map((k) => (<span class={`k-${k}`}><i></i>{KINDS[k]}</span>))}
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

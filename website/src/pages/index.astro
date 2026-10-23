@@ -1,0 +1,126 @@
+---
+import "../styles/site.css";
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const repo = "https://github.com/bailleul-dev/robine-wake";
+const demo = "https://robine-wake-demo.bailleul.dev/demo";
+const features = [
+  { t: "A dawn, not a siren", p: "A 60-LED strip raises a sunrise over the pre-wake ramp so full daylight arrives exactly at alarm time. Sound follows in two gentle stages." },
+  { t: "Guided breathing", p: "Pick a cadence and a duration: the strip breathes while the speaker plays a procedural ambience. The clock keeps the rhythm, even with your phone locked." },
+  { t: "Your music, no app", p: "AirPlay and Bluetooth (A2DP) receivers turn the speaker into a bedside player. An alarm always takes priority." },
+  { t: "Evening light", p: "A warm reading light, then a sunset of up to two hours, with no blue in the evening programs. Rain and storm ambience fade out with the light." },
+  { t: "Offline and fail-safe", p: "Time, alarms and sessions live on the device. If the light, the network or the app fails, the audible alarm still rings." },
+  { t: "Private by design", p: "No camera, no presence detection, no cloud account. Data stays on the clock, telemetry is bounded to seven days, updates are signed." },
+];
+const steps = [
+  ["Set it from your phone", "The iOS / Android app or the local web page. Alarms, time zones and DST rules are validated on the device."],
+  ["The Pi keeps the time", "A Nerves firmware on a Raspberry Pi owns the schedule and the wake-session state machine, and restarts deterministically after a power cut."],
+  ["Light and sound rise together", "The Pi drives an I2S amplifier and commands an ESP32 over UART that renders the sunrise frame by frame."],
+  ["You decide when it stops", "Snooze or dismiss with explicit controls or the physical bedside button. Nothing watches you sleep."],
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Robine Wake — a gentle, private alarm clock</title>
+    <meta name="description" content="Robine Wake is a privacy-first smart alarm clock for Raspberry Pi: sunrise light, gentle sound, guided breathing, AirPlay and Bluetooth. Open and offline." />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <meta property="og:title" content="Robine Wake" />
+    <meta property="og:description" content="A gentle, private alarm clock that wakes you with light." />
+  </head>
+  <body>
+    <div class="hero">
+      <div class="wrap">
+        <header class="nav">
+          <a class="brand" href={base}><img src={`${base}favicon.svg`} alt="" />Robine Wake</a>
+          <nav>
+            <a href="#features">Features</a>
+            <a href="#hardware">Hardware</a>
+            <a href={`${base}docs/`}>Docs</a>
+            <a href={repo}>GitHub</a>
+          </nav>
+        </header>
+        <main style="padding-top:64px">
+          <h1>Wake up to <em>light</em>, not to a siren.</h1>
+          <p class="lead">
+            A privacy-first smart alarm clock built on a Raspberry Pi. A slow sunrise, a gentle
+            sound, guided breathing — all running on your own device, with no cloud and no camera.
+          </p>
+          <div class="cta">
+            <a class="btn primary" href={demo}>Try the live demo</a>
+            <a class="btn ghost" href={`${base}docs/guides/getting-started/`}>Read the docs</a>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>Designed around a calm morning</h2>
+        <p class="sub">Every behaviour is specified, tested against a hardware simulator, and degrades safely.</p>
+        <div class="grid">
+          {features.map((f) => (<div class="card"><h3>{f.t}</h3><p>{f.p}</p></div>))}
+          <div class="card">
+            <span class="tag soon">Planned</span>
+            <h3>Bed vibration</h3>
+            <p>A DIY tactile channel coupled to the bed frame for breathing, music and progressive waking. Specified; not built yet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt" id="how">
+      <div class="wrap">
+        <h2>How it works</h2>
+        <p class="sub">One small computer, one amplifier, one light strip.</p>
+        <ol class="steps">
+          {steps.map(([t, s]) => (<li><strong>{t}</strong><span>{s}</span></li>))}
+        </ol>
+      </div>
+    </section>
+
+    <section id="hardware">
+      <div class="wrap">
+        <h2>Runs on hardware you can buy</h2>
+        <p class="sub">The same application runs on a computer for development, with the hardware simulated.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Target</th><th>Board</th><th>Audio</th></tr></thead>
+            <tbody>
+              <tr><td><code>rpi3</code></td><td>Raspberry Pi 3 B / B+</td><td>HiFiBerry Amp2</td></tr>
+              <tr><td><code>rpi0</code></td><td>Raspberry Pi Zero W</td><td>InnoMaker MA12070P HAT</td></tr>
+              <tr><td><code>host</code></td><td>Any computer</td><td>Simulated, with a hardware lab</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="sub" style="margin-top:24px">
+          Light: WS2812B strip on an ESP32. Remote: optional LoRa bedside button.
+          Firmware: Nerves (Elixir/OTP), A/B slots, signed over-the-air updates.
+        </p>
+      </div>
+    </section>
+
+    <section class="alt">
+      <div class="wrap">
+        <h2>Open, documented, testable</h2>
+        <p class="sub">
+          The specifications are the source of truth and each requirement is traced to a test.
+          Read them, run the simulator, or build your own.
+        </p>
+        <div class="cta">
+          <a class="btn primary" href={`${base}docs/`}>Technical documentation</a>
+          <a class="btn ghost" href={`${base}docs/specs/00-001-system-architecture/`}>System architecture</a>
+          <a class="btn ghost" href={repo}>Source on GitHub</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <span>Robine Wake — private by design.</span>
+        <span><a href={`${base}docs/`}>Docs</a> · <a href={repo}>GitHub</a></span>
+      </div>
+    </footer>
+  </body>
+</html>

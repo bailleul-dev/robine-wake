@@ -111,6 +111,12 @@ by `mix verify`, not shipped in the firmware, not deployed in the demo. The
 current one is a Rust port of the alarm API used to evaluate a future
 Buildroot-based system on custom hardware.
 
+## Website and documentation
+
+The marketing page and the technical documentation (generated from `docs/`) live
+in [`website/`](website/README.md), an Astro / Starlight project:
+`make site-dev`, `make site-build`.
+
 ## Mobile app
 
 The iOS and Android application is the Expo / React Native project, written in

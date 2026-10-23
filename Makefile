@@ -36,11 +36,17 @@ AIRPLAYD_DIR := experimental/robine-wake-rs
 AIRPLAYD_TARGET := arm-unknown-linux-musleabihf
 AIRPLAYD := rootfs_overlay/usr/bin/robine-airplayd
 
-.PHONY: firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
+.PHONY: site-dev site-build firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
 
 firmware: airplayd
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix firmware
+
+site-dev:
+	cd website && npm install && npm run dev
+
+site-build:
+	cd website && npm install && npm run build
 
 # Raspberry Pi Zero W (ARMv6). The musl armv6 hard-float airplayd is shared with the Pi 3.
 firmware-rpi0:

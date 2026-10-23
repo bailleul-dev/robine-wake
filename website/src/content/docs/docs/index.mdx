@@ -1,0 +1,22 @@
+---
+title: Documentation
+description: Technical documentation for Robine Wake — guides, specifications, design notes and interface contracts.
+sidebar:
+  order: 0
+---
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components";
+
+Robine Wake is built in the open and specified first: every behaviour is tied
+to a requirement ID in the specifications, and the host simulation runs the
+same domain code as the device.
+
+<CardGrid>
+  <LinkCard title="Getting started" href="./guides/getting-started/" description="Run the clock on your computer in two minutes." />
+  <LinkCard title="Architecture" href="./guides/architecture/" description="Nerves firmware, ESP32 light, mobile app: who does what." />
+  <LinkCard title="Hardware & targets" href="./guides/hardware/" description="Raspberry Pi 3 and Pi Zero W, amplifiers, wiring." />
+  <LinkCard title="Build & flash" href="./guides/build-and-flash/" description="Signed firmware, SD card, first boot, updates." />
+</CardGrid>
+
+The **Specifications** section is generated from the repository's `docs/specs`
+directory, so it is always the version that ships with the code.

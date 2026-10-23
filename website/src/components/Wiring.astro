@@ -1,0 +1,97 @@
+---
+import "../styles/wiring.css";
+import { KINDS, type Kind } from "./kinds";
+
+interface Pin { id: string; label: string; side: "l" | "r"; }
+interface Part { id: string; title: string; sub?: string; x: number; y: number; w: number; pins: Pin[]; }
+interface Wire { a: string; b: string; kind: Kind; label?: string; dashed?: boolean; lane?: number; }
+interface Note { x: number; y: number; text: string; anchor?: "start" | "middle" | "end"; }
+interface Props {
+  parts: Part[];
+  wires: Wire[];
+  width: number;
+  height: number;
+  caption?: string;
+  alt: string;
+  notes?: Note[];
+}
+const { parts, wires, width, height, caption, alt, notes = [] } = Astro.props;
+
+const HEAD = 46, ROW = 30, PAD = 12;
+const geo = new Map<string, { x: number; y: number; side: "l" | "r" }>();
+const boxes = parts.map((p) => {
+  let l = 0, r = 0;
+  for (const pin of p.pins) {
+    const i = pin.side === "l" ? l++ : r++;
+    geo.set(`${p.id}.${pin.id}`, {
+      x: pin.side === "l" ? p.x : p.x + p.w,
+      y: p.y + HEAD + i * ROW + ROW / 2 - 4,
+      side: pin.side,
+    });
+  }
+  return { ...p, h: HEAD + Math.max(l, r) * ROW + PAD };
+});
+
+// Wires between the same two parts share a corridor: spread their vertical runs.
+const corridor = new Map<string, number>();
+const routed = wires.map((w) => {
+  const a = geo.get(w.a), b = geo.get(w.b);
+  if (!a || !b) throw new Error(`Wiring: unknown pin in ${w.a} -> ${w.b}`);
+  const key = [w.a.split(".")[0], w.b.split(".")[0]].sort().join("|");
+  const n = corridor.get(key) ?? 0;
+  corridor.set(key, n + 1);
+  return { ...w, a, b, key, n };
+});
+const counts = corridor;
+const paths = routed.map((w) => {
+  const total = counts.get(w.key) ?? 1;
+  const lane = w.lane ?? w.n - (total - 1) / 2;
+  const same = w.a.side === w.b.side && w.a.x === w.b.x;
+  const out = same ? w.a.x + (w.a.side === "l" ? -1 : 1) * (28 + lane * 9) : 0;
+  const midX = same ? out : (w.a.x + w.b.x) / 2 + lane * 9;
+  const d = w.a.y === w.b.y && !same
+    ? `M${w.a.x},${w.a.y} L${w.b.x},${w.b.y}`
+    : `M${w.a.x},${w.a.y} L${midX},${w.a.y} L${midX},${w.b.y} L${w.b.x},${w.b.y}`;
+  // label sits on the segment next to the source pin
+  const lx = w.a.y === w.b.y && !same ? (w.a.x + w.b.x) / 2 : (w.a.x + midX) / 2;
+  return { ...w, d, lx, ly: w.a.y - 7 };
+});
+const used = [...new Set(wires.map((w) => w.kind))];
+---
+<figure class="wiring-fig">
+  <div class="wiring-scroll">
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={alt}>
+      {boxes.map((p) => (
+        <g>
+          <rect class="box" x={p.x} y={p.y} width={p.w} height={p.h} rx="10" />
+          <text class="box-head" x={p.x + p.w / 2} y={p.y + 22} text-anchor="middle">{p.title}</text>
+          {p.sub && <text class="box-sub muted" x={p.x + p.w / 2} y={p.y + 37} text-anchor="middle">{p.sub}</text>}
+        </g>
+      ))}
+      {paths.map((w) => (
+        <path class={`wire k-${w.kind} ${w.dashed ? "dashed" : ""}`} d={w.d} />
+      ))}
+      {parts.flatMap((p) => p.pins.map((pin) => {
+        const g = geo.get(`${p.id}.${pin.id}`)!;
+        const kind = routed.find((w) => w.a === g || w.b === g)?.kind;
+        const left = pin.side === "l";
+        return (
+          <g class={kind ? `k-${kind}` : ""}>
+            <circle class={kind ? "pin-dot-used" : "pin-dot"} cx={g.x} cy={g.y} r="5.5" />
+            <text class="pin-label" x={left ? g.x + 12 : g.x - 12} y={g.y + 4} text-anchor={left ? "start" : "end"}>{pin.label}</text>
+          </g>
+        );
+      }))}
+      {paths.filter((w) => w.label).map((w) => (
+        <text class={`wire-label k-${w.kind}`} x={w.lx} y={w.ly} text-anchor="middle">{w.label}</text>
+      ))}
+      {notes.map((n) => (
+        <text class="note muted" x={n.x} y={n.y} text-anchor={n.anchor ?? "start"}>{n.text}</text>
+      ))}
+    </svg>
+  </div>
+  <div class="wiring-legend">
+    {used.map((k) => (<span class={`k-${k}`}><i></i>{KINDS[k]}</span>))}
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

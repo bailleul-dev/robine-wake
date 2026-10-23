@@ -1,0 +1,239 @@
+---
+title: Wiring — Raspberry Pi 3
+description: Step-by-step wiring of the Pi 3 build — HiFiBerry Amp2, ESP32 light strip, LoRa bedside button.
+sidebar:
+  order: 4
+---
+
+import Wiring from "../../../../components/Wiring.astro";
+import PiHeader from "../../../../components/PiHeader.astro";
+
+Three independent circuits hang on the Pi 3. Build them one at a time and
+check each before the next: **audio**, **light**, **bedside button**.
+
+:::danger[Before you start]
+- Wire with everything **unplugged**. Connect power last.
+- Speakers are **bridged (BTL)**: the "−" of a speaker is never tied to ground.
+- Never put 5 V on a 3.3 V pin (LoRa module, GPIO). Never transmit on the LoRa
+  module without its antenna.
+:::
+
+## The 40-pin header at a glance
+
+Pin numbers are *physical* pin numbers (not GPIO numbers). The chart is drawn as
+on a pinout poster: pin 1 at the top, **odd pins on the left** (the inner row)
+and **even pins on the right** (the outer row, nearest the edge of the board).
+Pin 1 is the square pad, next to the corner of the board closest to the SD slot.
+
+<PiHeader
+  alt="Raspberry Pi 3 40-pin header with the pins used by this build highlighted"
+  caption="Everything this build uses. The Amp2 takes pins 2/4 (5 V out to the Pi), 3/5 (I²C) and 12/35/38/40 (I²S) by sitting on the header."
+  used={{
+    2: { kind: "power", label: "5 V from Amp2" },
+    4: { kind: "power", label: "5 V from Amp2" },
+    3: { kind: "i2c", label: "SDA · Amp2" },
+    5: { kind: "i2c", label: "SCL · Amp2" },
+    12: { kind: "i2s", label: "I²S clock · Amp2" },
+    35: { kind: "i2s", label: "I²S frame · Amp2" },
+    38: { kind: "i2s", label: "I²S in · Amp2" },
+    40: { kind: "i2s", label: "I²S out · Amp2" },
+    6: { kind: "gnd", label: "GND → ESP32" },
+    8: { kind: "uart", label: "TXD → ESP32" },
+    10: { kind: "uart", label: "RXD ← ESP32" },
+    17: { kind: "3v3", label: "3.3 V → LoRa" },
+    25: { kind: "gnd", label: "GND → LoRa" },
+    19: { kind: "spi", label: "MOSI → LoRa" },
+    21: { kind: "spi", label: "MISO ← LoRa" },
+    23: { kind: "spi", label: "SCLK → LoRa" },
+    24: { kind: "spi", label: "CE0 → LoRa" },
+  }}
+/>
+
+## 1. Audio — HiFiBerry Amp2
+
+**You need:** Pi 3 B/B+, HiFiBerry Amp2, a regulated **16.5 V / 2 A** supply,
+two passive 4–8 Ω speakers.
+
+<Wiring
+  width={710}
+  height={250}
+  alt="Power supply to the HiFiBerry Amp2, and the Amp2 to the left and right speakers"
+  caption="The Amp2 plugs onto the Pi's header and powers the Pi through it: no separate USB power."
+  parts={[
+    { id: "psu", title: "Power supply", sub: "16.5 V · 2 A regulated", x: 0, y: 30, w: 170,
+      pins: [{ id: "p", label: "+ (centre)", side: "r" }, { id: "n", label: "− (sleeve)", side: "r" }] },
+    { id: "amp", title: "HiFiBerry Amp2", sub: "on the Pi 3 header", x: 280, y: 30, w: 190,
+      pins: [
+        { id: "vin", label: "V+ IN", side: "l" }, { id: "gnd", label: "GND IN", side: "l" },
+        { id: "lp", label: "LEFT +", side: "r" }, { id: "ln", label: "LEFT −", side: "r" },
+        { id: "rp", label: "RIGHT +", side: "r" }, { id: "rn", label: "RIGHT −", side: "r" },
+      ] },
+    { id: "spk", title: "Speakers", sub: "2 × passive, 4–8 Ω", x: 580, y: 30, w: 130,
+      pins: [
+        { id: "lp", label: "L +", side: "l" }, { id: "ln", label: "L −", side: "l" },
+        { id: "rp", label: "R +", side: "l" }, { id: "rn", label: "R −", side: "l" },
+      ] },
+  ]}
+  wires={[
+    { a: "psu.p", b: "amp.vin", kind: "power", label: "+16.5 V" },
+    { a: "psu.n", b: "amp.gnd", kind: "gnd", label: "GND" },
+    { a: "amp.lp", b: "spk.lp", kind: "audio", label: "L +" },
+    { a: "amp.ln", b: "spk.ln", kind: "audio", label: "L −" },
+    { a: "amp.rp", b: "spk.rp", kind: "audio", label: "R +" },
+    { a: "amp.rn", b: "spk.rn", kind: "audio", label: "R −" },
+  ]}
+  notes={[{ x: 0, y: 236, text: "Match the +/− markings printed on the Amp2 terminal block." }]}
+/>
+
+1. Fit the Amp2 on the Pi's 40-pin header, all 40 pins seated.
+2. Connect both speakers, respecting polarity. Do not join the two "−" wires.
+3. Connect the supply **last**, then switch it on.
+4. Boot, open the web interface and play a manual test sound at low volume.
+   The card is detected automatically (`alsa_device: "auto"`).
+
+## 2. Light — ESP32 and LED strip
+
+**You need:** ESP32 DevKit 30-pin (CP2102, USB), a 60-LED WS2812B strip, a
+separate **5 V** supply sized for the strip (up to 3.6 A at full white; the
+firmware caps the brightness), a 330 Ω resistor, Dupont wires.
+
+<Wiring
+  width={760}
+  height={360}
+  alt="Raspberry Pi to ESP32 over UART, ESP32 data pin to the LED strip, strip powered by its own 5 volt supply"
+  caption="Two things power the light: the ESP32 from the Pi's USB, the strip from its own 5 V supply. Their grounds are joined."
+  parts={[
+    { id: "pi", title: "Raspberry Pi 3", sub: "header under the Amp2", x: 0, y: 30, w: 190,
+      pins: [
+        { id: "tx", label: "GPIO14 TXD · pin 8", side: "r" },
+        { id: "rx", label: "GPIO15 RXD · pin 10", side: "r" },
+        { id: "gnd", label: "GND · pin 6", side: "r" },
+        { id: "usb", label: "USB port", side: "r" },
+      ] },
+    { id: "esp", title: "ESP32 DevKit", sub: "30-pin · runs pi_light", x: 290, y: 30, w: 220,
+      pins: [
+        { id: "rx", label: "D18 (GPIO18) RX", side: "l" },
+        { id: "tx", label: "TX2 (GPIO17) TX", side: "l" },
+        { id: "gnd", label: "GND", side: "l" },
+        { id: "usb", label: "USB-C", side: "l" },
+        { id: "d13", label: "D13 (GPIO13)", side: "r" },
+        { id: "gnd2", label: "GND", side: "r" },
+      ] },
+    { id: "strip", title: "WS2812B strip", sub: "60 LED", x: 610, y: 30, w: 150,
+      pins: [
+        { id: "din", label: "DIN", side: "l" },
+        { id: "gnd", label: "GND", side: "l" },
+        { id: "v5", label: "+5 V", side: "l" },
+      ] },
+    { id: "psu", title: "5 V supply", sub: "strip only", x: 610, y: 220, w: 150,
+      pins: [{ id: "v5", label: "+5 V", side: "l" }, { id: "gnd", label: "GND", side: "l" }] },
+  ]}
+  wires={[
+    { a: "pi.tx", b: "esp.rx", kind: "uart", label: "TXD → RX" },
+    { a: "pi.rx", b: "esp.tx", kind: "uart", label: "RXD ← TX" },
+    { a: "pi.gnd", b: "esp.gnd", kind: "gnd", label: "GND" },
+    { a: "pi.usb", b: "esp.usb", kind: "usb", label: "USB cable" },
+    { a: "esp.d13", b: "strip.din", kind: "signal", label: "via 330 Ω" },
+    { a: "esp.gnd2", b: "psu.gnd", kind: "gnd", label: "common GND", dashed: true },
+    { a: "strip.gnd", b: "psu.gnd", kind: "gnd" },
+    { a: "strip.v5", b: "psu.v5", kind: "power" },
+  ]}
+  notes={[
+    { x: 0, y: 235, text: "UART2 · 115 200 baud · 8N1 · 3.3 V logic: straight wires, no level shifter." },
+    { x: 0, y: 255, text: "TX goes to RX and RX to TX: the lines cross." },
+  ]}
+/>
+
+1. Join the **grounds**: Pi GND, ESP32 GND, strip GND and the 5 V supply GND
+   must all meet. Without a common ground the data signal is garbled.
+2. Wire the UART: Pi pin 8 → ESP32 `D18`, Pi pin 10 ← ESP32 `TX2`.
+3. Put the 330 Ω resistor in series on the data line, close to the strip's
+   `DIN` (the end where the arrows point *into* the strip).
+4. Feed the strip's `+5V`/`GND` from the 5 V supply, not from the ESP32 or the
+   Pi.
+5. Plug the ESP32 into a Pi USB port (power, and flashing).
+6. Check from the web interface: on the evening screen (*Soir*), start a
+   sunrise or the reading light.
+
+:::tip[Optional, good practice]
+A 1000 µF capacitor across the strip's `+5V`/`GND` at the supply end protects
+the LEDs from the switch-on surge.
+:::
+
+## 3. Bedside button — LoRa module (SX1276 / RFM95)
+
+**You need:** an RFM95 (or Ra-01H) 868 MHz module, a 868 MHz antenna (a plain
+wire of about 86 mm works), a 10 kΩ resistor, 100 nF and 10 µF capacitors.
+
+<Wiring
+  width={640}
+  height={380}
+  alt="Raspberry Pi SPI pins wired to an RFM95 LoRa module"
+  caption="3.3 V only. DIO0 stays unconnected: the driver polls the radio every 25 ms."
+  parts={[
+    { id: "pi", title: "Raspberry Pi 3", sub: "SPI0 · /dev/spidev0.0", x: 0, y: 30, w: 200,
+      pins: [
+        { id: "v", label: "3V3 · pin 17", side: "r" },
+        { id: "g", label: "GND · pin 25", side: "r" },
+        { id: "sck", label: "GPIO11 SCLK · pin 23", side: "r" },
+        { id: "miso", label: "GPIO9 MISO · pin 21", side: "r" },
+        { id: "mosi", label: "GPIO10 MOSI · pin 19", side: "r" },
+        { id: "cs", label: "GPIO8 CE0 · pin 24", side: "r" },
+      ] },
+    { id: "lora", title: "RFM95 / SX1276", sub: "868 MHz · 3.3 V only", x: 440, y: 30, w: 200,
+      pins: [
+        { id: "v", label: "3.3V", side: "l" },
+        { id: "g", label: "GND", side: "l" },
+        { id: "sck", label: "SCK", side: "l" },
+        { id: "miso", label: "MISO", side: "l" },
+        { id: "mosi", label: "MOSI", side: "l" },
+        { id: "cs", label: "NSS (CS)", side: "l" },
+        { id: "rst", label: "RESET · 10 kΩ → 3.3 V", side: "l" },
+        { id: "dio", label: "DIO0 — not connected", side: "l" },
+      ] },
+  ]}
+  wires={[
+    { a: "pi.v", b: "lora.v", kind: "3v3", label: "3.3 V" },
+    { a: "pi.g", b: "lora.g", kind: "gnd", label: "GND" },
+    { a: "pi.sck", b: "lora.sck", kind: "spi", label: "SCLK → SCK" },
+    { a: "pi.miso", b: "lora.miso", kind: "spi", label: "MISO ← MISO" },
+    { a: "pi.mosi", b: "lora.mosi", kind: "spi", label: "MOSI → MOSI" },
+    { a: "pi.cs", b: "lora.cs", kind: "spi", label: "CE0 → NSS" },
+    { a: "lora.v", b: "lora.rst", kind: "3v3", dashed: true },
+  ]}
+  notes={[
+    { x: 0, y: 320, text: "Add 100 nF + 10 µF between 3.3 V and GND, right at the module." },
+    { x: 0, y: 340, text: "Antenna on the module before any transmission." },
+  ]}
+/>
+
+On power-up the driver reads the module's version register and expects `0x12`.
+Any other value (loose wire, wrong module) puts the radio in an *unavailable*
+state instead of listening with a broken radio. Protocol and pairing:
+[remote button note](../../notes/remote-alarm-button/).
+
+## Power-up order
+
+1. All grounds joined, all wires checked against the figures.
+2. Speakers connected.
+3. Antenna on the LoRa module.
+4. ESP32 USB cable.
+5. Amp2 supply (this powers the Pi), then the 5 V strip supply.
+6. Never hot-plug the Amp2 supply.
+
+## Reference table
+
+| From | Pin | To | Notes |
+|---|---|---|---|
+| Pi | 8 · GPIO14 TXD | ESP32 `D18` | UART, mini UART `ttyS0` |
+| Pi | 10 · GPIO15 RXD | ESP32 `TX2` | UART |
+| Pi | 6 · GND | ESP32 GND | common ground |
+| ESP32 | `D13` | strip `DIN` | via 330 Ω |
+| 5 V supply | `+5 V` / GND | strip `+5V` / GND | joined to ESP32 GND |
+| Pi | 17 · 3V3 | LoRa 3.3V | + 100 nF, 10 µF |
+| Pi | 25 · GND | LoRa GND | any GND pin works |
+| Pi | 23 · SCLK | LoRa SCK | SPI0 |
+| Pi | 21 · MISO | LoRa MISO | SPI0 |
+| Pi | 19 · MOSI | LoRa MOSI | SPI0 |
+| Pi | 24 · CE0 | LoRa NSS | SPI0 chip select |
+| LoRa | RESET | 3.3 V via 10 kΩ | pull-up |
