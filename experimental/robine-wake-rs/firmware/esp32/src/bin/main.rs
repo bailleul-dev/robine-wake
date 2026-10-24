@@ -61,9 +61,8 @@ static PLATFORM: Platform = Platform {
     // Production rule: only the remote button stops a real alarm.
     remote_dismiss_enabled: false,
     audio_available: false,
-    // On the S3 the lights belong to the companion ESP32 (UART, not wired yet).
-    light: if cfg!(feature = "esp32s3") { None } else { Some("WS2812B strip") },
-    light_pixels: if cfg!(feature = "esp32s3") { 0 } else { guide_light::PIXELS },
+    light: Some("WS2812B strip"),
+    light_pixels: guide_light::PIXELS,
 };
 
 /// Raised by the NTP task when the wall clock is set.
@@ -145,17 +144,20 @@ async fn main(spawner: Spawner) -> ! {
     static AIRPLAY: StaticCell<Airplay> = StaticCell::new();
     let airplay: &'static Airplay = AIRPLAY.init(Airplay::new(mac, fill_random));
 
-    // Heltec WiFi Kit 32 V1: white LED on GPIO 25. DevKitC-1: GPIO 48 (the
-    // board's RGB LED, driven as a plain output).
+    // Heltec WiFi Kit 32 V1: white LED on GPIO 25. S3: GPIO 42 (the status LED
+    // net of robine_board). GPIO 48 is left alone: it is the ESP32's boot line.
     #[cfg(not(feature = "esp32s3"))]
     let led = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
     #[cfg(feature = "esp32s3")]
-    let led = Output::new(peripherals.GPIO48, Level::Low, OutputConfig::default());
+    let led = Output::new(peripherals.GPIO42, Level::Low, OutputConfig::default());
 
-    // The ESP32 alone drives the WS2812B strip (GPIO 13) and talks to the
-    // Raspberry Pi (UART2, GPIO 17/18). On the S3 both belong to the companion.
+    // WS2812B strip: data on GPIO 13 (ESP32) or GPIO 9 (S3, where IO13 is the
+    // shared SPI MISO of the board).
     #[cfg(not(feature = "esp32s3"))]
     let guide = guide_light::strip(peripherals.SPI2, peripherals.DMA_SPI2, peripherals.GPIO13);
+    #[cfg(feature = "esp32s3")]
+    let guide = guide_light::strip(peripherals.SPI2, peripherals.DMA_CH0, peripherals.GPIO9);
+    // Link to the Raspberry Pi: only the ESP32 build, the S3 is the master.
     #[cfg(not(feature = "esp32s3"))]
     let pi_link = Uart::new(peripherals.UART2, uart::Config::default().with_baudrate(serial::BAUDRATE))
         .expect("UART2")
@@ -186,11 +188,9 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(net_task(runner).unwrap());
     spawner.spawn(ntp_task(stack).unwrap());
     spawner.spawn(led_task(led).unwrap());
+    spawner.spawn(guide_light::run(guide).unwrap());
     #[cfg(not(feature = "esp32s3"))]
-    {
-        spawner.spawn(guide_light::run(guide).unwrap());
-        spawner.spawn(serial::run(pi_link, app).unwrap());
-    }
+    spawner.spawn(serial::run(pi_link, app).unwrap());
     for _ in 0..HTTP_WORKERS {
         spawner.spawn(http_task(stack, app).unwrap());
     }

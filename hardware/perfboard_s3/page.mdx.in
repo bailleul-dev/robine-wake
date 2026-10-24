@@ -1,0 +1,158 @@
+---
+title: Perfboard — ESP32-S3 prototype
+description: A solder-it-yourself layout on a double-sided perfboard with the ESP32-S3, the Bluetooth ESP32, the MA12070P amplifier and the LED strip.
+sidebar:
+  order: 7
+  label: ESP32-S3 perfboard
+---
+
+import placement from "../../../../assets/perfboard/placement.svg?raw";
+import step1 from "../../../../assets/perfboard/step1-ground.svg?raw";
+import step2 from "../../../../assets/perfboard/step2-amplifier.svg?raw";
+import step3 from "../../../../assets/perfboard/step3-bluetooth.svg?raw";
+import step4 from "../../../../assets/perfboard/step4-strip.svg?raw";
+import Perfboard from "../../../../components/Perfboard.astro";
+
+One board, soldered once, in four steps. It carries the **ESP32-S3 devkit** (alarm,
+Wi-Fi, AirPlay 2, lights), the **ESP32 devkit** (Bluetooth audio), the **InnoMaker
+MA12070P amplifier** and the **light strip** connector. The electrical wiring is the
+one of [ESP32-S3 + amplifier](../wiring-s3/); this page says **where each part and
+each wire goes**.
+
+:::note[Generated, not drawn by hand]
+Every coordinate on this page comes from
+[`hardware/perfboard_s3/perfboard.py`](https://github.com/bailleul-dev/robine-wake/tree/main/hardware/perfboard_s3).
+The script refuses a layout where two parts share a hole, so the figures and the
+tables cannot disagree. Change the script, not the page.
+:::
+
+## What you need
+
+- **Perfboard**, double-sided, plated holes, 2.54 mm pitch, **at least 58 × 35 holes** (a 9 × 15 cm board).
+- The parts of the table below, a soldering iron, flux, a multimeter.
+- **Insulated 30 AWG wire** (wire-wrap or Kynar), about {{TOTAL}} m in total: yellow, green, blue, orange, white, purple, red, gray, black. One colour per role makes the checks easier.
+- **Bare tinned wire**, 0.8 mm, about 12 cm, for the ground bus.
+- A 19–20 V ≥ 4 A supply for the amplifier, and a **separate** 5 V ≥ 3 A supply for the strip.
+
+{{PARTS}}
+
+## Read this before you solder
+
+:::danger[Rules]
+- **Columns count from the left edge, rows from the top edge, seen from the component side.** A hole is written *(column, row)*. Hole (1, 1) is the top-left corner.
+- The parts go on the **component side**. The wires go on the **solder side**. When you flip the board, flip it **left to right** like a book page: column 1 ends up on the right. The step figures are drawn that way, with columns counting down.
+- **Never connect the amplifier's 5 V pins** (HAT pins 2 and 4). Pull those two pins out of the header before you solder it.
+- **Never connect the amplifier's 3V3 pin** (pin 1): the HAT makes its own.
+- The strip's current must **not** flow through the board: the 5 V supply and the strip wires go into the **same clamps** of J4.
+- Power the amplifier **last**, never hot-plug its supply, never a 24 V adapter.
+:::
+
+### Check your ESP32 devkit first
+
+The layout assumes the ESP32-DevKitC (38 pins, **two rows 10 holes apart, 25.4 mm**).
+Put a ruler between the two rows of pins before you buy the sockets. A 30-pin
+NodeMCU-style board has **9 holes (22.86 mm)** and does not fit: move the ESP32's
+second row up by one hole in the script (`E32_ROW_J2`) and regenerate.
+
+The antennas of both devkits must have **nothing beneath them**: the red zones on
+the figures stay free of parts, wires and solder. That is why the long wires run
+in rows 15 to 17, under the bodies of the devkits and never under an antenna.
+
+## Placement
+
+<Perfboard svg={placement} />
+
+The S3 sits on the left with its USB ports on the left edge, the ESP32 on the right
+with its USB on the right edge, and their antennas look at each other across a
+free gap. The amplifier is plugged on the header **under the S3**, so the I²S, I²C
+and control wires are short and mostly vertical.
+
+### Solder the sockets and headers
+
+1. **Use the devkits as a jig.** Push the female headers on the devkit pins, drop the whole thing on the board with the pins in the right holes, tack **one pin at each corner** of each header, check that the devkit sits flat and square, then solder the rest.
+2. Do the same for the amplifier's 2×20 header, with the HAT plugged on it. **Pull pins 2 and 4 out of the header first** (pliers, from the plastic).
+3. Solder R1, R2, R3, D1 (band toward the cathode hole), the two jumper headers JP1 and JP2, the screw terminal J4 and C1 (long lead on +), at the holes of the table.
+4. Lay the bare wire **along row 18 from column 7 to column 51** and solder it **only** at the four ground taps (columns 7, 24, 40 and 51). Nothing else may touch row 18.
+
+## Step 1 — ground bus and 3V3
+
+<Perfboard svg={step1} />
+
+{{WIRES1}}
+
+Ground taps, from each ground pin straight to the bus:
+
+{{GND}}
+
+R1 and R2 are the I²C pull-ups. Their lead 1 goes to 3V3 (W11, W12), their lead 2 to the SDA and SCL wires of step 2.
+
+## Step 2 — amplifier
+
+<Perfboard svg={step2} />
+
+{{WIRES2}}
+
+| Amplifier pin | Signal | S3 pin |
+|---|---|---|
+| 12 | I²S bit clock | IO6 |
+| 35 | I²S word clock | IO7 |
+| 40 | I²S data | IO8 |
+| 3 | I²C SDA | IO17 |
+| 5 | I²C SCL | IO18 |
+| 8 | enable | IO21 |
+| 10 | mute | IO41 |
+| 16 | error | IO38 |
+| 6 | ground | (bus) |
+
+## Step 3 — Bluetooth ESP32
+
+<Perfboard svg={step3} />
+
+{{WIRES3}}
+
+- **W13 to W15** carry the I²S clocks to the ESP32 and the Bluetooth audio back to the S3.
+- **W16 to W19** are the UART, through the **jumpers JP1 and JP2**. Take both jumper caps off when you use the ESP32's own USB console, since its USB chip drives the same two pins.
+- **W20 and W21** let the S3 reset the ESP32 and put it in boot mode, to reflash it.
+- **W22 and W23** feed the ESP32's 5 V pin from the S3's 5 V pin through **D1**: one USB cable powers both devkits, and the diode stops the ESP32's own USB from feeding back into the S3. Skip W22 and W23 (and D1) if you prefer one cable per devkit.
+
+## Step 4 — light strip
+
+<Perfboard svg={step4} />
+
+{{WIRES4}}
+
+At J4, **each clamp takes two wires**:
+
+| J4 clamp | Wire 1 | Wire 2 |
+|---|---|---|
+| +5V | 5 V supply + | strip +5 V |
+| DATA | W25 (from R3) | strip Din |
+| GND | 5 V supply − | strip GND |
+
+The strip's current goes from the supply to the strip inside the clamps and never crosses the board. The board only sees the data, the ground reference and the 1000 µF capacitor.
+
+## Checks before the first power-up
+
+Multimeter in continuity mode, **nothing plugged on the sockets, supplies off**.
+
+| Test | Expected |
+|---|---|
+| GND bus ↔ S3 `G` pin (column 24, row 13), ESP32 `GND` (51, 14), amplifier pin 6 (7, 21), J4 GND | beep |
+| 3V3 (S3 pin 2) ↔ GND bus | no beep |
+| S3 5V0 (4, 4) ↔ D1 cathode (56, 16) | the diode drops about 0.2 to 0.3 V in one direction only |
+| 3V3 ↔ SDA (HAT pin 3), 3V3 ↔ SCL (HAT pin 5) | about 4.7 kΩ |
+| J4 +5V ↔ J4 GND | no beep (the capacitor charges slowly, wait) |
+| each yellow, green, blue, white, purple wire ↔ its neighbour | no beep |
+
+Then, in this order:
+
+1. Plug **only the S3**, USB on its UART port, flash and read the console. Without the amplifier it must log `amplifier: no answer at I2C 0x20` once and keep running.
+2. Plug the **ESP32** (nothing flashed for Bluetooth yet: it only has to power up).
+3. Plug the **amplifier HAT**, then connect the 19–20 V supply **last**. The console must log `amplifier: MA12070P answers at I2C 0x20` then `I2S running at 44100 Hz, unmuted`. Keep the source volume low for the first sound.
+4. Connect the strip and its supply, then send a `light.program` from the app.
+
+## Firmware notes
+
+- Build for the S3 with `ESP_HAL_CONFIG_MIN_CHIP_REVISION=0` if your devkit is a revision 0.2 chip. See [ESP32-S3 + amplifier](../wiring-s3/) and [Build and flash](../build-and-flash/).
+- The strip data is **IO9** and the S3's own status LED is **IO42**, so **IO48** stays free for the ESP32's boot line (W21).
+- The ESP32's Bluetooth firmware is **not written yet**: the board works without it, the ESP32 simply idles.

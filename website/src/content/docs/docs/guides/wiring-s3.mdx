@@ -10,15 +10,16 @@ import Wiring from "../../../../components/Wiring.astro";
 import PiHeader from "../../../../components/PiHeader.astro";
 
 The prototype of the all-in-one clock: **one ESP32-S3-DevKitC-1 (N16R8)** runs
-the alarm, Wi-Fi, AirPlay 2 and the amplifier, in Rust. The classic ESP32 (lights,
-Bluetooth audio) is a companion and is **not needed** for this page; it is
-described in the [future board bench](../wiring-bench/).
+the alarm, Wi-Fi, AirPlay 2, the amplifier and the light strip, in Rust. The
+classic ESP32 (Bluetooth audio only) is a companion and is **not needed** for
+this page; it is described in the [future board bench](../wiring-bench/).
 
 | Part | Role |
 |---|---|
 | ESP32-S3-DevKitC-1 (N16R8) | alarm, Wi-Fi, AirPlay 2, I²S master |
 | InnoMaker HiFi AMP Pro Mini (MA12070P) | I²S slave, I²C `0x20`, 9–24 V |
 | 2 × 4.7 kΩ | I²C pull-ups to 3V3 |
+| WS2812B strip (60 LED), 330 Ω | dawn, sunset, breathing; separate 5 V supply |
 | Amplifier supply | regulated 19–20 V, ≥ 4 A, 5.5 mm jack |
 | Speakers | 4–8 Ω, **bridged (BTL)** |
 
@@ -147,6 +148,43 @@ unchanged on the board, except the amplifier chip (TAS5825M there).
   ]}
 />
 
+## 3. Light strip (WS2812B)
+
+<Wiring
+  width={730}
+  height={230}
+  alt="ESP32-S3 IO9 through a 330 ohm resistor to the strip data input, strip powered by a separate 5 volt supply, grounds joined"
+  caption="The strip has its own 5 V supply. Its ground must be joined to the devkit's ground, or the data signal gets garbled."
+  parts={[
+    { id: "s3", title: "ESP32-S3-DevKitC-1", x: 0, y: 20, w: 190,
+      pins: [{ id: "d", label: "IO9", side: "r" }, { id: "g", label: "GND", side: "r" }] },
+    { id: "r", title: "In-line", sub: "on the breadboard", x: 260, y: 20, w: 150,
+      pins: [{ id: "ri", label: "330 Ω", side: "l" }, { id: "ro", label: "330 Ω", side: "r" }, { id: "gi", label: "GND wire", side: "l" }, { id: "go", label: "GND wire", side: "r" }] },
+    { id: "led", title: "WS2812B strip", sub: "60 LED", x: 500, y: 20, w: 190,
+      pins: [{ id: "din", label: "Din", side: "l" }, { id: "gnd", label: "GND", side: "l" }, { id: "v", label: "+5V", side: "l" }] },
+    { id: "psu", title: "5 V supply", sub: "≥ 3 A for 60 LED", x: 500, y: 150, w: 190,
+      pins: [{ id: "p", label: "+5V", side: "l" }, { id: "n", label: "GND", side: "l" }] },
+  ]}
+  wires={[
+    { a: "s3.d", b: "r.ri", kind: "signal", label: "LIGHT_DATA" },
+    { a: "r.ro", b: "led.din", kind: "signal" },
+    { a: "s3.g", b: "r.gi", kind: "gnd" },
+    { a: "r.go", b: "led.gnd", kind: "gnd" },
+    { a: "psu.p", b: "led.v", kind: "power", label: "+5 V" },
+    { a: "psu.n", b: "led.gnd", kind: "gnd", label: "GND" },
+  ]}
+/>
+
+IO9 is free on `robine_board` (IO13, used on the classic ESP32, is the shared
+SPI MISO there). The signal leaves SPI2 through DMA, so Wi-Fi and AirPlay never
+distort it. If a strip flickers on a 3.3 V signal, a level shifter (74AHCT125)
+on the data line fixes it.
+
+## Perfboard
+
+To build all of this on one double-sided perfboard, with the Bluetooth ESP32
+as well, follow the [perfboard layout](../wiring-s3-perfboard/).
+
 ## Checks before the first power-up
 
 1. **Amplifier alone**, powered: SDA and SCL (pins 3 and 5) read 0 V or 3.3 V,
@@ -169,6 +207,7 @@ unchanged on the board, except the amplifier chip (TAS5825M there).
   the samples.
 - While an alarm rings, a fixed 880 Hz beep replaces AirPlay audio (an alarm
   must be audible whatever the AirPlay volume says).
+- The light strip runs the same programs as before (`light.set`, `light.program`: dawn, sunset, breathing), sent by the app straight to the S3's API.
 - If the I²S output stalls, it mutes, restarts and checks the amplifier again.
 - The error line is only logged, never acted on: a false error must not mute
   the alarm.
