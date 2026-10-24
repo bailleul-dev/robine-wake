@@ -1,0 +1,144 @@
+---
+title: Perfboard HAT — Raspberry Pi 3 light controller
+description: A solder-it-yourself HAT-sized perfboard for the Pi 3 build, stacked on the HiFiBerry Amp2, carrying the light ESP32 and the LED strip connector.
+sidebar:
+  order: 6
+  label: Pi 3 light HAT (perfboard)
+---
+
+import placement from "../../../../assets/perfboard-pi3/placement.svg?raw";
+import step1 from "../../../../assets/perfboard-pi3/step1-links.svg?raw";
+import step2 from "../../../../assets/perfboard-pi3/step2-power-uart.svg?raw";
+import step3 from "../../../../assets/perfboard-pi3/step3-strip.svg?raw";
+import Perfboard from "../../../../components/Perfboard.astro";
+
+This HAT replaces the loose Dupont wires of the [current setup](../wiring-pi3/#2-light--esp32-and-led-strip).
+It is a small perfboard, **HAT sized (65 × 56 mm, 25 × 22 holes)** (it overhangs the Pi's header edge by about 3 mm: the header sits on row 3 so that row 1 is free for wires), that plugs **on top of the
+HiFiBerry Amp2** and carries:
+
+- the **30-pin ESP32 devkit** that runs `pi_light` (strip programs, UART link to the Pi);
+- a **diode** so the Pi's 5 V can feed the ESP32 without being back-fed by its USB port;
+- the **light strip connector**: data resistor, screw terminal and a 1000 µF capacitor.
+
+It uses **four pins of the Pi's header**: 5 V (pin 2), GND (pin 6), TXD (pin 8) and RXD (pin 10).
+Nothing else is connected, so it does not collide with what the Amp2 uses (pins 3, 5, 7, 12, 35, 38, 40).
+
+:::note[Generated, not drawn by hand]
+Every coordinate comes from
+[`hardware/perfboard_pi3/perfboard.py`](https://github.com/bailleul-dev/robine-wake/tree/main/hardware/perfboard_pi3).
+The script refuses a layout where two parts share a hole, so figures and tables cannot disagree.
+:::
+
+:::caution[Check these two things before you buy or solder]
+1. **The Amp2 must expose the 40 pins on its top side** (a pass-through or stacking header long enough
+   to take a second board). The HAT plugs on those pins; if your Amp2 has no pins on top, this HAT cannot sit
+   above it. Measure the free pin length: the HAT's socket needs about 6 mm.
+2. **The ESP32 devkit must have its two rows 9 holes (22.86 mm) apart**, 15 pins per row, the common CP2102
+   "30-pin" board. A 38-pin DevKitC is wider and does not fit. The pin names below are the usual ones for this
+   board: compare them with the silkscreen of yours before soldering the sockets.
+:::
+
+## What you need
+
+- **Double-sided perfboard**, plated holes, 2.54 mm pitch, cut to **25 × 22 holes** (about 65 × 56 mm).
+- The parts below, a soldering iron, a multimeter, a little Kapton tape.
+- **Insulated 30 AWG wire**, about {{TOTAL}} m in total: red, black, white, gray.
+- A 5 V supply for the strip (≥ 3 A for 60 LED), separate from the Pi.
+
+{{PARTS}}
+
+## Read this before you solder
+
+:::danger[Rules]
+- **Columns count from the left edge, rows from the top edge, seen from the component side.** A hole is written *(column, row)*; hole (1, 1) is the top-left corner. The header is on the **top edge**, pin 1 at (3, 4) on the lower of its two rows.
+- The **Pi socket hangs under the board**: its body is on the solder side, its pin tips come through on the component side. The ESP32 sockets, D1, R3, J4 and C1 are on the component side. **All wires run on the solder side**, except the four short links of step 1.
+- When you flip the board, flip it **left to right** like a book page: column 1 ends up on the right. The solder-side figures are drawn that way.
+- **The strip's current must not flow through the board.** The strip supply and the strip wires go into the **same clamps** of J4.
+- Never put 5 V on a 3.3 V pin: only the four header pins listed here are wired.
+:::
+
+The ESP32's USB port ends up on the **left edge**, the side of the Pi's SD card, where nothing blocks the
+cable. The strip leaves through the **bottom edge**. The antenna of the devkit points to the right: keep
+the red zone free of parts and wires.
+
+## Placement
+
+<Perfboard svg={placement} />
+
+### Solder the sockets
+
+1. **Pi socket.** Plug the 2×20 female header on a spare 2×20 male header (or on the Amp2's pins), slide the board on from above so the pin tips come through, check that the socket sits flat against the **underside**, tack two corner pins, then solder all 40 pins on the component side.
+2. **ESP32 sockets.** Push the two 1×15 female headers on the devkit's pins, drop them in their holes (rows 8 and 17, columns 4 to 18, pin 1 on the right), tack one pin at each end, then solder from the solder side.
+3. Solder D1 (band toward the cathode), R3, J4 and C1 (long lead on +) at the holes of the table. R3 stands under the devkit, between its two rows.
+4. **Cover the solder side** with Kapton tape once everything is soldered and tested: it sits a few millimetres from the top of the Amp2.
+
+## Step 1 — link the header pins to their feed holes
+
+The socket body covers the pads of its own two rows on the solder side, so each pin you use is
+**linked on the component side to a free hole just above it**, in row 2 (a *feed hole*, outside the body). The wires of
+the next steps start from those holes, leave along **row 1** and go round the **left end** of the socket, by column 1:
+nothing may run under the socket body.
+
+<Perfboard svg={step1} />
+
+{{LINKS}}
+
+## Step 2 — power and UART
+
+<Perfboard svg={step2} />
+
+{{WIRES2}}
+
+| ESP32 pin | Pi header pin | Role |
+|---|---|---|
+| VIN (through D1) | 2 | 5 V |
+| GND | 6 | ground |
+| D18 (GPIO 18, RX) | 8, TXD | Pi to ESP32 |
+| TX2 (GPIO 17, TX) | 10, RXD | ESP32 to Pi |
+
+D1 sits between the Pi's 5 V and VIN: when you flash the ESP32 over its USB port, the USB 5 V cannot
+feed the Pi's 5 V rail. The ESP32 gets about 4.7 V, which its regulator accepts.
+
+## Step 3 — light strip
+
+<Perfboard svg={step3} />
+
+{{WIRES3}}
+
+At J4, **each clamp takes two wires**:
+
+| J4 clamp | Wire 1 | Wire 2 |
+|---|---|---|
+| +5V | strip supply + | strip +5 V |
+| DATA | W7 (from R3) | strip Din |
+| GND | strip supply − | strip GND |
+
+The strip's current goes from its supply to the strip inside the clamps and never crosses the board.
+The board only sees the data, the ground reference and the capacitor.
+
+## Checks before stacking
+
+Multimeter in continuity mode, **nothing plugged on the sockets, Pi off**.
+
+| Test | Expected |
+|---|---|
+| header pin 2 ↔ header pin 6 (5 V ↔ GND) | **no beep**: this is the short that kills a Pi |
+| header pin 6 ↔ ESP32 GND (both rows), J4 GND | beep |
+| header pin 2 ↔ ESP32 VIN | the diode drops about 0.2 to 0.3 V in one direction only |
+| header pin 8 ↔ ESP32 D18, header pin 10 ↔ ESP32 TX2 | beep |
+| ESP32 D13 ↔ J4 DATA | about 330 Ω |
+| J4 +5V ↔ J4 GND | no beep (the capacitor charges slowly) |
+| header pins 1, 3 to 5, 7 and 9 to 40 ↔ anything of ours | no beep |
+
+Then, in this order:
+
+1. **Without the ESP32 devkit**, stack the HAT on the Amp2 and power the Pi. It must boot as before.
+2. Power off, plug the **ESP32 devkit**, power on, flash it through its USB port (left edge) with `cargo run --release --bin pi_light`
+   from `experimental/robine-wake-rs/firmware/esp32`. The build needs a `wifi.ini` file even though `pi_light` does not use Wi-Fi.
+3. Connect the **strip and its supply**, then send a `light.program` from the web app.
+
+## Software
+
+Nothing changes on the Pi: the UART is the same (`ttyS0`, GPIO 14 and 15), and so is the configuration
+(`guide_light: [driver: RobineWake.GuideLight.Driver.UART, device: "ttyS0"]`). The ESP32 firmware is the
+one of the current setup: strip data on GPIO 13 (`D13`), link on UART2 with RX on GPIO 18 and TX on GPIO 17.
