@@ -72,12 +72,16 @@ def E32(name, nth=0):
 
 # --- Free-standing parts ----------------------------------------------------
 # The I2C pull-ups sit beside the amplifier, below the wire channels.
-R1 = ((30, 20), (30, 24))   # 4.7 kOhm, SDA pull-up: lead 1 to 3V3, lead 2 to SDA
-R2 = ((32, 20), (32, 24))   # 4.7 kOhm, SCL pull-up
-D1 = ((52, 16), (56, 16))   # Schottky 1N5819: anode (52,16), cathode band (56,16)
+R1 = ((30, 20), (30, 24))   # 2.2 kOhm, SDA pull-up: lead 1 to 3V3, lead 2 to SDA
+R2 = ((32, 20), (32, 24))   # 2.2 kOhm, SCL pull-up
+JP3 = ((52, 16), (53, 16))  # ESP32 5 V from the S3, jumper cap (open it to power the ESP32 by its own USB)
 JP1 = ((41, 16), (42, 16))  # UART S3 TX -> ESP32 RX, jumper cap
 JP2 = ((44, 16), (45, 16))  # UART ESP32 TX -> S3 RX, jumper cap
 R3 = ((38, 25), (38, 29))   # 330 Ohm, strip data
+# 74AHCT1G125 on a SOT23-6 to DIP-6 adapter (rows 3 holes apart), buffer for the strip data:
+# it runs on the strip's 5 V so its output is a true 5 V level. Pin 5 is not connected.
+U1 = {"OE": (45, 25), "A": (45, 26), "GND": (45, 27), "VCC": (48, 25), "NC": (48, 26), "Y": (48, 27)}
+C2 = {"VCC": (50, 27), "GND": (50, 25)}   # 100 nF ceramic across the buffer supply
 J4 = {"+5V": (36, 31), "DATA": (38, 31), "GND": (40, 31)}  # 5.08 mm screw terminal
 C1 = {"+": (36, 33), "-": (38, 33)}                         # 1000 uF radial, 5 mm
 GND_BUS = [(x, 18) for x in range(7, 52)]                   # bare tinned wire, row 18
@@ -112,15 +116,28 @@ WIRES = [
     ("W19", JP2[1], S3("IO16"), "white", "jumper to S3 RX"),
     ("W20", S3("IO47"), E32("EN"), "purple", "ESP32 reset (EN)"),
     ("W21", S3("IO48"), E32("IO0"), "purple", "ESP32 boot (IO0)"),
-    # ESP32 power from the S3's USB through a diode
-    ("W22", S3("5V0"), D1[0], "red", "5 V from the S3 to the diode"),
-    ("W23", D1[1], E32("5V"), "red", "diode to the ESP32 5 V"),
-    # Light strip
-    ("W24", S3("IO9"), R3[0], "gray", "strip data to the resistor"),
-    ("W25", R3[1], J4["DATA"], "gray", "resistor to the terminal"),
-    ("W26", J4["+5V"], C1["+"], "red", "terminal +5 V to the capacitor"),
-    ("W27", J4["GND"], C1["-"], "black", "terminal GND to the capacitor"),
+    # ESP32 power from the S3's USB through a jumper
+    ("W22", S3("5V0"), JP3[0], "red", "5 V from the S3 to the jumper"),
+    ("W23", JP3[1], E32("5V"), "red", "jumper to the ESP32 5 V"),
+    # Light strip, through the 5 V buffer
+    ("W24", S3("IO9"), U1["A"], "gray", "strip data to the buffer input"),
+    ("W25", U1["Y"], R3[0], "gray", "buffer output to the resistor"),
+    ("W26", R3[1], J4["DATA"], "gray", "resistor to the terminal"),
+    ("W27", J4["+5V"], C1["+"], "red", "terminal +5 V to the capacitor"),
+    ("W28", J4["GND"], C1["-"], "black", "terminal GND to the capacitor"),
+    ("W29", U1["VCC"], C2["VCC"], "red", "buffer supply to C2"),
+    ("W30", C2["VCC"], J4["+5V"], "red", "C2 to the terminal +5 V"),
+    ("W31", U1["OE"], U1["GND"], "black", "buffer output enable to ground"),
 ]
+# Wires that do not follow the default routing.
+ROUTES = {
+    "W24": [(10, 16), (46, 16), (46, 26)],
+    "W25": [(48, 28), (40, 28), (40, 24), (38, 24)],
+    "W28": [(40, 33)],
+    "W29": [(49, 25), (49, 27)],
+    "W30": [(50, 30), (36, 30)],
+    "W31": [(44, 25), (44, 27)],
+}
 WIRES = [(f"W{i + 1}", *w[1:]) for i, w in enumerate(WIRES)]
 
 # Ground: each tap goes to the bare bus on row 18, straight below the pin.
@@ -129,6 +146,8 @@ GND_TAPS = [
     ("G2", e32("J2", 14), "ESP32 GND"),
     ("G3", HAT_GND, "amplifier pin 6"),
     ("G4", J4["GND"], "terminal GND"),
+    ("G5", U1["OE"], "buffer OE"),
+    ("G6", C2["GND"], "C2 ground lead"),
 ]
 COLOURS = {"yellow": "#d4a900", "green": "#2e9e4a", "blue": "#2f6fdb", "orange": "#e07b00",
            "white": "#7d8590", "purple": "#8e44ad", "red": "#d62f2f", "gray": "#555b66",
@@ -152,9 +171,13 @@ def occupied():
     for p in range(1, 41):
         if p not in (2, 4):  # pins 2 and 4 (5 V) are removed from the header
             put(hat(p), f"HAT {p}")
-    for name, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("D1", D1), ("JP1", JP1), ("JP2", JP2)):
+    for name, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP3", JP3), ("JP1", JP1), ("JP2", JP2)):
         put(pair[0], f"{name}.1")
         put(pair[1], f"{name}.2")
+    for k, v in U1.items():
+        put(v, f"U1 {k}")
+    for k, v in C2.items():
+        put(v, f"C2 {k}")
     for k, v in J4.items():
         put(v, f"J4 {k}")
     for k, v in C1.items():
@@ -177,9 +200,11 @@ def check():
     return holes
 
 
-def route(index, a, b):
+def route(index, a, b, wid=None):
     """Polyline of a wire on the solder side. Short wires run in an L; long ones
     drop to a channel row under both devkits, so no wire crosses an antenna zone."""
+    if wid in ROUTES:
+        return [a, *ROUTES[wid], b]
     if abs(a[0] - b[0]) + abs(a[1] - b[1]) <= 6:
         return [a, (b[0], a[1]), b]
     if min(a[1], b[1]) >= 19:  # both below the GND bus: no channel needed
@@ -198,7 +223,7 @@ def length_mm(points):
 
 
 def routed():
-    return [(wid, route(i, a, b), colour, role) for i, (wid, a, b, colour, role) in enumerate(WIRES)]
+    return [(wid, route(i, a, b, wid), colour, role) for i, (wid, a, b, colour, role) in enumerate(WIRES)]
 
 
 def drawn(index, points):
@@ -318,10 +343,16 @@ def render(mirror, wires=(), gnd=False, title="", highlight_all=False):
         o.append(f'<text x="{mx + ((-10 if left else 10) if vertical else 0):.1f}" y="{my + (3 if vertical else 20):.1f}" font-size="10" fill="#222" '
                  f'text-anchor="{("end" if left else "start") if vertical else "middle"}">{label}</text>')
 
-    part(R1, "#e8c08a", "R1 4.7k")
-    part(R2, "#e8c08a", "R2 4.7k", left=mirror is False)
+    part(R1, "#e8c08a", "R1 2.2k")
+    part(R2, "#e8c08a", "R2 2.2k", left=mirror)
     part(R3, "#e8c08a", "R3 330")
-    part(D1, "#9aa", "D1 1N5819 (band right)", vertical=False)
+    part(JP3, "#222", "JP3", vertical=False)
+    box(44.6, 24.4, 48.4, 27.6, "#e4e4e4", "#555", None)
+    for name, h in U1.items():
+        pad(h, "#fff", name if name != "NC" else None, size=3.6, dy=-6)
+    tx, ty = px((46.5, 28.6))
+    o.append(f'<text x="{tx}" y="{ty}" font-size="9" fill="#222" text-anchor="middle">U1 74AHCT1G125</text>')
+    part((C2["GND"], C2["VCC"]), "#d9a066", "C2 100n", left=mirror)
     part(JP1, "#222", "JP1", vertical=False)
     part(JP2, "#222", "JP2", vertical=False)
     for name, h in J4.items():
@@ -373,9 +404,12 @@ def hole_names():
         names[e32("J2", i)] = f"ESP32 {E32_J2[i - 1]}"
     for p in range(1, 41):
         names[hat(p)] = f"HAT pin {p}"
-    for n, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP1", JP1), ("JP2", JP2)):
+    for n, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP1", JP1), ("JP2", JP2), ("JP3", JP3)):
         names[pair[0]] = f"{n} lead 1"; names[pair[1]] = f"{n} lead 2"
-    names[D1[0]] = "D1 anode"; names[D1[1]] = "D1 cathode (band)"
+    for k, v in U1.items():
+        names[v] = f"U1 {k}"
+    for k, v in C2.items():
+        names[v] = f"C2 {k}"
     for k, v in J4.items():
         names[v] = f"J4 {k}"
     for k, v in C1.items():
@@ -408,10 +442,12 @@ def parts_table():
         ("S3 sockets", "2 × 1×22 female header", f"row {S3_ROW_J1} and row {S3_ROW_J3}, columns 3 to 24", "pin 1 (3V3) on the right, USB on the left edge"),
         ("ESP32 sockets", "2 × 1×19 female header", f"row {E32_ROW_J3} and row {E32_ROW_J2}, columns 38 to 56", "pin 1 on the left, USB on the right edge"),
         ("HAT header", "1 × 2×20 male header, 11 mm", f"rows {HAT_EVEN_ROW} and {HAT_ODD_ROW}, columns {HAT_X0} to {HAT_X0 + 19}", "pin 1 at (5, 22); pins 2 and 4 pulled out"),
-        ("R1", "4.7 kΩ", f"({R1[0][0]}, {R1[0][1]}) and ({R1[1][0]}, {R1[1][1]})", "lead 1 = 3V3, lead 2 = SDA"),
-        ("R2", "4.7 kΩ", f"({R2[0][0]}, {R2[0][1]}) and ({R2[1][0]}, {R2[1][1]})", "lead 1 = 3V3, lead 2 = SCL"),
+        ("R1", "2.2 kΩ", f"({R1[0][0]}, {R1[0][1]}) and ({R1[1][0]}, {R1[1][1]})", "lead 1 = 3V3, lead 2 = SDA"),
+        ("R2", "2.2 kΩ", f"({R2[0][0]}, {R2[0][1]}) and ({R2[1][0]}, {R2[1][1]})", "lead 1 = 3V3, lead 2 = SCL"),
         ("R3", "330 Ω", f"({R3[0][0]}, {R3[0][1]}) and ({R3[1][0]}, {R3[1][1]})", "strip data"),
-        ("D1", "Schottky 1N5819", f"anode ({D1[0][0]}, {D1[0][1]}), cathode ({D1[1][0]}, {D1[1][1]})", "band on the cathode side"),
+        ("JP3", "1×2 male header + jumper cap", f"({JP3[0][0]}, {JP3[0][1]}) and ({JP3[1][0]}, {JP3[1][1]})", "5 V of the ESP32; remove the cap to power it by its own USB"),
+        ("U1", "74AHCT1G125 on a SOT23-6 to DIP-6 adapter", f"OE ({U1['OE'][0]}, {U1['OE'][1]}), A ({U1['A'][0]}, {U1['A'][1]}), GND ({U1['GND'][0]}, {U1['GND'][1]}), Y ({U1['Y'][0]}, {U1['Y'][1]}), VCC ({U1['VCC'][0]}, {U1['VCC'][1]})", "adapter pin 5 stays free; pins 1-3 on the left column"),
+        ("C2", "100 nF ceramic", f"VCC ({C2['VCC'][0]}, {C2['VCC'][1]}), GND ({C2['GND'][0]}, {C2['GND'][1]})", "buffer supply decoupling"),
         ("JP1, JP2", "2 × 1×2 male header + jumper caps", f"JP1 ({JP1[0][0]}, {JP1[0][1]}) ({JP1[1][0]}, {JP1[1][1]}), JP2 ({JP2[0][0]}, {JP2[0][1]}) ({JP2[1][0]}, {JP2[1][1]})", "UART link, remove to use the ESP32's own USB console"),
         ("J4", "3-position screw terminal, 5.08 mm", f"+5V ({J4['+5V'][0]}, {J4['+5V'][1]}), DATA ({J4['DATA'][0]}, {J4['DATA'][1]}), GND ({J4['GND'][0]}, {J4['GND'][1]})", "strip and 5 V supply"),
         ("C1", "1000 µF 10 V radial, 5 mm pitch", f"+ ({C1['+'][0]}, {C1['+'][1]}), − ({C1['-'][0]}, {C1['-'][1]})", "long lead is +"),
@@ -436,7 +472,7 @@ STEPS = {
     "step1-ground": (range(10, 12), True, "Step 1: GND bus, pull-up resistors and the 3V3 wire"),
     "step2-amplifier": (range(0, 10), False, "Step 2: amplifier (I2S, I2C, enable, mute, error)"),
     "step3-bluetooth": (range(12, 23), False, "Step 3: Bluetooth ESP32 (I2S, UART, reset, boot, 5 V)"),
-    "step4-strip": (range(23, 27), False, "Step 4: light strip (data, terminal, capacitor)"),
+    "step4-strip": (range(23, 31), True, "Step 4: light strip (buffer, data, terminal, capacitor)"),
 }
 
 if __name__ == "__main__":

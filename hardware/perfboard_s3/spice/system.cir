@@ -1,0 +1,101 @@
+* ESP32-S3 + ESP32 + MA12070P + strip board, whole system in one netlist.
+*   USB 5 V -> S3 devkit 5V0 -> [D1] -> ESP32 devkit 5V (Bluetooth)
+*   S3 3V3 -> I2C pull-ups R1/R2 -> amplifier HAT; S3 IO9 -> [buffer] -> R3 -> strip
+*   External 5 V -> J4 (+5V, C1, GND) -> strip leads -> strip
+* Worst case, all at once: S3 Wi-Fi/AirPlay burst, ESP32 Bluetooth TX burst,
+* strip full-white step and the first data bits.
+*
+* Result (./run.sh): the circuit that works has a jumper instead of D1, a
+* 74AHCT1G125 on the strip 5 V (data margin 0.04 V -> 1.59 V) and 2.2k I2C
+* pull-ups (rise 998 ns -> 474 ns, the 100 kHz limit is 1000 ns). On a weak
+* USB port (4.6 V, 1 ohm) D1 drops the ESP32 3V3 to 2.86 V; the jumper keeps 3.29 V.
+*
+* Variants (the runner rewrites the next line):
+* USE_D1=1 diode, 0 jumper, 2 the ESP32 has its own USB cable (no link to the S3)
+.param USE_D1=0 USE_BUF=1 I_STRIP=3.4 VUSB=5.0 RUSB=0.4 R3V=330 R1V=2.2k
+
+.model D1N5819 D(IS=1u RS=0.04 N=1.3 CJO=110p M=0.35 VJ=0.4 BV=40 IBV=1m)
+
+* USB port: 5.0 V behind the cable, the connector and the devkit's own protection.
+Vusb usb jg {VUSB}
+Rusb usb v5 {RUSB}
+Cusb v5 jg 47u
+
+* S3 devkit: AMS1117-3.3 class LDO (dropout 0.35 V + 0.9 V per A).
+Bs3 ls3 jg V=min(3.3, v(v5)-v(jg)-0.35-0.9*i(Vs3))+v(jg)
+Vs3 ls3 s33 0
+Bq3 v5 jg I=i(Vs3)
+C3 s33 jg 10u
+* S3: 100 mA idle, 350 mA Wi-Fi / AirPlay burst from 0.9 ms to 1.1 ms.
+Is3 s33 jg PWL(0 0.1 0.9m 0.1 0.9001m 0.35 1.1m 0.35 1.1001m 0.1 1.3m 0.1)
+
+* ESP32 devkit supply: through D1, a jumper, or its own USB.
+.if (USE_D1==1)
+D1 v5 e5 D1N5819
+.elseif (USE_D1==0)
+Rj v5 e5 20m
+.else
+Veu e5 jg 4.7
+.endif
+Ce5 e5 jg 22u
+* ESP32 devkit LDO.
+Be32 le32 jg V=min(3.3, v(e5)-v(jg)-0.35-0.9*i(Ve32))+v(jg)
+Ve32 le32 e33 0
+Bq32 e5 jg I=i(Ve32)
+C32 e33 jg 10u
+* ESP32: 90 mA idle, 380 mA Bluetooth TX burst, same time as the S3 burst.
+Ie32 e33 jg PWL(0 0.09 0.9m 0.09 0.9001m 0.38 1.1m 0.38 1.1001m 0.09 1.3m 0.09)
+
+* I2C: R1 pull-up to the S3 3V3, 100 pF of bus (S3, HAT, 15 cm of wire),
+* an open-drain driver that releases SDA at 1.0 ms.
+R1 s33 sda {R1V}
+Cb sda jg 100p
+Bpd sda jg I=(v(sda)-v(jg))/50*(time<1.0m)
+
+* IO9 as a 800 kHz stream of '1' bits (0.8 us high) from 1.02 ms.
+Vpul pul 0 PULSE(0 1 1.02m 5n 5n 0.8u 1.25u)
+Bdrv drv jg V=v(pul)*(v(s33)-v(jg))+v(jg)
+Rdrv drv gpio 40
+* Strip supply: external 5 V, 30 mohm to J4, C1 1000 uF with 30 mohm ESR.
+Vsup sup 0 5
+Rsup sup j5v 0.03
+Rsg jg 0 0.03
+C1 j5v c1 1000u
+Resr1 c1 jg 0.03
+.if (USE_BUF==1)
+Bbuf bufo jg V=(v(j5v)-v(jg))*(0.5+0.5*tanh((v(gpio)-v(jg)-1.4)*20))+v(jg)
+Rbuf bufo r3in 25
+Cbuf j5v jg 100n
+.else
+Rwire gpio r3in 1m
+.endif
+R3 r3in din {R3V}
+* Strip: 0.5 m of lead each way, data wire 30 pF, first LED 5 pF.
+Rw5 j5v s5 0.05
+Rwg sg jg 0.05
+Cdin din sg 35p
+Istrip s5 sg PWL(0 0.2 1m 0.2 1.001m {I_STRIP} 1.3m {I_STRIP})
+
+.tran 5n 1.3m 0 20n
+Bp1 pe5 0 V=v(e5)-v(jg)
+Bp2 ps33 0 V=v(s33)-v(jg)
+Bp3 pe33 0 V=v(e33)-v(jg)
+Bp4 pvdd 0 V=v(s5)-v(sg)
+Bp5 pdin 0 V=v(din)-v(sg)
+Bp6 pv5 0 V=v(v5)-v(jg)
+Bp7 psda 0 V=v(sda)-v(jg)
+.control
+run
+meas tran usb_min MIN v(pv5) from=0.5m to=1.3m
+meas tran e5_min MIN v(pe5) from=0.5m to=1.3m
+meas tran s33_min MIN v(ps33) from=0.5m to=1.3m
+meas tran e33_min MIN v(pe33) from=0.5m to=1.3m
+meas tran iusb_max MIN i(Vusb) from=0.5m to=1.3m
+meas tran vdd FIND v(pvdd) AT=1.0204m
+meas tran dinhi FIND v(pdin) AT=1.0204m
+meas tran width TRIG v(pdin) VAL=3.2 RISE=1 TD=1.0199m TARG v(pdin) VAL=3.2 FALL=1 TD=1.0199m
+meas tran i2c_rise TRIG v(psda) VAL=0.33 RISE=1 TD=1.0m TARG v(psda) VAL=2.97 RISE=1 TD=1.0m
+let margin = dinhi - 0.7*vdd
+print margin
+.endc
+.end

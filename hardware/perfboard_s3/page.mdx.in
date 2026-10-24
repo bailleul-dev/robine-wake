@@ -71,8 +71,8 @@ and control wires are short and mostly vertical.
 
 1. **Use the devkits as a jig.** Push the female headers on the devkit pins, drop the whole thing on the board with the pins in the right holes, tack **one pin at each corner** of each header, check that the devkit sits flat and square, then solder the rest.
 2. Do the same for the amplifier's 2×20 header, with the HAT plugged on it. **Pull pins 2 and 4 out of the header first** (pliers, from the plastic).
-3. Solder R1, R2, R3, D1 (band toward the cathode hole), the two jumper headers JP1 and JP2, the screw terminal J4 and C1 (long lead on +), at the holes of the table.
-4. Lay the bare wire **along row 18 from column 7 to column 51** and solder it **only** at the four ground taps (columns 7, 24, 40 and 51). Nothing else may touch row 18.
+3. Solder R1, R2 (2.2 kΩ), R3, C2, the three jumper headers JP1, JP2 and JP3, the screw terminal J4 and C1 (long lead on +), at the holes of the table. Solder the **74AHCT1G125 adapter** (U1): pins 1 to 3 on the left column, pin 5 stays free.
+4. Lay the bare wire **along row 18 from column 7 to column 51** and solder it **only** at the six ground taps (columns 7, 24, 40, 45, 50 and 51). Nothing else may touch row 18.
 
 ## Step 1 — ground bus and 3V3
 
@@ -84,7 +84,7 @@ Ground taps, from each ground pin straight to the bus:
 
 {{GND}}
 
-R1 and R2 are the I²C pull-ups. Their lead 1 goes to 3V3 (W11, W12), their lead 2 to the SDA and SCL wires of step 2.
+R1 and R2 are the I²C pull-ups (2.2 kΩ: the bus rises in about 470 ns, where 4.7 kΩ would sit at the 1000 ns limit of 100 kHz). Their lead 1 goes to 3V3 (W11, W12), their lead 2 to the SDA and SCL wires of step 2.
 
 ## Step 2 — amplifier
 
@@ -113,7 +113,7 @@ R1 and R2 are the I²C pull-ups. Their lead 1 goes to 3V3 (W11, W12), their lead
 - **W13 to W15** carry the I²S clocks to the ESP32 and the Bluetooth audio back to the S3.
 - **W16 to W19** are the UART, through the **jumpers JP1 and JP2**. Take both jumper caps off when you use the ESP32's own USB console, since its USB chip drives the same two pins.
 - **W20 and W21** let the S3 reset the ESP32 and put it in boot mode, to reflash it.
-- **W22 and W23** feed the ESP32's 5 V pin from the S3's 5 V pin through **D1**: one USB cable powers both devkits, and the diode stops the ESP32's own USB from feeding back into the S3. Skip W22 and W23 (and D1) if you prefer one cable per devkit.
+- **W22 and W23** feed the ESP32's 5 V pin from the S3's 5 V pin through the **jumper JP3**: one USB cable powers both devkits. **Take the JP3 cap off** before you plug the ESP32's own USB cable (to flash it), so the two USB ports are never tied together. Use a 5 V supply of at least 1 A: the pair draws about 740 mA at the peak. A diode here would drop the ESP32's 3V3 to 2.86 V on a weak USB port, which is why a jumper is used. Skip W22 and W23 if you prefer one cable per devkit.
 
 ## Step 4 — light strip
 
@@ -121,15 +121,15 @@ R1 and R2 are the I²C pull-ups. Their lead 1 goes to 3V3 (W11, W12), their lead
 
 {{WIRES4}}
 
-At J4, **each clamp takes two wires**:
+The buffer takes its supply from the strip's 5 V (W29, W30) and its ground from the bus (G5, G6). At J4, **each clamp takes at least two wires**:
 
 | J4 clamp | Wire 1 | Wire 2 |
 |---|---|---|
 | +5V | 5 V supply + | strip +5 V |
-| DATA | W25 (from R3) | strip Din |
+| DATA | W26 (from R3) | strip Din |
 | GND | 5 V supply − | strip GND |
 
-The strip's current goes from the supply to the strip inside the clamps and never crosses the board. The board only sees the data, the ground reference and the 1000 µF capacitor.
+The strip's current goes from the supply to the strip inside the clamps and never crosses the board. The board only sees the data, the ground reference, the buffer's few milliamps and the 1000 µF capacitor.
 
 ## Checks before the first power-up
 
@@ -139,8 +139,9 @@ Multimeter in continuity mode, **nothing plugged on the sockets, supplies off**.
 |---|---|
 | GND bus ↔ S3 `G` pin (column 24, row 13), ESP32 `GND` (51, 14), amplifier pin 6 (7, 21), J4 GND | beep |
 | 3V3 (S3 pin 2) ↔ GND bus | no beep |
-| S3 5V0 (4, 4) ↔ D1 cathode (56, 16) | the diode drops about 0.2 to 0.3 V in one direction only |
-| 3V3 ↔ SDA (HAT pin 3), 3V3 ↔ SCL (HAT pin 5) | about 4.7 kΩ |
+| S3 5V0 (4, 4) ↔ JP3 (52, 16), then JP3 (53, 16) ↔ ESP32 5V (56, 14) | beep (the jumper cap is off: check each side) |
+| U1 VCC (48, 25) ↔ U1 GND (45, 27) | no beep |
+| 3V3 ↔ SDA (HAT pin 3), 3V3 ↔ SCL (HAT pin 5) | about 2.2 kΩ |
 | J4 +5V ↔ J4 GND | no beep (the capacitor charges slowly, wait) |
 | each yellow, green, blue, white, purple wire ↔ its neighbour | no beep |
 
@@ -154,5 +155,5 @@ Then, in this order:
 ## Firmware notes
 
 - Build for the S3 with `ESP_HAL_CONFIG_MIN_CHIP_REVISION=0` if your devkit is a revision 0.2 chip. See [ESP32-S3 + amplifier](../wiring-s3/) and [Build and flash](../build-and-flash/).
-- The strip data is **IO9** and the S3's own status LED is **IO42**, so **IO48** stays free for the ESP32's boot line (W21).
+- The strip data is **IO9**, buffered to a true 5 V level by **U1** (a 74AHCT1G125 on the strip supply), because 3.3 V is almost exactly the strip's input threshold (0.7 × 5 V = 3.5 V). The circuit, simulated in [`hardware/perfboard_s3/spice/system.cir`](https://github.com/laibulle/robine-wake/tree/main/hardware/perfboard_s3/spice), shows a data margin of 1.6 V with the buffer instead of 0.04 V without. The strip data is **IO9** and the S3's own status LED is **IO42**, so **IO48** stays free for the ESP32's boot line (W21).
 - The ESP32's Bluetooth firmware is **not written yet**: the board works without it, the ESP32 simply idles.

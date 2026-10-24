@@ -18,7 +18,7 @@ this page; it is described in the [future board bench](../wiring-bench/).
 |---|---|
 | ESP32-S3-DevKitC-1 (N16R8) | alarm, Wi-Fi, AirPlay 2, I²S master |
 | InnoMaker HiFi AMP Pro Mini (MA12070P) | I²S slave, I²C `0x20`, 9–24 V |
-| 2 × 4.7 kΩ | I²C pull-ups to 3V3 |
+| 2 × 2.2 kΩ | I²C pull-ups to 3V3 |
 | WS2812B strip (60 LED), 330 Ω | dawn, sunset, breathing; separate 5 V supply |
 | Amplifier supply | regulated 19–20 V, ≥ 4 A, 5.5 mm jack |
 | Speakers | 4–8 Ω, **bridged (BTL)** |
@@ -61,7 +61,7 @@ left (inner row), even pins on the right; pin 1 is the square pad.
   width={760}
   height={440}
   alt="ESP32-S3 pins wired to the InnoMaker amplifier connector, with 4.7 kilohm pull-ups on SDA and SCL"
-  caption="Two 4.7 kΩ resistors from SDA and from SCL to a 3V3 pin of the devkit. The HAT makes its own 3.3 V: do not join its pin 1 to the devkit."
+  caption="Two 2.2 kΩ resistors from SDA and from SCL to a 3V3 pin of the devkit. The HAT makes its own 3.3 V: do not join its pin 1 to the devkit."
   parts={[
     { id: "s3", title: "ESP32-S3-DevKitC-1", sub: "U1", x: 0, y: 20, w: 220,
       pins: [
@@ -71,7 +71,7 @@ left (inner row), even pins on the right; pin 1 is the square pad.
         { id: "mute", label: "IO41", side: "r" }, { id: "fault", label: "IO38", side: "r" },
         { id: "gnd", label: "GND", side: "r" }, { id: "v", label: "3V3", side: "r" },
       ] },
-    { id: "pu", title: "Pull-ups", sub: "2 × 4.7 kΩ", x: 270, y: 300, w: 180,
+    { id: "pu", title: "Pull-ups", sub: "2 × 2.2 kΩ", x: 270, y: 300, w: 180,
       pins: [
         { id: "sda", label: "to SDA", side: "l" }, { id: "scl", label: "to SCL", side: "l" },
         { id: "v", label: "both to 3V3", side: "l" },
@@ -106,8 +106,8 @@ left (inner row), even pins on the right; pin 1 is the square pad.
 | IO6 | I²S bit clock | 12 |
 | IO7 | I²S word clock | 35 |
 | IO8 | I²S data to the amplifier | 40 |
-| IO17 | I²C SDA (4.7 kΩ to 3V3) | 3 |
-| IO18 | I²C SCL (4.7 kΩ to 3V3) | 5 |
+| IO17 | I²C SDA (2.2 kΩ to 3V3) | 3 |
+| IO18 | I²C SCL (2.2 kΩ to 3V3) | 5 |
 | IO21 | enable, high = on | 8 |
 | IO41 | mute, low = muted | 10 |
 | IO38 | error (input, internal pull-up) | 16 |
@@ -177,8 +177,16 @@ unchanged on the board, except the amplifier chip (TAS5825M there).
 
 IO9 is free on `robine_board` (IO13, used on the classic ESP32, is the shared
 SPI MISO there). The signal leaves SPI2 through DMA, so Wi-Fi and AirPlay never
-distort it. If a strip flickers on a 3.3 V signal, a level shifter (74AHCT125)
-on the data line fixes it.
+distort it.
+
+**Put a 74AHCT1G125 buffer on the data line**, powered by the strip's 5 V (IO9 →
+buffer → 330 Ω → strip). A WS2812B wants at least 0.7 × VDD (3.5 V) on its data
+input and the S3 gives 3.3 V: a simulation of the whole board
+([`system.cir`](https://github.com/laibulle/robine-wake/tree/main/hardware/perfboard_s3/spice))
+shows a margin of 0.04 V without the buffer and 1.6 V with it. The same
+simulation moved the I²C pull-ups to 2.2 kΩ (the bus rises in 470 ns instead of
+the 1000 ns limit) and replaced the diode that powers the ESP32 from the S3's
+USB with a jumper (a diode drops its 3V3 to 2.86 V on a weak USB port).
 
 ## Perfboard
 

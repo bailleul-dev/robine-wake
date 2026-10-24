@@ -7,10 +7,12 @@
 | S3 sockets | 2 × 1×22 female header | row 4 and row 13, columns 3 to 24 | pin 1 (3V3) on the right, USB on the left edge |
 | ESP32 sockets | 2 × 1×19 female header | row 4 and row 14, columns 38 to 56 | pin 1 on the left, USB on the right edge |
 | HAT header | 1 × 2×20 male header, 11 mm | rows 21 and 22, columns 5 to 24 | pin 1 at (5, 22); pins 2 and 4 pulled out |
-| R1 | 4.7 kΩ | (30, 20) and (30, 24) | lead 1 = 3V3, lead 2 = SDA |
-| R2 | 4.7 kΩ | (32, 20) and (32, 24) | lead 1 = 3V3, lead 2 = SCL |
+| R1 | 2.2 kΩ | (30, 20) and (30, 24) | lead 1 = 3V3, lead 2 = SDA |
+| R2 | 2.2 kΩ | (32, 20) and (32, 24) | lead 1 = 3V3, lead 2 = SCL |
 | R3 | 330 Ω | (38, 25) and (38, 29) | strip data |
-| D1 | Schottky 1N5819 | anode (52, 16), cathode (56, 16) | band on the cathode side |
+| JP3 | 1×2 male header + jumper cap | (52, 16) and (53, 16) | 5 V of the ESP32; remove the cap to power it by its own USB |
+| U1 | 74AHCT1G125 on a SOT23-6 to DIP-6 adapter | OE (45, 25), A (45, 26), GND (45, 27), Y (48, 27), VCC (48, 25) | adapter pin 5 stays free; pins 1-3 on the left column |
+| C2 | 100 nF ceramic | VCC (50, 27), GND (50, 25) | buffer supply decoupling |
 | JP1, JP2 | 2 × 1×2 male header + jumper caps | JP1 (41, 16) (42, 16), JP2 (44, 16) (45, 16) | UART link, remove to use the ESP32's own USB console |
 | J4 | 3-position screw terminal, 5.08 mm | +5V (36, 31), DATA (38, 31), GND (40, 31) | strip and 5 V supply |
 | C1 | 1000 µF 10 V radial, 5 mm pitch | + (36, 33), − (38, 33) | long lead is + |
@@ -41,12 +43,16 @@
 | **W19** jumper to S3 RX | white | JP2 lead 2 (45, 16) | S3 IO16 (16, 4) | row 15 | 124 mm |
 | **W20** ESP32 reset (EN) | purple | S3 IO47 (8, 13) | ESP32 EN (39, 14) | row 16 | 111 mm |
 | **W21** ESP32 boot (IO0) | purple | S3 IO48 (9, 13) | ESP32 IO0 (51, 4) | row 17 | 170 mm |
-| **W22** 5 V from the S3 to the diode | red | S3 5V0 (4, 4) | D1 anode (52, 16) | row 15 | 172 mm |
-| **W23** diode to the ESP32 5 V | red | D1 cathode (band) (56, 16) | ESP32 5V (56, 14) | direct | 25 mm |
-| **W24** strip data to the resistor | gray | S3 IO9 (10, 4) | R3 lead 1 (38, 25) | row 17 | 144 mm |
-| **W25** resistor to the terminal | gray | R3 lead 2 (38, 29) | J4 DATA (38, 31) | direct | 25 mm |
-| **W26** terminal +5 V to the capacitor | red | J4 +5V (36, 31) | C1 + (36, 33) | direct | 25 mm |
-| **W27** terminal GND to the capacitor | black | J4 GND (40, 31) | C1 - (38, 33) | direct | 30 mm |
+| **W22** 5 V from the S3 to the jumper | red | S3 5V0 (4, 4) | JP3 lead 1 (52, 16) | row 15 | 172 mm |
+| **W23** jumper to the ESP32 5 V | red | JP3 lead 2 (53, 16) | ESP32 5V (56, 14) | direct | 33 mm |
+| **W24** strip data to the buffer input | gray | S3 IO9 (10, 4) | U1 A (45, 26) | direct | 170 mm |
+| **W25** buffer output to the resistor | gray | U1 Y (48, 27) | R3 lead 1 (38, 25) | direct | 61 mm |
+| **W26** resistor to the terminal | gray | R3 lead 2 (38, 29) | J4 DATA (38, 31) | direct | 25 mm |
+| **W27** terminal +5 V to the capacitor | red | J4 +5V (36, 31) | C1 + (36, 33) | direct | 25 mm |
+| **W28** terminal GND to the capacitor | black | J4 GND (40, 31) | C1 - (38, 33) | direct | 30 mm |
+| **W29** buffer supply to C2 | red | U1 VCC (48, 25) | C2 VCC (50, 27) | direct | 30 mm |
+| **W30** C2 to the terminal +5 V | red | C2 VCC (50, 27) | J4 +5V (36, 31) | direct | 66 mm |
+| **W31** buffer output enable to ground | black | U1 OE (45, 25) | U1 GND (45, 27) | direct | 30 mm |
 
 ## Ground taps
 
@@ -56,5 +62,7 @@
 | **G2** | ESP32 GND (51, 14) | (51, 18) | 30 mm |
 | **G3** | amplifier pin 6 (7, 21) | (7, 18) | 28 mm |
 | **G4** | terminal GND (40, 31) | (40, 18) | 53 mm |
+| **G5** | buffer OE (45, 25) | (45, 18) | 38 mm |
+| **G6** | C2 ground lead (50, 25) | (50, 18) | 38 mm |
 
-Total insulated wire: about 2.4 m.
+Total insulated wire: about 2.7 m.

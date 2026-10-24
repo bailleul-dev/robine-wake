@@ -1,0 +1,79 @@
+* Pi 3 HAT, whole system in one netlist.
+*   Pi 5 V pin -> [D1] -> ESP32 VIN -> LDO -> 3V3 -> D13 -> [buffer] -> R3 -> strip DIN
+*   External 5 V -> J4 (+5V, C1, GND) -> strip leads -> strip
+* The board ground is node jg (J4 GND); the strip supply returns to node 0.
+* Worst case: Wi-Fi burst, full-white step and first data bits all at once.
+*
+* Result (./run.sh): the circuit that works is USE_D1=0 (a jumper instead of the
+* diode) and USE_BUF=1 (74AHCT1G125 on the strip 5 V). Without the buffer the
+* data high level sits within 0.1 V of the strip's 0.7 x VDD threshold; with a
+* weak Pi rail (4.65 V, 0.5 ohm) the diode pulls 3V3 down to 3.15 V.
+*
+* Variants (the runner rewrites the next line):
+.param USE_D1=0 USE_BUF=1 I_STRIP=3.4 VPI=4.85 R3V=330
+
+.model D1N5819 D(IS=1u RS=0.04 N=1.3 CJO=110p M=0.35 VJ=0.4 BV=40 IBV=1m)
+
+* Pi 5 V pin: 4.85 V under load, 0.3 ohm of fuse, header and Amp2 pass-through.
+Vpi pi5 jg {VPI}
+Rpi pi5 a 0.3
+.if (USE_D1==1)
+D1 a vin D1N5819
+.else
+Rd1 a vin 10m
+.endif
+Cin vin jg 22u
+
+* DevKit LDO (AMS1117-3.3 class): 3.3 V, dropout 0.35 V + 0.9 V per A.
+Bldo ldo jg V=min(3.3, v(vin)-v(jg)-0.35-0.9*i(Vs))+v(jg)
+Vs ldo v33 0
+* An LDO draws its output current from VIN.
+Bq vin jg I=i(Vs)
+C33 v33 jg 10u
+* ESP32: 80 mA idle, 500 mA Wi-Fi burst from 0.9 ms to 1.1 ms.
+Iesp v33 jg PWL(0 0.08 0.9m 0.08 0.9001m 0.5 1.1m 0.5 1.1001m 0.08 1.3m 0.08)
+
+* Strip supply: 5 V, 0.03 ohm of wire to J4, 1000 uF with 30 mohm ESR.
+Vsup sup 0 5
+Rsup sup j5v 0.03
+Rsg jg 0 0.03
+C1 j5v c1 1000u
+Resr1 c1 jg 0.03
+
+* D13 as a 800 kHz stream of '1' bits (0.8 us high) from 1.02 ms.
+Vpul pul 0 PULSE(0 1 1.02m 5n 5n 0.8u 1.25u)
+Bdrv drv jg V=v(pul)*(v(v33)-v(jg))+v(jg)
+Rdrv drv gpio 20
+.if (USE_BUF==1)
+* 74AHCT1G125 on the strip 5 V: input threshold 1.4 V, output 25 ohm.
+Bbuf bufo jg V=(v(j5v)-v(jg))*(0.5+0.5*tanh((v(gpio)-v(jg)-1.4)*20))+v(jg)
+Rbuf bufo r3in 25
+Cbuf j5v jg 100n
+.else
+Rwire gpio r3in 1m
+.endif
+R3 r3in din {R3V}
+
+* Strip: 0.5 m of lead each way (0.05 ohm), data wire 30 pF, first LED 5 pF.
+Rw5 j5v s5 0.05
+Rwg sg jg 0.05
+Cdin din sg 35p
+Istrip s5 sg PWL(0 0.2 1m 0.2 1.001m {I_STRIP} 1.3m {I_STRIP})
+
+.tran 5n 1.3m 0 20n
+* Probes referred to the board ground and to the strip ground.
+Bp1 pvin 0 V=v(vin)-v(jg)
+Bp2 p33 0 V=v(v33)-v(jg)
+Bp3 pvdd 0 V=v(s5)-v(sg)
+Bp4 pdin 0 V=v(din)-v(sg)
+.control
+run
+meas tran vin_min MIN v(pvin) from=0.5m to=1.3m
+meas tran v33_min MIN v(p33) from=0.5m to=1.3m
+meas tran vdd FIND v(pvdd) AT=1.0204m
+meas tran dinhi FIND v(pdin) AT=1.0204m
+meas tran width TRIG v(pdin) VAL=3.2 RISE=1 TD=1.0199m TARG v(pdin) VAL=3.2 FALL=1 TD=1.0199m
+let margin = dinhi - 0.7*vdd
+print vdd dinhi margin
+.endc
+.end
