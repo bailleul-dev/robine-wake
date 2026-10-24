@@ -33,7 +33,7 @@ pins on the right (outer row, nearest the board edge); pin 1 is the square pad.
   alt="Raspberry Pi Zero W 40-pin header with the pins used by the InnoMaker HAT highlighted"
   caption="Pins taken by the HAT (I²C, I²S, booster, error) and by the ESP32 UART. Pins 8 and 10 are the UART, not the amplifier's enable/mute: see section 2."
   used={{
-    2: { kind: "power", label: "5 V from HAT" },
+    2: { kind: "power", label: "5 V · HAT, → ESP32 VIN" },
     4: { kind: "power", label: "5 V from HAT" },
     3: { kind: "i2c", label: "SDA · amp 0x20" },
     5: { kind: "i2c", label: "SCL · amp 0x20" },
@@ -71,6 +71,7 @@ by **position**, not by name:
   alt="The 40 header positions seen from above, SD card on the left, with the pins used in this build highlighted"
   caption="Positions only: this is where to land each wire, whatever is printed on the board."
   used={{
+    2: { kind: "power", label: "5 V → ESP32 VIN" },
     6: { kind: "gnd", label: "GND → ESP32" },
     8: { kind: "uart", label: "TXD → ESP32" },
     10: { kind: "uart", label: "RXD ← ESP32" },
@@ -84,13 +85,16 @@ by **position**, not by name:
 
 | Pin | Row | Count from the left | Function here |
 |---|---|---|---|
+| 2 | top | 1st | 5 V → ESP32 `VIN` |
 | 6 | top | 3rd | GND → ESP32 |
 | 8 | top | 4th | TXD → ESP32 `D18` |
 | 10 | top | 5th | RXD ← ESP32 `TX2` |
 
 **Check you are on the right pin** with a continuity tester, everything
-unpowered: pin 6 must beep with pins 9, 14, 20, 25, 30, 34 and 39 (all ground).
-If it does not, you are one position off, or on the wrong row.
+unpowered: pin 6 must beep with pins 9, 14, 20, 25, 30, 34 and 39 (all ground), and
+pin 2 must beep with pin 4 (both 5 V) and with nothing else. If not, you are one
+position off, or on the wrong row: pin 1 right next to pin 2 is 3.3 V, and
+wiring that to `VIN` would starve the ESP32.
 
 The other highlighted pins belong to the HAT (I²C, I²S): no wire of yours goes
 there.
@@ -190,7 +194,7 @@ Sources: [Infineon MA12070 datasheet](https://cdn.sparkfun.com/assets/8/6/d/d/4/
 The ESP32 and the strip are wired exactly as on the Pi 3 (see
 [Wiring — current setup](../wiring-pi3/#2-light--esp32-and-led-strip)). Two
 things differ on the Zero: the UART pins are shared with the amplifier HAT, and
-the Zero has no free USB port to power the ESP32.
+the Zero has no free USB port, so the ESP32 takes its 5 V from the header.
 
 :::danger[Continuity check first — Pi pins 8 and 10]
 The stock amplifier overlay uses GPIO14 (pin 8) as *enable* and GPIO15 (pin 10)
@@ -213,21 +217,22 @@ mute) or nowhere.
 <Wiring
   width={760}
   height={400}
-  alt="Raspberry Pi Zero W to ESP32 over UART, ESP32 data pin to the LED strip, ESP32 and strip on their own 5 volt supplies"
-  caption="The ESP32 has its own USB charger (the Zero's USB port is taken by usb0). All grounds are joined."
+  alt="Raspberry Pi Zero W to ESP32 over UART, ESP32 data pin to the LED strip, ESP32 powered from the header 5 V, strip on its own 5 volt supply"
+  caption="The ESP32 takes its 5 V from header pin 2 (the Zero's USB port is taken by usb0). All grounds are joined."
   parts={[
     { id: "pi", title: "Pi Zero W", sub: "header, under the HAT", x: 0, y: 30, w: 190,
       pins: [
         { id: "tx", label: "GPIO14 TXD · pin 8", side: "r" },
         { id: "rx", label: "GPIO15 RXD · pin 10", side: "r" },
         { id: "gnd", label: "GND · pin 6", side: "r" },
+        { id: "v5", label: "5 V · pin 2", side: "r" },
       ] },
     { id: "esp", title: "ESP32 DevKit", sub: "30-pin · runs pi_light", x: 290, y: 30, w: 220,
       pins: [
         { id: "rx", label: "D18 (GPIO18) RX", side: "l" },
         { id: "tx", label: "TX2 (GPIO17) TX", side: "l" },
         { id: "gnd", label: "GND", side: "l" },
-        { id: "usb", label: "USB-C", side: "l" },
+        { id: "vin", label: "VIN (5 V)", side: "l" },
         { id: "d13", label: "D13 (GPIO13)", side: "r" },
         { id: "gnd2", label: "GND", side: "r" },
       ] },
@@ -237,8 +242,6 @@ mute) or nowhere.
         { id: "gnd", label: "GND", side: "l" },
         { id: "v5", label: "+5 V", side: "l" },
       ] },
-    { id: "chg", title: "5 V USB charger", sub: "for the ESP32", x: 0, y: 205, w: 190,
-      pins: [{ id: "u", label: "USB", side: "r" }] },
     { id: "psu", title: "5 V supply", sub: "strip only", x: 610, y: 220, w: 150,
       pins: [{ id: "v5", label: "+5 V", side: "l" }, { id: "gnd", label: "GND", side: "l" }] },
   ]}
@@ -246,7 +249,7 @@ mute) or nowhere.
     { a: "pi.tx", b: "esp.rx", kind: "uart", label: "TXD → RX" },
     { a: "pi.rx", b: "esp.tx", kind: "uart", label: "RXD ← TX" },
     { a: "pi.gnd", b: "esp.gnd", kind: "gnd", label: "GND" },
-    { a: "chg.u", b: "esp.usb", kind: "usb", label: "USB cable" },
+    { a: "pi.v5", b: "esp.vin", kind: "power", label: "5 V from HAT" },
     { a: "esp.d13", b: "strip.din", kind: "signal", label: "via 330 Ω" },
     { a: "esp.gnd2", b: "psu.gnd", kind: "gnd", label: "common GND", dashed: true },
     { a: "strip.gnd", b: "psu.gnd", kind: "gnd" },
@@ -262,11 +265,14 @@ mute) or nowhere.
 3. Wire the UART: Pi pin 8 → ESP32 `D18`, Pi pin 10 ← ESP32 `TX2`.
 4. 330 Ω in series on the data line, close to the strip's `DIN`; the strip's
    `+5V`/`GND` come from the 5 V supply, not from the ESP32 or the Pi.
-5. Power the ESP32 from its own USB charger. (Taking it from the HAT's 5 V on
-   header pins 2/4 into the ESP32 `VIN` pin is possible but untested: the HAT's
-   5 V budget is unknown.)
+5. Power the ESP32 from the HAT's 5 V: header pin 2 (or 4) → ESP32 `VIN`.
+   `pi_light` runs without Wi-Fi, so it draws about 50–80 mA; the strip has its
+   own supply. The HAT's 5 V budget is not documented, so measure pin 2 under
+   load if the Zero resets.
 6. Flash the ESP32 from your computer over its USB-C cable; on the Pi 3 it is
-   flashed through the Pi, which is not set up on the Zero.
+   flashed through the Pi, which is not set up on the Zero. **Unplug the `VIN`
+   wire first**, and never leave USB-C and `VIN` powered at the same time: many
+   DevKits have no diode between them and the 5 V can back-feed.
 7. From the web interface, start a sunrise or the reading light.
 
 :::note

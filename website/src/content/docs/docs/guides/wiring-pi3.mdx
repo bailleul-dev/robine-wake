@@ -15,7 +15,7 @@ import PinFinder from "../../../../components/PinFinder.astro";
 |---|---|
 | Computer | Raspberry Pi 3 B/B+ running the Nerves firmware |
 | Audio | HiFiBerry Amp2 **stacked on the Pi's 40-pin header**, two speakers |
-| Light controller | **One ESP32 DevKit, 30-pin** (classic ESP32 with a CP2102 USB-C chip — *not* an ESP32-S3). It is plugged into a Pi USB port and talks to the Pi over its UART pins (GPIO14/15), which are reached under the Amp2 |
+| Light controller | **One ESP32 DevKit, 30-pin** (classic ESP32 with a CP2102 USB-C chip — *not* an ESP32-S3). It is powered from the Pi's 5 V pin (header pin 2 or 4 → ESP32 `VIN`) and talks to the Pi over its UART pins (GPIO14/15), both reached under the Amp2 |
 | Light | 60-LED WS2812B strip on the ESP32's `D13`, with its own 5 V supply |
 | Bedside button | optional: LoRa module on the Pi's SPI |
 
@@ -43,7 +43,7 @@ Pin 1 is the square pad, next to the corner of the board closest to the SD slot.
   alt="Raspberry Pi 3 40-pin header with the pins used by this build highlighted"
   caption="Everything this build uses. The Amp2 takes pins 2/4 (5 V out to the Pi), 3/5 (I²C) and 12/35/38/40 (I²S) by sitting on the header."
   used={{
-    2: { kind: "power", label: "5 V from Amp2" },
+    2: { kind: "power", label: "5 V from Amp2, → ESP32 VIN" },
     4: { kind: "power", label: "5 V from Amp2" },
     3: { kind: "i2c", label: "SDA · Amp2" },
     5: { kind: "i2c", label: "SCL · Amp2" },
@@ -155,7 +155,7 @@ two passive 4–8 Ω speakers.
 
 ## 2. Light — ESP32 and LED strip
 
-**You need:** ESP32 DevKit 30-pin (CP2102, USB), a 60-LED WS2812B strip, a
+**You need:** ESP32 DevKit 30-pin (CP2102), a 60-LED WS2812B strip, a
 separate **5 V** supply sized for the strip (up to 3.6 A at full white; the
 firmware caps the brightness), a 330 Ω resistor, Dupont wires.
 
@@ -163,21 +163,21 @@ firmware caps the brightness), a 330 Ω resistor, Dupont wires.
   width={760}
   height={360}
   alt="Raspberry Pi to ESP32 over UART, ESP32 data pin to the LED strip, strip powered by its own 5 volt supply"
-  caption="Two things power the light: the ESP32 from the Pi's USB, the strip from its own 5 V supply. Their grounds are joined."
+  caption="Two things power the light: the ESP32 from the Pi's 5 V pin (the Amp2 supplies it), the strip from its own 5 V supply. Their grounds are joined."
   parts={[
     { id: "pi", title: "Raspberry Pi 3", sub: "header under the Amp2", x: 0, y: 30, w: 190,
       pins: [
         { id: "tx", label: "GPIO14 TXD · pin 8", side: "r" },
         { id: "rx", label: "GPIO15 RXD · pin 10", side: "r" },
         { id: "gnd", label: "GND · pin 6", side: "r" },
-        { id: "usb", label: "USB port", side: "r" },
+        { id: "v5", label: "5 V · pin 2", side: "r" },
       ] },
     { id: "esp", title: "ESP32 DevKit", sub: "30-pin · runs pi_light", x: 290, y: 30, w: 220,
       pins: [
         { id: "rx", label: "D18 (GPIO18) RX", side: "l" },
         { id: "tx", label: "TX2 (GPIO17) TX", side: "l" },
         { id: "gnd", label: "GND", side: "l" },
-        { id: "usb", label: "USB-C", side: "l" },
+        { id: "vin", label: "VIN (5 V)", side: "l" },
         { id: "d13", label: "D13 (GPIO13)", side: "r" },
         { id: "gnd2", label: "GND", side: "r" },
       ] },
@@ -194,7 +194,7 @@ firmware caps the brightness), a 330 Ω resistor, Dupont wires.
     { a: "pi.tx", b: "esp.rx", kind: "uart", label: "TXD → RX" },
     { a: "pi.rx", b: "esp.tx", kind: "uart", label: "RXD ← TX" },
     { a: "pi.gnd", b: "esp.gnd", kind: "gnd", label: "GND" },
-    { a: "pi.usb", b: "esp.usb", kind: "usb", label: "USB cable" },
+    { a: "pi.v5", b: "esp.vin", kind: "power", label: "5 V from the Amp2" },
     { a: "esp.d13", b: "strip.din", kind: "signal", label: "via 330 Ω" },
     { a: "esp.gnd2", b: "psu.gnd", kind: "gnd", label: "common GND", dashed: true },
     { a: "strip.gnd", b: "psu.gnd", kind: "gnd" },
@@ -213,7 +213,11 @@ firmware caps the brightness), a 330 Ω resistor, Dupont wires.
    `DIN` (the end where the arrows point *into* the strip).
 4. Feed the strip's `+5V`/`GND` from the 5 V supply, not from the ESP32 or the
    Pi.
-5. Plug the ESP32 into a Pi USB port (power, and flashing).
+5. Power the ESP32 from the Pi: header pin 2 (or 4, both are 5 V) → ESP32
+   `VIN`. About 50–80 mA, well within what the Amp2 supplies to the Pi. Do
+   **not** also plug a USB cable into the ESP32 while `VIN` is wired: two 5 V
+   sources feed into each other. To flash the ESP32 from the Pi's USB port,
+   unplug the `VIN` wire first, flash, then put it back and unplug the USB cable.
 6. Check from the web interface: on the evening screen (*Soir*), start a
    sunrise or the reading light.
 
@@ -279,7 +283,7 @@ state instead of listening with a broken radio. Protocol and pairing:
 1. All grounds joined, all wires checked against the figures.
 2. Speakers connected.
 3. Antenna on the LoRa module.
-4. ESP32 USB cable.
+4. ESP32 `VIN` wire to the Pi's 5 V (it is only live once the Amp2 supply is on).
 5. Amp2 supply (this powers the Pi), then the 5 V strip supply.
 6. Never hot-plug the Amp2 supply.
 
@@ -290,6 +294,7 @@ state instead of listening with a broken radio. Protocol and pairing:
 | Pi | 8 · GPIO14 TXD | ESP32 `D18` | UART, mini UART `ttyS0` |
 | Pi | 10 · GPIO15 RXD | ESP32 `TX2` | UART |
 | Pi | 6 · GND | ESP32 GND | common ground |
+| Pi | 2 · 5 V | ESP32 `VIN` | power, no USB cable |
 | ESP32 | `D13` | strip `DIN` | via 330 Ω |
 | 5 V supply | `+5 V` / GND | strip `+5V` / GND | joined to ESP32 GND |
 | Pi | 17 · 3V3 | LoRa 3.3V | + 100 nF, 10 µF |

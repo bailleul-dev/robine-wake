@@ -7,7 +7,9 @@ gpu_mem=192
 # Hardware buses and the I2S amplifier. Disable the PWM audio device so the
 # amplifier receives a stable ALSA card identity.
 dtparam=i2c_arm=on
-dtparam=spi=on
+# SPI stays off: GPIO8 (CE0) is also used by the amplifier HAT and the LoRa
+# radio is disabled on this target (merus-amp could not claim the pin).
+#dtparam=spi=on
 dtparam=audio=off
 
 # USB gadget (Ethernet over the data micro-USB port): first access to the board
