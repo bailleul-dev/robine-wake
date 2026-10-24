@@ -1,0 +1,181 @@
+---
+title: Wiring — ESP32-S3 + amplifier (prototype)
+description: ESP32-S3 devkit driving the InnoMaker MA12070P amplifier over I²S, with I²C presence check, enable, mute and error lines.
+sidebar:
+  order: 6
+  label: ESP32-S3 + amplifier
+---
+
+import Wiring from "../../../../components/Wiring.astro";
+import PiHeader from "../../../../components/PiHeader.astro";
+
+The prototype of the all-in-one clock: **one ESP32-S3-DevKitC-1 (N16R8)** runs
+the alarm, Wi-Fi, AirPlay 2 and the amplifier, in Rust. The classic ESP32 (lights,
+Bluetooth audio) is a companion and is **not needed** for this page; it is
+described in the [future board bench](../wiring-bench/).
+
+| Part | Role |
+|---|---|
+| ESP32-S3-DevKitC-1 (N16R8) | alarm, Wi-Fi, AirPlay 2, I²S master |
+| InnoMaker HiFi AMP Pro Mini (MA12070P) | I²S slave, I²C `0x20`, 9–24 V |
+| 2 × 4.7 kΩ | I²C pull-ups to 3V3 |
+| Amplifier supply | regulated 19–20 V, ≥ 4 A, 5.5 mm jack |
+| Speakers | 4–8 Ω, **bridged (BTL)** |
+
+:::danger[Rules]
+- Wire with everything **unplugged**. Power the amplifier **last**; never hot-plug its supply.
+- A speaker "−" is never connected to GND.
+- Never connect the HAT's 5 V pins (2 and 4): it outputs 5 V and would fight the devkit's USB.
+- One common ground between the devkit and the amplifier.
+:::
+
+## Which USB port
+
+The devkit has two USB-C ports. Use the one marked **UART** (WCH serial chip): it
+flashes without touching the BOOT and RESET buttons and carries the log console.
+The other one (native USB) needs BOOT + RESET to flash.
+
+## 1. S3 ↔ amplifier
+
+The HAT's 40-pin connector keeps the Raspberry Pi pin numbers. Odd pins on the
+left (inner row), even pins on the right; pin 1 is the square pad.
+
+<PiHeader
+  alt="InnoMaker amplifier 40-pin connector with the pins wired to the ESP32-S3 highlighted"
+  caption="Seven signal pins plus ground. The 5 V pins (2 and 4) and pin 1 (3V3) stay unconnected."
+  used={{
+    3: { kind: "i2c", label: "SDA ↔ IO17" },
+    5: { kind: "i2c", label: "SCL ← IO18" },
+    6: { kind: "gnd", label: "GND" },
+    8: { kind: "signal", label: "enable ← IO21" },
+    10: { kind: "signal", label: "mute ← IO41" },
+    12: { kind: "i2s", label: "I²S clock ← IO6" },
+    16: { kind: "signal", label: "error → IO38" },
+    35: { kind: "i2s", label: "I²S frame ← IO7" },
+    40: { kind: "i2s", label: "I²S data ← IO8" },
+  }}
+/>
+
+<Wiring
+  width={760}
+  height={440}
+  alt="ESP32-S3 pins wired to the InnoMaker amplifier connector, with 4.7 kilohm pull-ups on SDA and SCL"
+  caption="Two 4.7 kΩ resistors from SDA and from SCL to a 3V3 pin of the devkit. The HAT makes its own 3.3 V: do not join its pin 1 to the devkit."
+  parts={[
+    { id: "s3", title: "ESP32-S3-DevKitC-1", sub: "U1", x: 0, y: 20, w: 220,
+      pins: [
+        { id: "bclk", label: "IO6", side: "r" }, { id: "lrclk", label: "IO7", side: "r" },
+        { id: "dout", label: "IO8", side: "r" }, { id: "sda", label: "IO17", side: "r" },
+        { id: "scl", label: "IO18", side: "r" }, { id: "pdn", label: "IO21", side: "r" },
+        { id: "mute", label: "IO41", side: "r" }, { id: "fault", label: "IO38", side: "r" },
+        { id: "gnd", label: "GND", side: "r" }, { id: "v", label: "3V3", side: "r" },
+      ] },
+    { id: "pu", title: "Pull-ups", sub: "2 × 4.7 kΩ", x: 270, y: 300, w: 180,
+      pins: [
+        { id: "sda", label: "to SDA", side: "l" }, { id: "scl", label: "to SCL", side: "l" },
+        { id: "v", label: "both to 3V3", side: "l" },
+      ] },
+    { id: "hat", title: "InnoMaker AMP Pro Mini", sub: "40-pin connector", x: 540, y: 20, w: 220,
+      pins: [
+        { id: "bclk", label: "pin 12 · clock", side: "l" }, { id: "lrclk", label: "pin 35 · frame", side: "l" },
+        { id: "dout", label: "pin 40 · data", side: "l" }, { id: "sda", label: "pin 3 · SDA", side: "l" },
+        { id: "scl", label: "pin 5 · SCL", side: "l" }, { id: "pdn", label: "pin 8 · enable", side: "l" },
+        { id: "mute", label: "pin 10 · mute", side: "l" }, { id: "fault", label: "pin 16 · error", side: "l" },
+        { id: "gnd", label: "pin 6 · GND", side: "l" },
+      ] },
+  ]}
+  wires={[
+    { a: "s3.bclk", b: "hat.bclk", kind: "i2s", label: "I2S_BCLK →" },
+    { a: "s3.lrclk", b: "hat.lrclk", kind: "i2s", label: "I2S_LRCLK →" },
+    { a: "s3.dout", b: "hat.dout", kind: "i2s", label: "I2S_DOUT →" },
+    { a: "s3.sda", b: "hat.sda", kind: "i2c", label: "I2C_SDA" },
+    { a: "s3.scl", b: "hat.scl", kind: "i2c", label: "I2C_SCL →" },
+    { a: "s3.pdn", b: "hat.pdn", kind: "signal", label: "AMP_PDN →" },
+    { a: "s3.mute", b: "hat.mute", kind: "signal", label: "AMP_MUTE →" },
+    { a: "s3.fault", b: "hat.fault", kind: "signal", label: "← AMP_FAULT" },
+    { a: "s3.gnd", b: "hat.gnd", kind: "gnd", label: "GND" },
+    { a: "s3.sda", b: "pu.sda", kind: "i2c", label: "SDA" },
+    { a: "s3.scl", b: "pu.scl", kind: "i2c", label: "SCL" },
+    { a: "s3.v", b: "pu.v", kind: "3v3", label: "3V3" },
+  ]}
+/>
+
+| Devkit pin | Signal | Amplifier pin |
+|---|---|---|
+| IO6 | I²S bit clock | 12 |
+| IO7 | I²S word clock | 35 |
+| IO8 | I²S data to the amplifier | 40 |
+| IO17 | I²C SDA (4.7 kΩ to 3V3) | 3 |
+| IO18 | I²C SCL (4.7 kΩ to 3V3) | 5 |
+| IO21 | enable, high = on | 8 |
+| IO41 | mute, low = muted | 10 |
+| IO38 | error (input, internal pull-up) | 16 |
+| GND | ground | 6 |
+
+IO6, IO7 and IO8 are the same nets as on `robine_board`: the firmware runs
+unchanged on the board, except the amplifier chip (TAS5825M there).
+
+## 2. Power and speakers
+
+<Wiring
+  width={730}
+  height={250}
+  alt="Power supply to the InnoMaker amplifier, and the amplifier to two speakers"
+  caption="Bridged outputs: the − of a speaker goes to the amplifier's − terminal, never to GND."
+  parts={[
+    { id: "psu", title: "Power supply", sub: "regulated · ≥ 4 A · not 24 V", x: 0, y: 30, w: 190,
+      pins: [{ id: "p", label: "+ (centre)", side: "r" }, { id: "n", label: "− (sleeve)", side: "r" }] },
+    { id: "amp", title: "InnoMaker AMP Pro Mini", sub: "MA12070P", x: 290, y: 30, w: 220,
+      pins: [
+        { id: "vin", label: "DC IN +", side: "l" }, { id: "gnd", label: "DC IN −", side: "l" },
+        { id: "lp", label: "LEFT +", side: "r" }, { id: "ln", label: "LEFT −", side: "r" },
+        { id: "rp", label: "RIGHT +", side: "r" }, { id: "rn", label: "RIGHT −", side: "r" },
+      ] },
+    { id: "spk", title: "Speakers", sub: "4–8 Ω", x: 600, y: 30, w: 130,
+      pins: [
+        { id: "lp", label: "L +", side: "l" }, { id: "ln", label: "L −", side: "l" },
+        { id: "rp", label: "R +", side: "l" }, { id: "rn", label: "R −", side: "l" },
+      ] },
+  ]}
+  wires={[
+    { a: "psu.p", b: "amp.vin", kind: "power", label: "+19–20 V DC" },
+    { a: "psu.n", b: "amp.gnd", kind: "gnd", label: "GND" },
+    { a: "amp.lp", b: "spk.lp", kind: "audio", label: "L +" },
+    { a: "amp.ln", b: "spk.ln", kind: "audio", label: "L −" },
+    { a: "amp.rp", b: "spk.rp", kind: "audio", label: "R +" },
+    { a: "amp.rn", b: "spk.rn", kind: "audio", label: "R −" },
+  ]}
+/>
+
+## Checks before the first power-up
+
+1. **Amplifier alone**, powered: SDA and SCL (pins 3 and 5) read 0 V or 3.3 V,
+   **never 5 V**.
+2. Unpowered, with a continuity tester, confirm that pins 8, 10 and 16 go to the
+   MA12070P's enable, mute and error functions. They come from the Linux
+   `merus-amp` overlay and are not confirmed on this board. If one is wrong,
+   leave that wire out and say so: the firmware's polarities are the constants
+   `ENABLE_ACTIVE` and `MUTE_ACTIVE` in `src/amp.rs`.
+3. Keep the volume low on the source for the first sound.
+
+## What the firmware does
+
+- At boot it raises enable, waits 100 ms and reads the amplifier's I²C address
+  `0x20`. **If nothing answers it logs one warning and carries on**: the alarm,
+  Wi-Fi, API and AirPlay control keep running, only without sound. It tries again
+  every 10 s, so the amplifier can be powered later.
+- Once it answers, I²S runs at 44.1 kHz, 32-bit stereo, and the amplifier is
+  unmuted. The amplifier keeps its power-up settings; the volume is applied to
+  the samples.
+- While an alarm rings, a fixed 880 Hz beep replaces AirPlay audio (an alarm
+  must be audible whatever the AirPlay volume says).
+- If the I²S output stalls, it mutes, restarts and checks the amplifier again.
+- The error line is only logged, never acted on: a false error must not mute
+  the alarm.
+
+Expected log line when everything is wired:
+
+```
+amplifier: MA12070P answers at I2C 0x20
+amplifier: I2S running at 44100 Hz, unmuted
+```

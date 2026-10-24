@@ -163,6 +163,25 @@ async fn main(spawner: Spawner) -> ! {
         .with_rx(peripherals.GPIO18)
         .into_async();
 
+    // The amplifier task never panics and retries by itself: a missing
+    // amplifier only means no sound.
+    #[cfg(feature = "esp32s3")]
+    spawner.spawn(
+        robine_esp32::amp::run(robine_esp32::amp::Peripherals {
+            i2s: peripherals.I2S0,
+            dma: peripherals.DMA_CH1,
+            bclk: peripherals.GPIO6,
+            ws: peripherals.GPIO7,
+            dout: peripherals.GPIO8,
+            i2c: peripherals.I2C0,
+            sda: peripherals.GPIO17,
+            scl: peripherals.GPIO18,
+            enable: peripherals.GPIO21,
+            mute: peripherals.GPIO41,
+            error: peripherals.GPIO38,
+        })
+        .unwrap(),
+    );
     spawner.spawn(connection(controller).unwrap());
     spawner.spawn(net_task(runner).unwrap());
     spawner.spawn(ntp_task(stack).unwrap());

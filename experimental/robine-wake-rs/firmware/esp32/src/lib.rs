@@ -5,8 +5,11 @@
 
 extern crate alloc;
 
+#[cfg(feature = "esp32s3")]
+pub mod amp;
 pub mod airplay;
 pub mod app;
+pub mod audio;
 pub mod clock;
 pub mod events;
 pub mod guide_light;

@@ -24,6 +24,7 @@ Step-by-step diagrams:
 
 - [Current setup, Raspberry Pi 3](../wiring-pi3/): amplifier, ESP32 light strip, LoRa button.
 - [Raspberry Pi Zero W](../wiring-pi-zero/): InnoMaker amplifier.
+- [ESP32-S3 + amplifier](../wiring-s3/) (prototype of the all-in-one clock): S3 master, MA12070P over I²S.
 - [Wi-Fi bedside button](../wiring-remote-button/): ESP32 / Heltec, optional external button.
 - [Future board bench](../wiring-bench/) (not the current build): ESP32-S3 + ESP32, amplifier, LoRa and status LED on a breadboard.
 

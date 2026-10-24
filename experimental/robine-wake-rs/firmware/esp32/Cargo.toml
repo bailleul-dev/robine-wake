@@ -111,6 +111,7 @@ critical-section = "1.2.0"
 static_cell      = "2.1.1"
 
 chrono       = { version = "0.4", default-features = false, features = ["alloc"] }
+embassy-futures = "0.1"
 embassy-sync = "0.8.0"
 esp-storage  = "0.10.0"
 edge-mdns        = { version = "0.8.0", default-features = false, features = ["io"] }

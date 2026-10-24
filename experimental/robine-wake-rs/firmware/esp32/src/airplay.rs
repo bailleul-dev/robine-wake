@@ -1,8 +1,9 @@
 //! AirPlay 2 receiver: embassy-net sockets and timing around the
 //! `robine-airplay` core.
 //!
-//! Until the amplifier is wired, the decoded audio is only measured: peak
-//! level, decoding time and frames played on time.
+//! Decoded audio is measured (peak level, decoding time, frames played on
+//! time) and handed to the amplifier through `audio::submit`, which drops it
+//! when no amplifier is running.
 
 use alloc::collections::VecDeque;
 use alloc::string::String;
@@ -134,7 +135,10 @@ impl Airplay {
                     state.reset_stream();
                     state.stream = Some((stream.kind, StreamCipher::new(&stream.key)));
                 }
-                Event::Volume { db } => state.volume_db = *db,
+                Event::Volume { db } => {
+                    state.volume_db = *db;
+                    crate::audio::set_volume_db(*db);
+                }
                 Event::RateAnchor { rate, anchor, timeline } => {
                     if let Some(timeline) = timeline {
                         state.ptp.set_timeline(*timeline);
@@ -287,6 +291,7 @@ pub async fn realtime_task(stack: Stack<'static>, airplay: &'static Airplay) {
         match decoder.decode(&frame, &mut pcm) {
             Ok(_) => {
                 state.stats.decoded(started, &pcm);
+                crate::audio::submit(&pcm);
                 state.stats.realtime_frames += 1;
             }
             Err(_) => state.stats.corrupt += 1,
@@ -382,6 +387,7 @@ pub async fn player_task(airplay: &'static Airplay) {
         match result {
             Ok(_) => {
                 state.stats.decoded(started, &pcm);
+                crate::audio::submit(&pcm);
                 state.stats.buffered_played += 1;
             }
             Err(_) => state.stats.corrupt += 1,
