@@ -36,7 +36,7 @@ AIRPLAYD_DIR := experimental/robine-wake-rs
 AIRPLAYD_TARGET := arm-unknown-linux-musleabihf
 AIRPLAYD := rootfs_overlay/usr/bin/robine-airplayd
 
-.PHONY: site-dev site-build firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
+.PHONY: site-dev site-build site-deploy firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
 
 firmware: airplayd
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
@@ -47,6 +47,12 @@ site-dev:
 
 site-build:
 	cd website && npm install && npm run build
+
+# Cloudflare Pages. Needs CLOUDFLARE_API_TOKEN (Pages: Edit) and
+# CLOUDFLARE_ACCOUNT_ID in .env; the project is created on the first deploy.
+CF_PAGES_PROJECT ?= robine-wake
+site-deploy: site-build
+	@$(WITH_ENV) sh -c 'cd website && npx --yes wrangler@4 pages deploy dist --project-name "$(CF_PAGES_PROJECT)" --branch main --commit-dirty=true'
 
 # Raspberry Pi Zero W (ARMv6). The musl armv6 hard-float airplayd is shared with the Pi 3.
 firmware-rpi0:
