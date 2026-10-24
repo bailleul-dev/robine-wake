@@ -18,6 +18,7 @@ use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::rng::Rng;
+#[cfg(not(feature = "esp32s3"))]
 use esp_hal::uart::{self, Uart};
 use esp_hal::timer::timg::TimerGroup;
 use esp_radio::wifi::sta::StationConfig;
@@ -28,7 +29,9 @@ use robine_api::{Device, Platform, DEFAULT_HTTP_PORT};
 use robine_esp32::airplay::{self, Airplay};
 use robine_esp32::app::{App, RINGING};
 use robine_esp32::store::Store;
-use robine_esp32::{clock, guide_light, http, ntp, serial};
+#[cfg(not(feature = "esp32s3"))]
+use robine_esp32::serial;
+use robine_esp32::{clock, guide_light, http, ntp};
 use static_cell::StaticCell;
 
 extern crate alloc;
@@ -51,15 +54,16 @@ const SOCKETS: usize = HTTP_WORKERS + 3 + 9;
 const NTP_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 
 static PLATFORM: Platform = Platform {
-    target: "esp32",
+    target: if cfg!(feature = "esp32s3") { "esp32s3" } else { "esp32" },
     firmware_version: env!("CARGO_PKG_VERSION"),
     http_port: DEFAULT_HTTP_PORT,
     sounds: robine_api::sounds::BUNDLED,
     // Production rule: only the remote button stops a real alarm.
     remote_dismiss_enabled: false,
     audio_available: false,
-    light: Some("WS2812B strip"),
-    light_pixels: guide_light::PIXELS,
+    // On the S3 the lights belong to the companion ESP32 (UART, not wired yet).
+    light: if cfg!(feature = "esp32s3") { None } else { Some("WS2812B strip") },
+    light_pixels: if cfg!(feature = "esp32s3") { 0 } else { guide_light::PIXELS },
 };
 
 /// Raised by the NTP task when the wall clock is set.
@@ -83,8 +87,25 @@ async fn main(spawner: Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
+    // The S3's DRAM2 is smaller (73 KiB free), but its SRAM is bigger overall.
+    #[cfg(not(feature = "esp32s3"))]
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
+    #[cfg(not(feature = "esp32s3"))]
     esp_alloc::heap_allocator!(size: 48 * 1024);
+    #[cfg(feature = "esp32s3")]
+    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 64 * 1024);
+    #[cfg(feature = "esp32s3")]
+    esp_alloc::heap_allocator!(size: 96 * 1024);
+    // N16R8: the 8 MiB of PSRAM join the heap (buffered AAC needs 90 KiB at once).
+    #[cfg(feature = "esp32s3")]
+    esp_alloc::psram_allocator!(
+        peripherals.PSRAM,
+        esp_hal::psram,
+        esp_hal::psram::PsramConfig {
+            mode: esp_hal::psram::PsramMode::OctalSpi,
+            ..Default::default()
+        }
+    );
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
@@ -124,13 +145,18 @@ async fn main(spawner: Spawner) -> ! {
     static AIRPLAY: StaticCell<Airplay> = StaticCell::new();
     let airplay: &'static Airplay = AIRPLAY.init(Airplay::new(mac, fill_random));
 
-    // Heltec WiFi Kit 32 V1: white LED on GPIO 25.
+    // Heltec WiFi Kit 32 V1: white LED on GPIO 25. DevKitC-1: GPIO 48 (the
+    // board's RGB LED, driven as a plain output).
+    #[cfg(not(feature = "esp32s3"))]
     let led = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
+    #[cfg(feature = "esp32s3")]
+    let led = Output::new(peripherals.GPIO48, Level::Low, OutputConfig::default());
 
-    // WS2812B strip of the breathing guide: data on GPIO 13.
+    // The ESP32 alone drives the WS2812B strip (GPIO 13) and talks to the
+    // Raspberry Pi (UART2, GPIO 17/18). On the S3 both belong to the companion.
+    #[cfg(not(feature = "esp32s3"))]
     let guide = guide_light::strip(peripherals.SPI2, peripherals.DMA_SPI2, peripherals.GPIO13);
-
-    // Link to the Raspberry Pi: UART2, TX on GPIO 17, RX on GPIO 18.
+    #[cfg(not(feature = "esp32s3"))]
     let pi_link = Uart::new(peripherals.UART2, uart::Config::default().with_baudrate(serial::BAUDRATE))
         .expect("UART2")
         .with_tx(peripherals.GPIO17)
@@ -141,8 +167,11 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(net_task(runner).unwrap());
     spawner.spawn(ntp_task(stack).unwrap());
     spawner.spawn(led_task(led).unwrap());
-    spawner.spawn(guide_light::run(guide).unwrap());
-    spawner.spawn(serial::run(pi_link, app).unwrap());
+    #[cfg(not(feature = "esp32s3"))]
+    {
+        spawner.spawn(guide_light::run(guide).unwrap());
+        spawner.spawn(serial::run(pi_link, app).unwrap());
+    }
     for _ in 0..HTTP_WORKERS {
         spawner.spawn(http_task(stack, app).unwrap());
     }

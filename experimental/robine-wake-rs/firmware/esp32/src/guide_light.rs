@@ -16,7 +16,11 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 use esp_hal::gpio::interconnect::PeripheralOutput;
-use esp_hal::peripherals::{DMA_SPI2, SPI2};
+#[cfg(not(feature = "esp32s3"))]
+use esp_hal::peripherals::DMA_SPI2 as DmaChannel;
+#[cfg(feature = "esp32s3")]
+use esp_hal::peripherals::DMA_CH0 as DmaChannel;
+use esp_hal::peripherals::SPI2;
 use esp_hal::spi::master::{Config, Spi, SpiDma};
 use esp_hal::time::Rate;
 use esp_hal::Async;
@@ -41,7 +45,7 @@ pub const PIXELS: usize = 60;
 /// The strip's SPI bus: data on `pin`, no clock pin.
 pub fn strip<'d>(
     spi: SPI2<'d>,
-    dma: DMA_SPI2<'d>,
+    dma: DmaChannel<'d>,
     pin: impl PeripheralOutput<'d>,
 ) -> SpiDma<'d, Async> {
     Spi::new(spi, Config::default().with_frequency(Rate::from_khz(SPI_FREQUENCY_KHZ)))

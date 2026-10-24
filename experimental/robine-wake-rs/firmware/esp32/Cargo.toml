@@ -10,18 +10,61 @@ description  = "Robine Wake firmware for ESP32: alarms, naps and remote button o
 name = "robine-esp32"
 path = "./src/bin/main.rs"
 
+[[bin]]
+name = "strip_probe"
+path = "./src/bin/strip_probe.rs"
+required-features = ["esp32"]
+
+[[bin]]
+name = "breathing_demo"
+path = "./src/bin/breathing_demo.rs"
+required-features = ["esp32"]
+
+[[bin]]
+name = "neopixel_demo"
+path = "./src/bin/neopixel_demo.rs"
+required-features = ["esp32"]
+
+[[bin]]
+name = "pi_light"
+path = "./src/bin/pi_light.rs"
+required-features = ["esp32"]
+
+[[bin]]
+name = "sunset_demo"
+path = "./src/bin/sunset_demo.rs"
+required-features = ["esp32"]
+
+[[bin]]
+name = "dawn_demo"
+path = "./src/bin/dawn_demo.rs"
+required-features = ["esp32"]
+
+[features]
+default = ["esp32"]
+# Heltec WiFi Kit 32 V1 / ESP32 DevKit: xtensa-esp32-none-elf.
+esp32 = [
+  "esp-hal/esp32", "esp-rtos/esp32", "esp-bootloader-esp-idf/esp32", "esp-alloc/esp32",
+  "esp-backtrace/esp32", "esp-println/esp32", "esp-radio/esp32", "esp-storage/esp32",
+]
+# ESP32-S3-DevKitC-1 N16R8: xtensa-esp32s3-none-elf, 8 MiB octal PSRAM as heap.
+esp32s3 = [
+  "esp-hal/esp32s3","esp-rtos/esp32s3", "esp-bootloader-esp-idf/esp32s3",
+  "esp-alloc/esp32s3", "esp-backtrace/esp32s3", "esp-println/esp32s3", "esp-radio/esp32s3",
+  "esp-storage/esp32s3",
+]
+
 [dependencies]
-esp-hal = { version = "~1.2.2", features = ["esp32", "log-04", "unstable"] }
+esp-hal = { version = "~1.2.2", features = ["log-04", "unstable"] }
 
 esp-rtos = { version = "0.4.0", features = [
   "embassy",
   "esp-alloc",
   "esp-radio",
-  "esp32",
   "log-04",
 ] }
 
-esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32", "log-04"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["log-04"] }
 log                    = "0.4.27"
 
 embassy-net = { version = "0.9.1", features = [
@@ -35,19 +78,17 @@ embassy-net = { version = "0.9.1", features = [
 ] }
 embedded-io = "0.7.1"
 embedded-io-async = "0.7.0"
-esp-alloc = { version = "0.11.0", features = ["esp32"] }
+esp-alloc = "0.11.0"
 esp-backtrace = { version = "0.20.0", features = [
-  "esp32",
   "panic-handler",
   "println",
 ] }
-esp-println = { version = "0.18.0", features = ["esp32", "log-04"] }
+esp-println = { version = "0.18.0", features = ["log-04"] }
 # for more networking protocol support see https://crates.io/crates/edge-net
 embassy-executor = { version = "0.10.0", features = ["log"] }
 embassy-time = { version = "0.5.0", features = ["log"] }
 esp-radio = { version = "1.0.0-beta.1", features = [
   "esp-alloc",
-  "esp32",
   "log-04",
   "unstable",
   "wifi",
@@ -71,7 +112,7 @@ static_cell      = "2.1.1"
 
 chrono       = { version = "0.4", default-features = false, features = ["alloc"] }
 embassy-sync = "0.8.0"
-esp-storage  = { version = "0.10.0", features = ["esp32"] }
+esp-storage  = "0.10.0"
 edge-mdns        = { version = "0.8.0", default-features = false, features = ["io"] }
 edge-nal         = "0.7"
 edge-nal-embassy = "0.9"
