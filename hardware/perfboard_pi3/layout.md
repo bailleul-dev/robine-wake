@@ -4,35 +4,35 @@
 
 | Part | Value | Holes (col, row) | Note |
 |---|---|---|---|
-| Pi socket | 1 × 2×20 female header, 2.54 mm | rows 3 and 4, columns 3 to 22 | body under the board, pin 1 at (3, 4) |
-| ESP32 sockets | 2 × 1×15 female header | row 8 and row 17, columns 4 to 18 | pin 1 on the right, USB on the left edge |
-| D1 | Schottky 1N5819 | anode (2, 5), cathode (2, 9) | band on the cathode side |
-| R3 | 330 Ω | (6, 10) and (6, 14) | strip data |
-| J4 | 3-position screw terminal, 5.08 mm | DATA (12, 21), +5V (14, 21), GND (16, 21) | strip and 5 V supply, wires toward the bottom edge |
-| C1 | 1000 µF 10 V radial, 5 mm pitch | + (14, 19), − (16, 19) | long lead is + |
+| Pi socket | 1 × 2×20 female header, 2.54 mm | rows 19 and 20, columns 3 to 22 | body under the board, pin 1 at (3, 20) |
+| ESP32 sockets | 2 × 1×15 female header | row 6 and row 15, columns 4 to 18 | pin 1 on the right, USB on the left edge, antenna end hangs in the air |
+| D1 | Schottky 1N5819 | anode (2, 16), cathode (2, 12) | band on the cathode side |
+| R3 | 330 Ω | (6, 4) and (6, 1) | strip data |
+| J4 | 3-position screw terminal, 5.08 mm | DATA (8, 1), +5V (10, 1), GND (12, 1) | strip and 5 V supply, wires toward the top edge |
+| C1 | 1000 µF 10 V radial, 5 mm pitch | + (10, 3), − (12, 3) | long lead is + |
 
 ## Links (component side)
 
 | # | Joins (component side) | Wire |
 |---|---|---|
-| **L1** 5 V | Pi pin 2 (3, 3) and its feed hole (3, 2) | 12 mm insulated, soldered on the component side |
-| **L2** GND | Pi pin 6 (5, 3) and its feed hole (5, 2) | 12 mm insulated, soldered on the component side |
-| **L3** TXD | Pi pin 8 (6, 3) and its feed hole (6, 2) | 12 mm insulated, soldered on the component side |
-| **L4** RXD | Pi pin 10 (7, 3) and its feed hole (7, 2) | 12 mm insulated, soldered on the component side |
+| **L1** 5 V | Pi pin 2 (3, 19) and its feed hole (3, 18) | 12 mm insulated, soldered on the component side |
+| **L2** GND | Pi pin 6 (5, 19) and its feed hole (5, 18) | 12 mm insulated, soldered on the component side |
+| **L3** TXD | Pi pin 8 (6, 19) and its feed hole (6, 18) | 12 mm insulated, soldered on the component side |
+| **L4** RXD | Pi pin 10 (7, 19) and its feed hole (7, 18) | 12 mm insulated, soldered on the component side |
 
 ## Wires (solder side)
 
 | # | Colour | From (col, row) | To (col, row) | Cut |
 |---|---|---|---|---|
-| **W1** Pi 5 V to the diode | red | feed hole of Pi pin 2 (3, 2) | D1 anode (2, 5) | 40 mm |
-| **W2** diode to the ESP32 VIN | red | D1 cathode (band) (2, 9) | ESP32 VIN (4, 8) | 28 mm |
-| **W3** Pi GND to the ESP32 GND | black | feed hole of Pi pin 6 (5, 2) | ESP32 GND (5, 8) | 61 mm |
-| **W4** Pi TXD to the ESP32 RX (D18) | white | feed hole of Pi pin 8 (6, 2) | ESP32 D18 (12, 17) | 109 mm |
-| **W5** ESP32 TX (TX2) to the Pi RXD | white | ESP32 TX2 (10, 17) | feed hole of Pi pin 10 (7, 2) | 106 mm |
-| **W6** strip data to the resistor | gray | ESP32 D13 (6, 8) | R3 lead 1 (6, 10) | 25 mm |
-| **W7** resistor to the terminal | gray | R3 lead 2 (6, 14) | J4 DATA (12, 21) | 68 mm |
-| **W8** capacitor + to the terminal +5 V | red | C1 + (14, 19) | J4 +5V (14, 21) | 25 mm |
-| **W9** capacitor − to the terminal GND | black | C1 - (16, 19) | J4 GND (16, 21) | 25 mm |
-| **W10** capacitor − (ground) to the ESP32 GND | black | C1 - (16, 19) | ESP32 GND (5, 17) | 53 mm |
+| **W1** Pi 5 V to the diode | red | feed hole of Pi pin 2 (3, 18) | D1 anode (2, 16) | 28 mm |
+| **W2** diode to the ESP32 VIN | red | D1 cathode (band) (2, 12) | ESP32 VIN (4, 6) | 40 mm |
+| **W3** Pi GND to the ESP32 GND | black | feed hole of Pi pin 6 (5, 18) | ESP32 GND (5, 15) | 28 mm |
+| **W4** Pi TXD to the ESP32 RX (D18) | white | feed hole of Pi pin 8 (6, 18) | ESP32 D18 (12, 15) | 43 mm |
+| **W5** ESP32 TX (TX2) to the Pi RXD | white | ESP32 TX2 (10, 15) | feed hole of Pi pin 10 (7, 18) | 35 mm |
+| **W6** strip data to the resistor | gray | ESP32 D13 (6, 6) | R3 lead 1 (6, 4) | 25 mm |
+| **W7** resistor to the terminal | gray | R3 lead 2 (6, 1) | J4 DATA (8, 1) | 25 mm |
+| **W8** capacitor + to the terminal +5 V | red | C1 + (10, 3) | J4 +5V (10, 1) | 25 mm |
+| **W9** capacitor − to the terminal GND | black | C1 - (12, 3) | J4 GND (12, 1) | 25 mm |
+| **W10** capacitor − (ground) to the ESP32 GND | black | C1 - (12, 3) | ESP32 GND (5, 6) | 45 mm |
 
-Total wire: about 0.59 m.
+Total wire: about 0.37 m.

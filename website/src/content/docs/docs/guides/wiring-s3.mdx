@@ -19,18 +19,128 @@ this page; it is described in the [future board bench](../wiring-bench/).
 | ESP32-S3-DevKitC-1 (N16R8) | alarm, Wi-Fi, AirPlay 2, I²S master |
 | InnoMaker HiFi AMP Pro Mini (MA12070P) | I²S slave, I²C `0x20`, 9–24 V |
 | 2 × 2.2 kΩ | I²C pull-ups to 3V3 |
-| WS2812B strip (60 LED), 330 Ω | dawn, sunset, breathing; separate 5 V supply |
+| WS2812B strip (60 LED), 330 Ω | dawn, sunset, breathing; own 5 V supply (mode A) or the shared buck converter (mode B) |
 | Amplifier supply | regulated 19–20 V, ≥ 4 A, 5.5 mm jack |
 | Speakers | 4–8 Ω, **bridged (BTL)** |
 
 :::danger[Rules]
-- Wire with everything **unplugged**. Power the amplifier **last**; never hot-plug its supply.
+- Wire with everything **unplugged**. Power the amplifier **last**; never hot-plug its supply (mode B: one switch on the shared block does that).
+- Choose the [power mode](#two-ways-to-power-it) first: JP4 **on** means **no USB cable**.
 - A speaker "−" is never connected to GND.
 - Never connect the HAT's 5 V pins (2 and 4): it outputs 5 V and would fight the devkit's USB.
 - One common ground between the devkit and the amplifier.
 :::
 
-## Which USB port
+## Two ways to power it
+
+The board is built for **both**. Pick one before you plug anything; the whole
+difference is the **JP4 cap** (and which cables are plugged).
+
+| | **Mode A: three supplies** (development) | **Mode B: single supply** (installed) |
+|---|---|---|
+| Amplifier | its own 19–20 V block | the same 19–20 V block, about 6 A |
+| ESP32-S3 + ESP32 | **USB cable on each devkit** (the S3's UART port, the ESP32's own port) | **no USB cable**: 5 V from the buck converter |
+| Light strip | its own 5 V block, ≥ 3 A, on J4 | the buck converter's 5 V, ≥ 5 A, on J4 |
+| JP4 cap | **off** | **on** |
+| JP3 cap | on (S3's USB powers both) or off (one cable each) | **on** |
+| Flashing, console | yes, over USB | no: flash first, then close JP4 |
+| Switching on | any order, amplifier last | one switch on the 19–20 V block |
+
+:::danger[JP4 and USB never together]
+With JP4 **on** and a USB cable plugged, two 5 V sources are tied together. The
+simulation ([`run.sh`](https://github.com/laibulle/robine-wake/tree/main/hardware/perfboard_s3/spice))
+shows a USB port at 5.25 V giving **1.6 A** (a USB 2 port allows 0.5 A) and one at
+4.75 V taking **0.44 A** back from the converter. **Unplug every USB cable before
+you close JP4, and open JP4 before you plug one.**
+:::
+
+**Mode B, what to buy and where it goes**
+
+- One 19–20 V block of about 120 W (6 A) for everything.
+- A 5 V buck converter, ≥ 5 A (6–8 A leaves room), its input on the same 19–20 V
+  and its output on the **+5V and GND clamps of J4**: the strip, the buffer and
+  both devkits all take their 5 V from there.
+- Simulated with a 10 µH and a 47 µF buck, and with a 47 µH and a 220 µF one,
+  with the S3 Wi-Fi burst, the ESP32 Bluetooth burst and the strip at 3.4 A all at
+  once: the S3's 5 V stays above 4.6 V, its 3V3 above 3.30 V, and the strip data
+  margin stays at 1.6 V. These two bucks are generic, not a specific module: check
+  yours holds 5 V under a 3.4 A step.
+- The amplifier's own 5 V pins (HAT pins 2 and 4) stay unconnected in both modes.
+
+## Minimal flying wires (first prototype)
+
+Just enough to hear the amplifier and the Bluetooth path: **11 jumper wires and
+two 2.2 kΩ resistors**, on a breadboard, before any perfboard. Power it in mode A
+(each devkit on its own USB cable) and the amplifier on its 19–20 V block,
+switched on last.
+
+<Wiring
+  width={860}
+  height={440}
+  alt="Minimal flying wires: the ESP32-S3 to the InnoMaker amplifier on the left, to the Bluetooth ESP32 on the right, with two I2C pull-ups"
+  caption="A pin drawn twice on the S3 is one pin with two wires: split IO6 and IO7 on a breadboard row. All three grounds meet on one rail. Never connect the amplifier's 5 V pins (2 and 4) or its 3V3 pin (1)."
+  parts={[
+    { id: "hat", title: "InnoMaker AMP Pro Mini", sub: "40-pin connector", x: 0, y: 20, w: 190,
+      pins: [
+        { id: "bclk", label: "pin 12 · clock", side: "r" }, { id: "lrclk", label: "pin 35 · frame", side: "r" },
+        { id: "dout", label: "pin 40 · data", side: "r" }, { id: "sda", label: "pin 3 · SDA", side: "r" },
+        { id: "scl", label: "pin 5 · SCL", side: "r" }, { id: "pdn", label: "pin 8 · enable", side: "r" },
+        { id: "gnd", label: "pin 6 · GND", side: "r" },
+      ] },
+    { id: "s3", title: "ESP32-S3-DevKitC-1", sub: "USB on the UART port", x: 330, y: 20, w: 200,
+      pins: [
+        { id: "bclk", label: "IO6", side: "l" }, { id: "lrclk", label: "IO7", side: "l" },
+        { id: "dout", label: "IO8", side: "l" }, { id: "sda", label: "IO17", side: "l" },
+        { id: "scl", label: "IO18", side: "l" }, { id: "pdn", label: "IO21", side: "l" },
+        { id: "gnd", label: "GND", side: "l" },
+        { id: "bclk2", label: "IO6", side: "r" }, { id: "lrclk2", label: "IO7", side: "r" },
+        { id: "bt", label: "IO40", side: "r" }, { id: "gnd2", label: "GND", side: "r" },
+        { id: "sda2", label: "IO17", side: "r" }, { id: "scl2", label: "IO18", side: "r" },
+        { id: "v", label: "3V3", side: "r" },
+      ] },
+    { id: "esp", title: "ESP32 DevKit", sub: "Bluetooth · own USB", x: 670, y: 20, w: 190,
+      pins: [
+        { id: "bclk", label: "D26", side: "l" }, { id: "lrclk", label: "D25", side: "l" },
+        { id: "bt", label: "D22", side: "l" }, { id: "gnd", label: "GND", side: "l" },
+      ] },
+    { id: "pu", title: "Pull-ups", sub: "2 × 2.2 kΩ", x: 670, y: 250, w: 190,
+      pins: [
+        { id: "sda", label: "to SDA", side: "l" }, { id: "scl", label: "to SCL", side: "l" },
+        { id: "v", label: "both to 3V3", side: "l" },
+      ] },
+  ]}
+  wires={[
+    { a: "hat.bclk", b: "s3.bclk", kind: "i2s", label: "I²S BCLK" },
+    { a: "hat.lrclk", b: "s3.lrclk", kind: "i2s", label: "I²S LRCLK" },
+    { a: "hat.dout", b: "s3.dout", kind: "i2s", label: "I²S DATA" },
+    { a: "hat.sda", b: "s3.sda", kind: "i2c", label: "I²C SDA" },
+    { a: "hat.scl", b: "s3.scl", kind: "i2c", label: "I²C SCL" },
+    { a: "hat.pdn", b: "s3.pdn", kind: "signal", label: "enable" },
+    { a: "hat.gnd", b: "s3.gnd", kind: "gnd", label: "GND" },
+    { a: "s3.bclk2", b: "esp.bclk", kind: "i2s", label: "BCLK →" },
+    { a: "s3.lrclk2", b: "esp.lrclk", kind: "i2s", label: "LRCLK →" },
+    { a: "esp.bt", b: "s3.bt", kind: "i2s", label: "← BT audio" },
+    { a: "s3.gnd2", b: "esp.gnd", kind: "gnd", label: "GND" },
+    { a: "s3.sda2", b: "pu.sda", kind: "i2c" },
+    { a: "s3.scl2", b: "pu.scl", kind: "i2c" },
+    { a: "s3.v", b: "pu.v", kind: "3v3" },
+  ]}
+  notes={[
+    { x: 0, y: 330, text: "Amplifier supply: 19–20 V, switched on last." },
+    { x: 0, y: 350, text: "No 5 V link between the devkits:" },
+    { x: 0, y: 368, text: "each one has its own USB cable." },
+    { x: 0, y: 396, text: "Left out for now: mute (IO41), error (IO38)," },
+    { x: 0, y: 414, text: "the strip, the S3 ↔ ESP32 control link." },
+  ]}
+/>
+
+The mute (IO41 → pin 10) and error (IO38 → pin 16) lines are not confirmed on this
+board: if the amplifier stays silent with these wires, add the mute first. The
+S3 ↔ ESP32 control link (UART, EN, IO0) is only needed to command or flash the
+ESP32 from the S3; unplug its RX wire before you use the ESP32's USB serial
+monitor.
+
+## Which USB port (mode A)
 
 The devkit has two USB-C ports. Use the one marked **UART** (WCH serial chip): it
 flashes without touching the BOOT and RESET buttons and carries the log console.
@@ -60,7 +170,7 @@ left (inner row), even pins on the right; pin 1 is the square pad.
 <Wiring
   width={760}
   height={440}
-  alt="ESP32-S3 pins wired to the InnoMaker amplifier connector, with 4.7 kilohm pull-ups on SDA and SCL"
+  alt="ESP32-S3 pins wired to the InnoMaker amplifier connector, with 2.2 kilohm pull-ups on SDA and SCL"
   caption="Two 2.2 kΩ resistors from SDA and from SCL to a 3V3 pin of the devkit. The HAT makes its own 3.3 V: do not join its pin 1 to the devkit."
   parts={[
     { id: "s3", title: "ESP32-S3-DevKitC-1", sub: "U1", x: 0, y: 20, w: 220,
@@ -154,7 +264,7 @@ unchanged on the board, except the amplifier chip (TAS5825M there).
   width={730}
   height={230}
   alt="ESP32-S3 IO9 through a 330 ohm resistor to the strip data input, strip powered by a separate 5 volt supply, grounds joined"
-  caption="The strip has its own 5 V supply. Its ground must be joined to the devkit's ground, or the data signal gets garbled."
+  caption="Mode A: the strip has its own 5 V supply (in mode B this is the buck converter). Its ground must be joined to the devkit's ground, or the data signal gets garbled."
   parts={[
     { id: "s3", title: "ESP32-S3-DevKitC-1", x: 0, y: 20, w: 190,
       pins: [{ id: "d", label: "IO9", side: "r" }, { id: "g", label: "GND", side: "r" }] },

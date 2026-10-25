@@ -75,6 +75,7 @@ def E32(name, nth=0):
 R1 = ((30, 20), (30, 24))   # 2.2 kOhm, SDA pull-up: lead 1 to 3V3, lead 2 to SDA
 R2 = ((32, 20), (32, 24))   # 2.2 kOhm, SCL pull-up
 JP3 = ((52, 16), (53, 16))  # ESP32 5 V from the S3, jumper cap (open it to power the ESP32 by its own USB)
+JP4 = ((53, 26), (54, 26))  # single-supply link: strip 5 V rail to the S3 5 V, jumper cap (open it whenever a USB cable is plugged)
 JP1 = ((41, 16), (42, 16))  # UART S3 TX -> ESP32 RX, jumper cap
 JP2 = ((44, 16), (45, 16))  # UART ESP32 TX -> S3 RX, jumper cap
 R3 = ((38, 25), (38, 29))   # 330 Ohm, strip data
@@ -128,6 +129,9 @@ WIRES = [
     ("W29", U1["VCC"], C2["VCC"], "red", "buffer supply to C2"),
     ("W30", C2["VCC"], J4["+5V"], "red", "C2 to the terminal +5 V"),
     ("W31", U1["OE"], U1["GND"], "black", "buffer output enable to ground"),
+    # Single supply: the strip's 5 V also feeds both devkits, through a jumper
+    ("W32", C2["VCC"], JP4[0], "red", "5 V rail to the single-supply jumper"),
+    ("W33", JP4[1], JP3[0], "red", "jumper to the S3 5 V (same node as JP3 lead 1)"),
 ]
 # Wires that do not follow the default routing.
 ROUTES = {
@@ -137,6 +141,8 @@ ROUTES = {
     "W29": [(49, 25), (49, 27)],
     "W30": [(50, 30), (36, 30)],
     "W31": [(44, 25), (44, 27)],
+    "W32": [(53, 27)],
+    "W33": [(54, 17), (52, 17)],
 }
 WIRES = [(f"W{i + 1}", *w[1:]) for i, w in enumerate(WIRES)]
 
@@ -171,7 +177,7 @@ def occupied():
     for p in range(1, 41):
         if p not in (2, 4):  # pins 2 and 4 (5 V) are removed from the header
             put(hat(p), f"HAT {p}")
-    for name, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP3", JP3), ("JP1", JP1), ("JP2", JP2)):
+    for name, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP3", JP3), ("JP4", JP4), ("JP1", JP1), ("JP2", JP2)):
         put(pair[0], f"{name}.1")
         put(pair[1], f"{name}.2")
     for k, v in U1.items():
@@ -347,6 +353,7 @@ def render(mirror, wires=(), gnd=False, title="", highlight_all=False):
     part(R2, "#e8c08a", "R2 2.2k", left=mirror)
     part(R3, "#e8c08a", "R3 330")
     part(JP3, "#222", "JP3", vertical=False)
+    part(JP4, "#222", "JP4", vertical=False)
     box(44.6, 24.4, 48.4, 27.6, "#e4e4e4", "#555", None)
     for name, h in U1.items():
         pad(h, "#fff", name if name != "NC" else None, size=3.6, dy=-6)
@@ -404,7 +411,7 @@ def hole_names():
         names[e32("J2", i)] = f"ESP32 {E32_J2[i - 1]}"
     for p in range(1, 41):
         names[hat(p)] = f"HAT pin {p}"
-    for n, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP1", JP1), ("JP2", JP2), ("JP3", JP3)):
+    for n, pair in (("R1", R1), ("R2", R2), ("R3", R3), ("JP1", JP1), ("JP2", JP2), ("JP3", JP3), ("JP4", JP4)):
         names[pair[0]] = f"{n} lead 1"; names[pair[1]] = f"{n} lead 2"
     for k, v in U1.items():
         names[v] = f"U1 {k}"
@@ -446,6 +453,7 @@ def parts_table():
         ("R2", "2.2 kΩ", f"({R2[0][0]}, {R2[0][1]}) and ({R2[1][0]}, {R2[1][1]})", "lead 1 = 3V3, lead 2 = SCL"),
         ("R3", "330 Ω", f"({R3[0][0]}, {R3[0][1]}) and ({R3[1][0]}, {R3[1][1]})", "strip data"),
         ("JP3", "1×2 male header + jumper cap", f"({JP3[0][0]}, {JP3[0][1]}) and ({JP3[1][0]}, {JP3[1][1]})", "5 V of the ESP32; remove the cap to power it by its own USB"),
+        ("JP4", "1×2 male header + jumper cap", f"({JP4[0][0]}, {JP4[0][1]}) and ({JP4[1][0]}, {JP4[1][1]})", "power mode: **cap off = mode A** (three supplies, USB on each devkit), **cap on = mode B** (single supply, no USB cable at all)"),
         ("U1", "74AHCT1G125 on a SOT23-6 to DIP-6 adapter", f"OE ({U1['OE'][0]}, {U1['OE'][1]}), A ({U1['A'][0]}, {U1['A'][1]}), GND ({U1['GND'][0]}, {U1['GND'][1]}), Y ({U1['Y'][0]}, {U1['Y'][1]}), VCC ({U1['VCC'][0]}, {U1['VCC'][1]})", "adapter pin 5 stays free; pins 1-3 on the left column"),
         ("C2", "100 nF ceramic", f"VCC ({C2['VCC'][0]}, {C2['VCC'][1]}), GND ({C2['GND'][0]}, {C2['GND'][1]})", "buffer supply decoupling"),
         ("JP1, JP2", "2 × 1×2 male header + jumper caps", f"JP1 ({JP1[0][0]}, {JP1[0][1]}) ({JP1[1][0]}, {JP1[1][1]}), JP2 ({JP2[0][0]}, {JP2[0][1]}) ({JP2[1][0]}, {JP2[1][1]})", "UART link, remove to use the ESP32's own USB console"),
@@ -472,7 +480,7 @@ STEPS = {
     "step1-ground": (range(10, 12), True, "Step 1: GND bus, pull-up resistors and the 3V3 wire"),
     "step2-amplifier": (range(0, 10), False, "Step 2: amplifier (I2S, I2C, enable, mute, error)"),
     "step3-bluetooth": (range(12, 23), False, "Step 3: Bluetooth ESP32 (I2S, UART, reset, boot, 5 V)"),
-    "step4-strip": (range(23, 31), True, "Step 4: light strip (buffer, data, terminal, capacitor)"),
+    "step4-strip": (range(23, 33), True, "Step 4: light strip (buffer, data, terminal, capacitor, JP4)"),
 }
 
 if __name__ == "__main__":

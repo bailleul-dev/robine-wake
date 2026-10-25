@@ -11,6 +11,7 @@
 | R2 | 2.2 kΩ | (32, 20) and (32, 24) | lead 1 = 3V3, lead 2 = SCL |
 | R3 | 330 Ω | (38, 25) and (38, 29) | strip data |
 | JP3 | 1×2 male header + jumper cap | (52, 16) and (53, 16) | 5 V of the ESP32; remove the cap to power it by its own USB |
+| JP4 | 1×2 male header + jumper cap | (53, 26) and (54, 26) | power mode: **cap off = mode A** (three supplies, USB on each devkit), **cap on = mode B** (single supply, no USB cable at all) |
 | U1 | 74AHCT1G125 on a SOT23-6 to DIP-6 adapter | OE (45, 25), A (45, 26), GND (45, 27), Y (48, 27), VCC (48, 25) | adapter pin 5 stays free; pins 1-3 on the left column |
 | C2 | 100 nF ceramic | VCC (50, 27), GND (50, 25) | buffer supply decoupling |
 | JP1, JP2 | 2 × 1×2 male header + jumper caps | JP1 (41, 16) (42, 16), JP2 (44, 16) (45, 16) | UART link, remove to use the ESP32's own USB console |
@@ -53,6 +54,8 @@
 | **W29** buffer supply to C2 | red | U1 VCC (48, 25) | C2 VCC (50, 27) | direct | 30 mm |
 | **W30** C2 to the terminal +5 V | red | C2 VCC (50, 27) | J4 +5V (36, 31) | direct | 66 mm |
 | **W31** buffer output enable to ground | black | U1 OE (45, 25) | U1 GND (45, 27) | direct | 30 mm |
+| **W32** 5 V rail to the single-supply jumper | red | C2 VCC (50, 27) | JP4 lead 1 (53, 26) | direct | 30 mm |
+| **W33** jumper to the S3 5 V (same node as JP3 lead 1) | red | JP4 lead 2 (54, 26) | JP3 lead 1 (52, 16) | row 17 | 50 mm |
 
 ## Ground taps
 
@@ -65,4 +68,4 @@
 | **G5** | buffer OE (45, 25) | (45, 18) | 38 mm |
 | **G6** | C2 ground lead (50, 25) | (50, 18) | 38 mm |
 
-Total insulated wire: about 2.7 m.
+Total insulated wire: about 2.8 m.

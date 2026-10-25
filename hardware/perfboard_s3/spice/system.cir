@@ -10,9 +10,16 @@
 * pull-ups (rise 998 ns -> 474 ns, the 100 kHz limit is 1000 ns). On a weak
 * USB port (4.6 V, 1 ohm) D1 drops the ESP32 3V3 to 2.86 V; the jumper keeps 3.29 V.
 *
+* SINGLE=1 one 5 V source for everything: the strip supply (J4) also feeds the S3 5V0
+* through a link (JP4); the USB source is cut off (the runner sets VUSB=0, RUSB=1G).
+* BUCK=0 ideal 5 V source on J4. BUCK=1 or 2: a 19.5 V -> 5 V buck (current-mode with an
+* outer PI loop, hysteretic switch, Schottky freewheel): 1 = slow, 47 uH / 220 uF (about 80 kHz),
+* 2 = fast, 10 uH / 47 uF ceramic (about 600 kHz). Parameters are generic, not a particular module.
 * Variants (the runner rewrites the next line):
 * USE_D1=1 diode, 0 jumper, 2 the ESP32 has its own USB cable (no link to the S3)
-.param USE_D1=0 USE_BUF=1 I_STRIP=3.4 VUSB=5.0 RUSB=0.4 R3V=330 R1V=2.2k
+.param USE_D1=0 USE_BUF=1 I_STRIP=3.4 VUSB=5.0 RUSB=0.4 R3V=330 R1V=2.2k SINGLE=0 BUCK=0
+* Buck defaults (slow); the runner overrides them with the values of each buck.
+.param LB=47u CB=220u ESRB=80m HY=0.5 KP=6.9 KI=4.3e4
 
 .model D1N5819 D(IS=1u RS=0.04 N=1.3 CJO=110p M=0.35 VJ=0.4 BV=40 IBV=1m)
 
@@ -28,6 +35,10 @@ Bq3 v5 jg I=i(Vs3)
 C3 s33 jg 10u
 * S3: 100 mA idle, 350 mA Wi-Fi / AirPlay burst from 0.9 ms to 1.1 ms.
 Is3 s33 jg PWL(0 0.1 0.9m 0.1 0.9001m 0.35 1.1m 0.35 1.1001m 0.1 1.3m 0.1)
+
+.if (SINGLE==1)
+Rlnk j5v v5 0.05
+.endif
 
 * ESP32 devkit supply: through D1, a jumper, or its own USB.
 .if (USE_D1==1)
@@ -57,7 +68,28 @@ Vpul pul 0 PULSE(0 1 1.02m 5n 5n 0.8u 1.25u)
 Bdrv drv jg V=v(pul)*(v(s33)-v(jg))+v(jg)
 Rdrv drv gpio 40
 * Strip supply: external 5 V, 30 mohm to J4, C1 1000 uF with 30 mohm ESR.
+.if (BUCK==0)
 Vsup sup 0 5
+.else
+* 19.5 V from the amplifier supply: 0.1 ohm of wire, 100 uF at the buck input.
+Vin vin 0 19.5
+Rin vin vi 0.1
+Cin vi 0 100u
+Ssw vi sw ctl 0 swm
+.model swm sw(ron=0.05 roff=1meg vt=0 vh={HY})
+Dfw 0 sw D1N5819
+Lb sw lx {LB}
+Rdcr lx sup 0.02
+Cob sup cesr {CB}
+Resrb cesr 0 {ESRB}
+* Outer loop: PI on the 5 V error sets the inductor current target, the switch holds it +/- HY.
+Bctl ctl 0 V=max(0,min(8,{KP}*(5-v(sup))+v(integ)))-i(Lb)-10*(time<=0)
+Bint 0 integ I={KI}*(5-v(sup))
+Cint integ 0 1
+* DC operating point only: precharge the output so the switch can start from rest.
+Bpre 0 sup I=(5-v(sup))*(time<=0)
+.ic v(integ)=0.6
+.endif
 Rsup sup j5v 0.03
 Rsg jg 0 0.03
 C1 j5v c1 1000u
@@ -91,6 +123,11 @@ meas tran e5_min MIN v(pe5) from=0.5m to=1.3m
 meas tran s33_min MIN v(ps33) from=0.5m to=1.3m
 meas tran e33_min MIN v(pe33) from=0.5m to=1.3m
 meas tran iusb_max MIN i(Vusb) from=0.5m to=1.3m
+meas tran iusb_in MAX i(Vusb) from=0.5m to=1.3m
+meas tran vdd_min MIN v(pvdd) from=0.5m to=1.3m
+meas tran vdd_max MAX v(pvdd) from=0.5m to=1.3m
+meas tran sup_min MIN v(sup) from=0.5m to=1.3m
+meas tran sup_max MAX v(sup) from=0.5m to=1.3m
 meas tran vdd FIND v(pvdd) AT=1.0204m
 meas tran dinhi FIND v(pdin) AT=1.0204m
 meas tran width TRIG v(pdin) VAL=3.2 RISE=1 TD=1.0199m TARG v(pdin) VAL=3.2 FALL=1 TD=1.0199m

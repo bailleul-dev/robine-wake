@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Perfboard HAT for the Raspberry Pi 3: the light ESP32 and the strip connector.
 
-The board is HAT sized (65 x 56 mm, 25 x 22 holes), plugs on top of the
-HiFiBerry Amp2 and carries the 30-pin ESP32 devkit that runs `pi_light`, a
-diode for its 5 V, the strip data resistor, the strip terminal and a
-capacitor. One source of truth: running this checks the layout (no hole used
+The board (65 x 51 mm, 25 x 20 holes) plugs on the 40 pins of the HiFiBerry
+Amp2 by a narrow strip along the header only: the Amp2 has components too tall
+for a full-size HAT. The rest of the board hangs beyond the edge of the Pi, in
+the air, and carries the 30-pin ESP32 devkit that runs `pi_light`, a diode for
+its 5 V, the strip data resistor, the strip terminal and a capacitor. One source of truth: running this checks the layout (no hole used
 twice, every wire end on a real hole) and writes
 
   website/src/assets/perfboard-pi3/*.svg
@@ -13,14 +14,16 @@ twice, every wire end on a real hole) and writes
 
 Holes are (column, row), column 1 at the left edge and row 1 at the top edge
 of the board seen from the component side, 2.54 mm pitch. The 2x20 socket
-hangs under the board and is soldered from the component side: its pins are
-on the component side, its body on the solder side, where the wires run.
+hangs under the board, along the bottom edge, and is soldered from the
+component side: its pins are on the component side, its body on the solder
+side, where the wires run. The Pi's outer row (even pins) is the upper one, so
+the four pins used all face the part of the board that hangs in the air.
 """
 
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-COLS, ROWS = 25, 22
+COLS, ROWS = 25, 20
 
 # ESP32 DevKit 30 pins (CP2102): pin names in header order, pin 1 first.
 E32_LEFT = ["EN", "VP", "VN", "D34", "D35", "D32", "D33", "D25", "D26", "D27", "D14", "D12",
@@ -30,9 +33,10 @@ E32_RIGHT = ["D23", "D22", "TX0", "RX0", "D21", "D19", "D18", "D5", "TX2", "RX2"
 
 # Turned so that the USB port faces the left edge (the SD card side of the Pi)
 # and the antenna faces the middle of the board.
-E32_ROW_LEFT, E32_ROW_RIGHT = 8, 17     # rows 9 holes apart = 22.86 mm
+E32_ROW_LEFT, E32_ROW_RIGHT = 6, 15     # rows 9 holes apart = 22.86 mm
 E32_PIN15_X = 4                         # the USB end; pin n is at column 19 - n
-HAT_X0, HAT_EVEN_ROW, HAT_ODD_ROW = 3, 3, 4   # Pi header, pin 1 at (3, 4)
+HAT_X0, HAT_EVEN_ROW, HAT_ODD_ROW = 3, 19, 20   # Pi header, pin 1 at (3, 20)
+PI_EDGE_ROW = 17.6                              # edge of the Pi (3.5 mm above the outer row)
 
 
 def e32(side, pin):
@@ -56,15 +60,14 @@ def pi(pin):
 
 # Feed-through holes: the socket body covers the pads of its two rows on the
 # solder side, so each header pin used is linked on the component side to a
-# free hole just above the body (row 2), from where the wire escapes along
-# row 1 and round the left end of the body.
-FEED = {2: (3, 2), 6: (5, 2), 8: (6, 2), 10: (7, 2)}
-BODY = [(x, y) for x in range(3, 23) for y in (3, 4)]   # socket body, solder side
+# free hole just above the body (row 18), from where the wire goes straight up.
+FEED = {2: (3, 18), 6: (5, 18), 8: (6, 18), 10: (7, 18)}
+BODY = [(x, y) for x in range(3, 23) for y in (HAT_EVEN_ROW, HAT_ODD_ROW)]   # socket body, solder side
 
-D1 = ((2, 5), (2, 9))        # Schottky 1N5819, anode (2, 5), cathode band (2, 9)
-R3 = ((6, 10), (6, 14))      # 330 Ohm, strip data, under the devkit
-J4 = {"DATA": (12, 21), "+5V": (14, 21), "GND": (16, 21)}   # 5.08 mm screw terminal
-C1 = {"+": (14, 19), "-": (16, 19)}                          # 1000 uF radial, 5 mm
+D1 = ((2, 16), (2, 12))      # Schottky 1N5819, anode (2, 16), cathode band (2, 12)
+R3 = ((6, 4), (6, 1))        # 330 Ohm, strip data, above the devkit
+J4 = {"DATA": (8, 1), "+5V": (10, 1), "GND": (12, 1)}   # 5.08 mm screw terminal, top edge
+C1 = {"+": (10, 3), "-": (12, 3)}                        # 1000 uF radial, 5 mm
 
 # Links on the component side: header pin pad to its feed-through hole.
 LINKS = [(f"L{i + 1}", pi(p), FEED[p], role) for i, (p, role) in enumerate(
@@ -74,32 +77,33 @@ LINKS = [(f"L{i + 1}", pi(p), FEED[p], role) for i, (p, role) in enumerate(
 WIRES = [
     ("W1", FEED[2], D1[0], "red", "Pi 5 V to the diode"),
     ("W2", D1[1], E32("VIN"), "red", "diode to the ESP32 VIN"),
-    ("W3", FEED[6], E32("GND", 0), "black", "Pi GND to the ESP32 GND"),
+    ("W3", FEED[6], e32("R", 14), "black", "Pi GND to the ESP32 GND"),
     ("W4", FEED[8], E32("D18"), "white", "Pi TXD to the ESP32 RX (D18)"),
     ("W5", E32("TX2"), FEED[10], "white", "ESP32 TX (TX2) to the Pi RXD"),
     ("W6", E32("D13"), R3[0], "gray", "strip data to the resistor"),
     ("W7", R3[1], J4["DATA"], "gray", "resistor to the terminal"),
     ("W8", C1["+"], J4["+5V"], "red", "capacitor + to the terminal +5 V"),
     ("W9", C1["-"], J4["GND"], "black", "capacitor − to the terminal GND"),
-    ("W10", C1["-"], e32("R", 14), "black", "capacitor − (ground) to the ESP32 GND"),
+    ("W10", C1["-"], e32("L", 14), "black", "capacitor − (ground) to the ESP32 GND"),
 ]
-# Corners of each path. Wires leave the feed holes by row 1 and go round the left
-# end of the socket body by column 1; rows 6, 7, 9 to 16 and 18 and columns 1 to 3
-# carry no pad, so wires cross nothing there.
+# Corners of each path. Every wire runs in the rows between the header and the
+# devkit (16 to 18) or in the rows above it (1 to 5), or down the free columns
+# 1 to 3 on the left: nothing runs over a pad or under the socket body. W4 and W5
+# cross at (10, 16) (W4 and W5) and at (6, 5) (W10 over W6): insulated wires lie
+# one over the other.
 ROUTES = {
-    "W1": [(3, 1), (1, 1), (1, 5)],
-    "W2": [(2, 9), (4, 9)],
-    "W3": [(5, 1), (1, 1), (1, 6), (5, 6)],
-    "W4": [(6, 1), (1, 1), (1, 18), (12, 18)],
-    "W5": [(10, 18), (1, 18), (1, 1), (7, 1)],
+    "W1": [(3, 16)],
+    "W2": [(2, 6), (3, 6)],
+    "W3": [],
+    "W4": [(6, 16), (12, 16)],
+    "W5": [(10, 17), (7, 17)],
     "W6": [],
-    "W7": [(3, 14), (3, 21)],
+    "W7": [],
     "W8": [],
     "W9": [],
-    "W10": [(16, 18), (5, 18)],
+    "W10": [(12, 5), (5, 5)],
 }
-# Wires that share a corridor are drawn side by side (insulated wire lies like that).
-LANES = {"W1": 0, "W3": 1, "W4": 2, "W5": 3, "W10": 1}
+LANES = {}
 LANE_PX = 5
 
 
@@ -157,6 +161,7 @@ def check():
                 if hole in holes and hole not in (a, b) and holes[hole] != holes.get(a) and holes[hole] != holes.get(b):
                     raise AssertionError(f"{wid} runs over {holes[hole]} at {hole}")
     assert E32("D18") == e32("R", 7) and E32("TX2") == e32("R", 9)
+    assert pi(2)[1] == pi(6)[1] == pi(8)[1] == pi(10)[1] == HAT_EVEN_ROW, "the four pins used are on the outer row"
     assert E32("VIN") == e32("L", 15) and E32("D13") == e32("L", 13)
     return holes
 
@@ -217,11 +222,11 @@ def link_table():
 
 def parts_table():
     rows = [
-        ("Pi socket", "1 × 2×20 female header, 2.54 mm", f"rows {HAT_EVEN_ROW} and {HAT_ODD_ROW}, columns {HAT_X0} to {HAT_X0 + 19}", "body under the board, pin 1 at (3, 4)"),
-        ("ESP32 sockets", "2 × 1×15 female header", f"row {E32_ROW_LEFT} and row {E32_ROW_RIGHT}, columns 4 to 18", "pin 1 on the right, USB on the left edge"),
+        ("Pi socket", "1 × 2×20 female header, 2.54 mm", f"rows {HAT_EVEN_ROW} and {HAT_ODD_ROW}, columns {HAT_X0} to {HAT_X0 + 19}", f"body under the board, pin 1 at ({pi(1)[0]}, {pi(1)[1]})"),
+        ("ESP32 sockets", "2 × 1×15 female header", f"row {E32_ROW_LEFT} and row {E32_ROW_RIGHT}, columns 4 to 18", "pin 1 on the right, USB on the left edge, antenna end hangs in the air"),
         ("D1", "Schottky 1N5819", f"anode ({D1[0][0]}, {D1[0][1]}), cathode ({D1[1][0]}, {D1[1][1]})", "band on the cathode side"),
         ("R3", "330 Ω", f"({R3[0][0]}, {R3[0][1]}) and ({R3[1][0]}, {R3[1][1]})", "strip data"),
-        ("J4", "3-position screw terminal, 5.08 mm", f"DATA ({J4['DATA'][0]}, {J4['DATA'][1]}), +5V ({J4['+5V'][0]}, {J4['+5V'][1]}), GND ({J4['GND'][0]}, {J4['GND'][1]})", "strip and 5 V supply, wires toward the bottom edge"),
+        ("J4", "3-position screw terminal, 5.08 mm", f"DATA ({J4['DATA'][0]}, {J4['DATA'][1]}), +5V ({J4['+5V'][0]}, {J4['+5V'][1]}), GND ({J4['GND'][0]}, {J4['GND'][1]})", "strip and 5 V supply, wires toward the top edge"),
         ("C1", "1000 µF 10 V radial, 5 mm pitch", f"+ ({C1['+'][0]}, {C1['+'][1]}), − ({C1['-'][0]}, {C1['-'][1]})", "long lead is +"),
     ]
     out = ["| Part | Value | Holes (col, row) | Note |", "|---|---|---|---|"]
@@ -245,7 +250,7 @@ STEP, MARGIN = 26, 34
 
 def render(mirror, wires=(), links=False, title="", highlight_all=False):
     width = COLS * STEP + 2 * MARGIN
-    height = ROWS * STEP + 2 * MARGIN + 60
+    height = ROWS * STEP + 2 * MARGIN + 80
 
     def px(h):
         x = (COLS + 1 - h[0]) if mirror else h[0]
@@ -270,9 +275,15 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
             tx, ty = px((lx, ly))
             o.append(f'<text x="{tx}" y="{ty}" font-size="12" fill="#333" text-anchor="middle">{label}</text>')
 
-    box(1.5, 7.5, 22.3, 17.5, "#fde9d2", "#d9822b", "ESP32 DevKit 30 pins (CP2102)", lx=14, ly=12.5)
-    box(19.9, 7.5, 22.3, 17.5, "#f6c6c6", "#c0392b", None, dash=True)
-    box(2.5, 2.5, 22.5, 4.5, "#dfe3ea", "#6b7684", None, dash=True)  # socket body, underneath
+    box(1.5, E32_ROW_LEFT - 0.5, 22.3, E32_ROW_RIGHT + 0.5, "#fde9d2", "#d9822b", "ESP32 DevKit 30 pins (CP2102)", lx=14, ly=10.5)
+    box(19.9, E32_ROW_LEFT - 0.5, 22.3, E32_ROW_RIGHT + 0.5, "#f6c6c6", "#c0392b", None, dash=True)
+    box(HAT_X0 - 0.5, HAT_EVEN_ROW - 0.5, HAT_X0 + 19.5, HAT_ODD_ROW + 0.5, "#dfe3ea", "#6b7684", None, dash=True)  # socket body, underneath
+
+    ex0, ey = px((0.5, PI_EDGE_ROW))
+    ex1, _ = px((COLS + 0.5, PI_EDGE_ROW))
+    o.append(f'<line x1="{ex0:.1f}" y1="{ey:.1f}" x2="{ex1:.1f}" y2="{ey:.1f}" stroke="#444" stroke-width="2" stroke-dasharray="10 5"/>')
+    o.append(f'<text x="{(ex0 + ex1) / 2:.1f}" y="{ey - 6:.1f}" font-size="11" fill="#444" text-anchor="middle">'
+             f'edge of the Pi and the Amp2: above this line the board hangs in the air</text>')
 
     for yy in range(1, ROWS + 1):
         for xx in range(1, COLS + 1):
@@ -334,12 +345,12 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
     part(R3, "#e8c08a", "R3 330")
     for name, hole in J4.items():
         pad(hole, "#2a9d8f", name, size=7, dy=-12)
-    tx, ty = px((14, 22.1))
-    o.append(f'<text x="{tx}" y="{ty + 8}" font-size="11" fill="#1f6f66" text-anchor="middle">J4 screw terminal 5.08 mm (wires leave by the bottom edge)</text>')
+    tx, ty = px((14, 1))
+    o.append(f'<text x="{tx}" y="{ty + 4}" font-size="11" fill="#1f6f66" text-anchor="{"end" if mirror else "start"}">J4 screw terminal 5.08 mm (wires leave by the top edge)</text>')
     for name, hole in C1.items():
         pad(hole, "#fff", name, size=6, dy=-10)
-    tx, ty = px((18, 19))
-    o.append(f'<text x="{tx}" y="{ty + 4}" font-size="11" fill="#222" text-anchor="start">C1 1000 µF</text>')
+    tx, ty = px((14, 3))
+    o.append(f'<text x="{tx}" y="{ty + 4}" font-size="11" fill="#222" text-anchor="{"end" if mirror else "start"}">C1 1000 µF</text>')
 
     dash = "" if mirror else 'stroke-dasharray="6 4" '
     for index, (wid, points, colour, _) in enumerate(routed()):
@@ -348,7 +359,7 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
         k = LANES.get(wid, 0) * LANE_PX * (-1 if mirror else 1)
         pts = [px(p) for p in points]
         # push the corners (not the ends) of the path into their lane
-        pts = [pts[0], *[(x + k, y + abs(k)) for x, y in pts[1:-1]], pts[-1]] if wid != "W10" else pts
+        pts = [pts[0], *[(x + k, y + abs(k)) for x, y in pts[1:-1]], pts[-1]] if k else pts
         coords = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         o.append(f'<polyline points="{coords}" fill="none" stroke="{COLOURS[colour]}" stroke-width="3" {dash}opacity="0.92" stroke-linejoin="round"/>')
         seg = max(zip(pts, pts[1:]), key=lambda s: abs(s[0][0] - s[1][0]) + abs(s[0][1] - s[1][1]))
@@ -365,7 +376,9 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
     side = "SOLDER SIDE (flipped), columns count down" if mirror else "COMPONENT SIDE"
     o.append(f'<text x="{MARGIN}" y="{ly + 8}" font-size="14" font-weight="700" fill="#222">{title}</text>')
     o.append(f'<text x="{MARGIN}" y="{ly + 30}" font-size="12" fill="#333">{side} · hole = 2.54 mm · '
-             f'red hatched = antenna zone, keep it free · grey dashed = Pi socket body (solder side)</text>')
+             f'red hatched = antenna zone, keep it free</text>')
+    o.append(f'<text x="{MARGIN}" y="{ly + 48}" font-size="12" fill="#333">grey dashed = Pi socket body (solder side) · '
+             f'dashed line = edge of the Pi</text>')
     o.append("</svg>")
     return "\n".join(o)
 

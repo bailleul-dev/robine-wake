@@ -2208,6 +2208,11 @@
 <circle cx="121.0" cy="247.0" r="4.2" fill="#fff" stroke="#222" stroke-width="0.8"/>
 <circle cx="107.0" cy="247.0" r="4.2" fill="#fff" stroke="#222" stroke-width="0.8"/>
 <text x="114.0" y="267.0" font-size="10" fill="#222" text-anchor="middle">JP3</text>
+<line x1="107.0" y1="387.0" x2="93.0" y2="387.0" stroke="#444" stroke-width="7" stroke-linecap="round"/>
+<line x1="107.0" y1="387.0" x2="93.0" y2="387.0" stroke="#222" stroke-width="4" stroke-linecap="round"/>
+<circle cx="107.0" cy="387.0" r="4.2" fill="#fff" stroke="#222" stroke-width="0.8"/>
+<circle cx="93.0" cy="387.0" r="4.2" fill="#fff" stroke="#222" stroke-width="0.8"/>
+<text x="100.0" y="407.0" font-size="10" fill="#222" text-anchor="middle">JP4</text>
 <rect x="171.40000000000003" y="364.59999999999997" width="53.19999999999993" height="44.80000000000007" fill="#e4e4e4" stroke="#555" stroke-width="1.5" opacity="0.45"/>
 <circle cx="219.0" cy="373.0" r="3.6" fill="#fff" stroke="#222" stroke-width="0.8"/>
 <text x="219.0" y="367.0" font-size="8" fill="#222" text-anchor="middle">OE</text>
@@ -2264,6 +2269,10 @@
 <text x="247.0" y="445.6" font-size="9" font-weight="600" fill="#d62f2f" stroke="#fff" stroke-width="2.5" paint-order="stroke" text-anchor="middle">W30</text>
 <polyline points="219.0,373.0 233.0,367.4 233.0,395.4 219.0,401.0" fill="none" stroke="#111111" stroke-width="2.2" opacity="0.9" stroke-linejoin="round"/>
 <text x="233.0" y="378.4" font-size="9" font-weight="600" fill="#111111" stroke="#fff" stroke-width="2.5" paint-order="stroke" text-anchor="middle">W31</text>
+<polyline points="149.0,401.0 107.0,401.0 107.0,387.0" fill="none" stroke="#d62f2f" stroke-width="2.2" opacity="0.9" stroke-linejoin="round"/>
+<text x="128.0" y="398.0" font-size="9" font-weight="600" fill="#d62f2f" stroke="#fff" stroke-width="2.5" paint-order="stroke" text-anchor="middle">W32</text>
+<polyline points="93.0,387.0 93.0,255.4 121.0,255.4 121.0,247.0" fill="none" stroke="#d62f2f" stroke-width="2.2" opacity="0.9" stroke-linejoin="round"/>
+<text x="93.0" y="318.2" font-size="9" font-weight="600" fill="#d62f2f" stroke="#fff" stroke-width="2.5" paint-order="stroke" text-anchor="middle">W33</text>
 <line x1="513.0" y1="205.0" x2="513.0" y2="275.0" stroke="#111" stroke-width="2" />
 <text x="520.0" y="240.0" font-size="9" font-weight="600" fill="#111" stroke="#fff" stroke-width="2.5" paint-order="stroke">G1</text>
 <line x1="135.0" y1="219.0" x2="135.0" y2="275.0" stroke="#111" stroke-width="2" />
@@ -2276,6 +2285,6 @@
 <text x="226.0" y="324.0" font-size="9" font-weight="600" fill="#111" stroke="#fff" stroke-width="2.5" paint-order="stroke">G5</text>
 <line x1="149.0" y1="373.0" x2="149.0" y2="275.0" stroke="#111" stroke-width="2" />
 <text x="156.0" y="324.0" font-size="9" font-weight="600" fill="#111" stroke="#fff" stroke-width="2.5" paint-order="stroke">G6</text>
-<text x="30" y="562" font-size="13" font-weight="700" fill="#222">Step 4: light strip (buffer, data, terminal, capacitor)</text>
+<text x="30" y="562" font-size="13" font-weight="700" fill="#222">Step 4: light strip (buffer, data, terminal, capacitor, JP4)</text>
 <text x="30" y="582" font-size="11" fill="#333">SOLDER SIDE: board flipped left to right, columns count down · hole = 2.54 mm · red hatched = antenna zone, keep it free · × = header pin removed</text>
 </svg>

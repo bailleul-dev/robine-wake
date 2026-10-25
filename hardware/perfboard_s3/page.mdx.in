@@ -32,7 +32,8 @@ tables cannot disagree. Change the script, not the page.
 - The parts of the table below, a soldering iron, flux, a multimeter.
 - **Insulated 30 AWG wire** (wire-wrap or Kynar), about {{TOTAL}} m in total: yellow, green, blue, orange, white, purple, red, gray, black. One colour per role makes the checks easier.
 - **Bare tinned wire**, 0.8 mm, about 12 cm, for the ground bus.
-- A 19–20 V ≥ 4 A supply for the amplifier, and a **separate** 5 V ≥ 3 A supply for the strip.
+- **Mode A (three supplies, development):** a 19–20 V ≥ 4 A supply for the amplifier, a **separate** 5 V ≥ 3 A supply for the strip, and a USB cable per devkit. JP4 cap **off**.
+- **Mode B (single supply, installed):** one 19–20 V block of about 6 A feeds the amplifier and a 5 V ≥ 5 A buck converter on J4, which powers the strip and both devkits. No USB cable, JP4 cap **on**. The [power modes](../wiring-s3/#two-ways-to-power-it) are compared in the wiring guide.
 
 {{PARTS}}
 
@@ -71,7 +72,7 @@ and control wires are short and mostly vertical.
 
 1. **Use the devkits as a jig.** Push the female headers on the devkit pins, drop the whole thing on the board with the pins in the right holes, tack **one pin at each corner** of each header, check that the devkit sits flat and square, then solder the rest.
 2. Do the same for the amplifier's 2×20 header, with the HAT plugged on it. **Pull pins 2 and 4 out of the header first** (pliers, from the plastic).
-3. Solder R1, R2 (2.2 kΩ), R3, C2, the three jumper headers JP1, JP2 and JP3, the screw terminal J4 and C1 (long lead on +), at the holes of the table. Solder the **74AHCT1G125 adapter** (U1): pins 1 to 3 on the left column, pin 5 stays free.
+3. Solder R1, R2 (2.2 kΩ), R3, C2, the four jumper headers JP1, JP2, JP3 and JP4, the screw terminal J4 and C1 (long lead on +), at the holes of the table. Solder the **74AHCT1G125 adapter** (U1): pins 1 to 3 on the left column, pin 5 stays free.
 4. Lay the bare wire **along row 18 from column 7 to column 51** and solder it **only** at the six ground taps (columns 7, 24, 40, 45, 50 and 51). Nothing else may touch row 18.
 
 ## Step 1 — ground bus and 3V3
@@ -114,6 +115,7 @@ R1 and R2 are the I²C pull-ups (2.2 kΩ: the bus rises in about 470 ns, where 4
 - **W16 to W19** are the UART, through the **jumpers JP1 and JP2**. Take both jumper caps off when you use the ESP32's own USB console, since its USB chip drives the same two pins.
 - **W20 and W21** let the S3 reset the ESP32 and put it in boot mode, to reflash it.
 - **W22 and W23** feed the ESP32's 5 V pin from the S3's 5 V pin through the **jumper JP3**: one USB cable powers both devkits. **Take the JP3 cap off** before you plug the ESP32's own USB cable (to flash it), so the two USB ports are never tied together. Use a 5 V supply of at least 1 A: the pair draws about 740 mA at the peak. A diode here would drop the ESP32's 3V3 to 2.86 V on a weak USB port, which is why a jumper is used. Skip W22 and W23 if you prefer one cable per devkit.
+- **W32 and W33** (step 4) are the **single-supply link JP4**: they tie the strip's 5 V rail to the S3's 5 V pin (and, through JP3, to the ESP32's). **Cap off = mode A** (three sources, each devkit on its own USB cable, the strip on its 5 V supply). **Cap on = mode B** (the 5 V buck converter on J4 powers everything) and **no USB cable may be plugged**. Simulated with a USB port left plugged and the cap on, the port gave up to 1.6 A at 5.25 V and took back up to 0.44 A at 4.75 V (`hardware/perfboard_s3/spice/run.sh`). Flash first, then plug the cap.
 
 ## Step 4 — light strip
 
