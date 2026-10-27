@@ -233,6 +233,20 @@ the LEDs from the switch-on surge.
 **You need:** an RFM95 (or Ra-01H) 868 MHz module, a 868 MHz antenna (a plain
 wire of about 86 mm works), a 10 kΩ resistor, 100 nF and 10 µF capacitors.
 
+Prefer a soldered board? The [Pi 3 HAT perfboard](../wiring-pi3-hat/#step-4--lora-connector) brings the six Pi wires of this section to a
+6-pin header, **J5**. The module then joins J5 by a short cable, with the same names:
+
+| J5 pin | Module pin | Pi header pin |
+|---|---|---|
+| 3V3 | 3.3V | 17 |
+| MOSI | MOSI | 19 |
+| MISO | MISO | 21 |
+| NSS | NSS (CS) | 24 (CE0) |
+| SCLK | SCK | 23 |
+| GND | GND | 25 |
+
+`RESET`, `DIO0` and the two decoupling capacitors stay on the module, as in the figure below.
+
 <Wiring
   width={640}
   height={380}
@@ -277,7 +291,8 @@ wire of about 86 mm works), a 10 kΩ resistor, 100 nF and 10 µF capacitors.
 
 On power-up the driver reads the module's version register and expects `0x12`.
 Any other value (loose wire, wrong module) puts the radio in an *unavailable*
-state instead of listening with a broken radio. Protocol and pairing:
+state instead of listening with a broken radio. A constant `0` (`unexpected_sx1276_version, 0` in the log)
+means the module does not answer at all: it is not powered or MISO/NSS is not connected. Protocol and pairing:
 [remote button note](../../notes/remote-alarm-button/).
 
 ## Power-up order

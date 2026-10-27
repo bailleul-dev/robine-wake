@@ -6,7 +6,7 @@
 <rect x="538.4" y="164.0" width="62.40000000000009" height="260.0" fill="#f6c6c6" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="6 4" opacity="1"/>
 <rect x="86.0" y="502.0" width="520.0" height="52.0" fill="#dfe3ea" stroke="#6b7684" stroke-width="1.5" stroke-dasharray="6 4" opacity="1"/>
 <line x1="34.0" y1="478.6" x2="684.0" y2="478.6" stroke="#444" stroke-width="2" stroke-dasharray="10 5"/>
-<text x="359.0" y="472.6" font-size="11" fill="#444" text-anchor="middle">edge of the Pi and the Amp2: above this line the board hangs in the air</text>
+<text x="678.0" y="492.6" font-size="11" fill="#444" text-anchor="end">edge of the Pi</text>
 <circle cx="47.0" cy="47.0" r="2" fill="#b9c4b2"/>
 <circle cx="73.0" cy="47.0" r="2" fill="#b9c4b2"/>
 <circle cx="99.0" cy="47.0" r="2" fill="#b9c4b2"/>
@@ -538,15 +538,21 @@
 <circle cx="255.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
 <circle cx="281.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
 <circle cx="281.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
-<circle cx="307.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
+<circle cx="307.0" cy="541.0" r="5.5" fill="#c58b00" stroke="#222" stroke-width="0.9"/>
+<text x="307.0" y="558.0" font-size="10" fill="#222" text-anchor="middle">17</text>
 <circle cx="307.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
-<circle cx="333.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
+<circle cx="333.0" cy="541.0" r="5.5" fill="#c58b00" stroke="#222" stroke-width="0.9"/>
+<text x="333.0" y="558.0" font-size="10" fill="#222" text-anchor="middle">19</text>
 <circle cx="333.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
-<circle cx="359.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
+<circle cx="359.0" cy="541.0" r="5.5" fill="#c58b00" stroke="#222" stroke-width="0.9"/>
+<text x="359.0" y="558.0" font-size="10" fill="#222" text-anchor="middle">21</text>
 <circle cx="359.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
-<circle cx="385.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
-<circle cx="385.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
-<circle cx="411.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
+<circle cx="385.0" cy="541.0" r="5.5" fill="#c58b00" stroke="#222" stroke-width="0.9"/>
+<text x="385.0" y="558.0" font-size="10" fill="#222" text-anchor="middle">23</text>
+<circle cx="385.0" cy="515.0" r="5.5" fill="#c58b00" stroke="#222" stroke-width="0.9"/>
+<text x="385.0" y="506.0" font-size="10" fill="#222" text-anchor="middle">24</text>
+<circle cx="411.0" cy="541.0" r="5.5" fill="#c58b00" stroke="#222" stroke-width="0.9"/>
+<text x="411.0" y="558.0" font-size="10" fill="#222" text-anchor="middle">25</text>
 <circle cx="411.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
 <circle cx="437.0" cy="541.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
 <circle cx="437.0" cy="515.0" r="5.5" fill="#e2c77a" stroke="#222" stroke-width="0.9"/>
@@ -600,6 +606,18 @@
 <text x="177.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F8</text>
 <circle cx="203.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
 <text x="203.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F10</text>
+<circle cx="307.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
+<text x="307.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F17</text>
+<circle cx="333.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
+<text x="333.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F19</text>
+<circle cx="359.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
+<text x="359.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F21</text>
+<circle cx="385.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
+<text x="385.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F24</text>
+<circle cx="411.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
+<text x="411.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F23</text>
+<circle cx="437.0" cy="489.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
+<text x="437.0" y="480.0" font-size="9" fill="#555" text-anchor="middle">F25</text>
 <line x1="73.0" y1="437.0" x2="73.0" y2="333.0" stroke="#444" stroke-width="9" stroke-linecap="round"/>
 <line x1="73.0" y1="437.0" x2="73.0" y2="333.0" stroke="#9aa" stroke-width="5" stroke-linecap="round"/>
 <circle cx="73.0" cy="437.0" r="5" fill="#fff" stroke="#222" stroke-width="0.9"/>
@@ -622,6 +640,13 @@
 <circle cx="333.0" cy="99.0" r="6" fill="#fff" stroke="#222" stroke-width="0.9"/>
 <text x="333.0" y="89.0" font-size="10" fill="#222" text-anchor="middle">-</text>
 <text x="385.0" y="103.0" font-size="11" fill="#222" text-anchor="start">C1 1000 µF</text>
+<circle cx="307.0" cy="463.0" r="6" fill="#2a9d8f" stroke="#222" stroke-width="0.9"/>
+<circle cx="333.0" cy="463.0" r="6" fill="#2a9d8f" stroke="#222" stroke-width="0.9"/>
+<circle cx="359.0" cy="463.0" r="6" fill="#2a9d8f" stroke="#222" stroke-width="0.9"/>
+<circle cx="385.0" cy="463.0" r="6" fill="#2a9d8f" stroke="#222" stroke-width="0.9"/>
+<circle cx="411.0" cy="463.0" r="6" fill="#2a9d8f" stroke="#222" stroke-width="0.9"/>
+<circle cx="437.0" cy="463.0" r="6" fill="#2a9d8f" stroke="#222" stroke-width="0.9"/>
+<text x="468.2" y="467.0" font-size="11" fill="#1f6f66" text-anchor="start">J5 LoRa (3.3 V)</text>
 <line x1="99.0" y1="515.0" x2="99.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
 <text x="99.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L1</text>
 <line x1="151.0" y1="515.0" x2="151.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
@@ -630,7 +655,19 @@
 <text x="177.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L3</text>
 <line x1="203.0" y1="515.0" x2="203.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
 <text x="203.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L4</text>
-<text x="34" y="602" font-size="14" font-weight="700" fill="#222">Step 1: link the four header pins to their feed holes (component side)</text>
+<line x1="307.0" y1="541.0" x2="307.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
+<text x="307.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L5</text>
+<line x1="333.0" y1="541.0" x2="333.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
+<text x="333.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L6</text>
+<line x1="359.0" y1="541.0" x2="359.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
+<text x="359.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L7</text>
+<line x1="385.0" y1="515.0" x2="385.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
+<text x="385.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L8</text>
+<line x1="385.0" y1="541.0" x2="411.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
+<text x="411.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L9</text>
+<line x1="411.0" y1="541.0" x2="437.0" y2="489.0" stroke="#e07b00" stroke-width="4" stroke-linecap="round"/>
+<text x="437.0" y="473.0" font-size="10" font-weight="700" fill="#e07b00" text-anchor="middle">L10</text>
+<text x="34" y="602" font-size="14" font-weight="700" fill="#222">Step 1: link the ten header pins to their feed holes (component side)</text>
 <text x="34" y="624" font-size="12" fill="#333">COMPONENT SIDE · hole = 2.54 mm · red hatched = antenna zone, keep it free</text>
-<text x="34" y="642" font-size="12" fill="#333">grey dashed = Pi socket body (solder side) · dashed line = edge of the Pi</text>
+<text x="34" y="642" font-size="12" fill="#333">grey dashed = Pi socket body (solder side) · dashed line = edge of the Pi and the Amp2: above it the board hangs in the air</text>
 </svg>

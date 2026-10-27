@@ -10,6 +10,7 @@
 | R3 | 330 Ω | (6, 4) and (6, 1) | strip data |
 | J4 | 3-position screw terminal, 5.08 mm | DATA (8, 1), +5V (10, 1), GND (12, 1) | strip and 5 V supply, wires toward the top edge |
 | C1 | 1000 µF 10 V radial, 5 mm pitch | + (10, 3), − (12, 3) | long lead is + |
+| J5 | 1 × 6 male pin header, 2.54 mm | row 17, columns 11 to 16: 3V3 (11, 17), MOSI (12, 17), MISO (13, 17), NSS (14, 17), SCLK (15, 17), GND (16, 17) | LoRa module, 3.3 V only; plastic on the component side |
 
 ## Links (component side)
 
@@ -19,6 +20,12 @@
 | **L2** GND | Pi pin 6 (5, 19) and its feed hole (5, 18) | 12 mm insulated, soldered on the component side |
 | **L3** TXD | Pi pin 8 (6, 19) and its feed hole (6, 18) | 12 mm insulated, soldered on the component side |
 | **L4** RXD | Pi pin 10 (7, 19) and its feed hole (7, 18) | 12 mm insulated, soldered on the component side |
+| **L5** 3V3 (LoRa) | Pi pin 17 (11, 20) and its feed hole (11, 18) | 15 mm insulated, soldered on the component side |
+| **L6** MOSI (LoRa) | Pi pin 19 (12, 20) and its feed hole (12, 18) | 15 mm insulated, soldered on the component side |
+| **L7** MISO (LoRa) | Pi pin 21 (13, 20) and its feed hole (13, 18) | 15 mm insulated, soldered on the component side |
+| **L8** NSS = CE0 (LoRa) | Pi pin 24 (14, 19) and its feed hole (14, 18) | 12 mm insulated, soldered on the component side |
+| **L9** SCLK (LoRa) | Pi pin 23 (14, 20) and its feed hole (15, 18) | 15 mm insulated, soldered on the component side |
+| **L10** GND (LoRa) | Pi pin 25 (15, 20) and its feed hole (16, 18) | 15 mm insulated, soldered on the component side |
 
 ## Wires (solder side)
 
@@ -34,5 +41,11 @@
 | **W8** capacitor + to the terminal +5 V | red | C1 + (10, 3) | J4 +5V (10, 1) | 25 mm |
 | **W9** capacitor − to the terminal GND | black | C1 - (12, 3) | J4 GND (12, 1) | 25 mm |
 | **W10** capacitor − (ground) to the ESP32 GND | black | C1 - (12, 3) | ESP32 GND (5, 6) | 45 mm |
+| **W11** Pi 3.3 V to J5 | orange | feed hole of Pi pin 17 (11, 18) | J5 3V3 (11, 17) | 23 mm |
+| **W12** Pi MOSI to J5 | green | feed hole of Pi pin 19 (12, 18) | J5 MOSI (12, 17) | 23 mm |
+| **W13** Pi MISO to J5 | green | feed hole of Pi pin 21 (13, 18) | J5 MISO (13, 17) | 23 mm |
+| **W14** Pi CE0 to J5 NSS | green | feed hole of Pi pin 24 (14, 18) | J5 NSS (14, 17) | 23 mm |
+| **W15** Pi SCLK to J5 | green | feed hole of Pi pin 23 (15, 18) | J5 SCLK (15, 17) | 23 mm |
+| **W16** Pi GND to J5 | black | feed hole of Pi pin 25 (16, 18) | J5 GND (16, 17) | 23 mm |
 
-Total wire: about 0.37 m.
+Total wire: about 0.59 m.

@@ -1,6 +1,6 @@
 ---
 title: Perfboard HAT — Raspberry Pi 3 light controller
-description: A solder-it-yourself HAT-sized perfboard for the Pi 3 build, stacked on the HiFiBerry Amp2, carrying the light ESP32 and the LED strip connector.
+description: A solder-it-yourself HAT-sized perfboard for the Pi 3 build, stacked on the HiFiBerry Amp2, carrying the light ESP32, the LED strip connector and the LoRa module connector.
 sidebar:
   order: 6
   label: Pi 3 light HAT (perfboard)
@@ -10,18 +10,28 @@ import placement from "../../../../assets/perfboard-pi3/placement.svg?raw";
 import step1 from "../../../../assets/perfboard-pi3/step1-links.svg?raw";
 import step2 from "../../../../assets/perfboard-pi3/step2-power-uart.svg?raw";
 import step3 from "../../../../assets/perfboard-pi3/step3-strip.svg?raw";
+import step4 from "../../../../assets/perfboard-pi3/step4-lora.svg?raw";
 import Perfboard from "../../../../components/Perfboard.astro";
 
-This HAT replaces the loose Dupont wires of the [current setup](../wiring-pi3/#2-light--esp32-and-led-strip).
+This HAT replaces the loose Dupont wires of the [current setup](../wiring-pi3/#2-light--esp32-and-led-strip) and brings the
+[LoRa module](../wiring-pi3/#3-bedside-button--lora-module-sx1276--rfm95) of the bedside button to one connector.
 It is a small perfboard (**65 × 51 mm, 25 × 20 holes**) that plugs on the Amp2's 40 pins **by a narrow strip along the header only**.
 The Amp2 has components too tall for a full-size HAT, so the rest of the board **hangs beyond the edge of the Pi, in the air**, and carries:
 
 - the **30-pin ESP32 devkit** that runs `pi_light` (strip programs, UART link to the Pi);
 - a **diode** so the Pi's 5 V can feed the ESP32 without being back-fed by its USB port;
-- the **light strip connector**: data resistor, screw terminal and a 1000 µF capacitor.
+- the **light strip connector**: data resistor, screw terminal and a 1000 µF capacitor;
+- **J5**, a 6-pin header for the **LoRa module** (SX1276 / RFM95W, 868 MHz): 3.3 V, the SPI0 bus, its chip select and a ground.
 
-It uses **four pins of the Pi's header**: 5 V (pin 2), GND (pin 6), TXD (pin 8) and RXD (pin 10).
+It uses **ten pins of the Pi's header**. For the ESP32: 5 V (pin 2), GND (pin 6), TXD (pin 8) and RXD (pin 10).
+For the LoRa module: 3V3 (pin 17), MOSI (pin 19), MISO (pin 21), SCLK (pin 23), CE0 (pin 24) and GND (pin 25).
 Nothing else is connected, so it does not collide with what the Amp2 uses (pins 3, 5, 7, 12, 35, 38, 40).
+
+:::note[The module itself is not on the board]
+The RFM95W is 16 × 16 mm on a 2 mm pitch, with an antenna that must stay away from the ESP32 and the strip wires. There is no room for it
+in the 4 cm that hang beyond the Pi. The HAT carries its **connector J5**; the module sits where its antenna is free (on the enclosure wall,
+for example) and is joined to J5 by a short 6-wire Dupont cable.
+:::
 
 :::note[Generated, not drawn by hand]
 Every coordinate comes from
@@ -42,7 +52,7 @@ The script refuses a layout where two parts share a hole, so figures and tables 
 
 - **Double-sided perfboard**, plated holes, 2.54 mm pitch, cut to **25 × 20 holes** (about 65 × 51 mm).
 - The parts below, a soldering iron, a multimeter, a little Kapton tape.
-- **Insulated 30 AWG wire**, about {{TOTAL}} m in total: red, black, white, gray.
+- **Insulated 30 AWG wire**, about {{TOTAL}} m in total: red, black, white, gray, orange and green (any colours will do if you keep a table of them).
 - A 5 V supply for the strip (≥ 3 A for 60 LED), separate from the Pi.
 
 {{PARTS}}
@@ -51,10 +61,10 @@ The script refuses a layout where two parts share a hole, so figures and tables 
 
 :::danger[Rules]
 - **Columns count from the left edge, rows from the top edge, seen from the component side.** A hole is written *(column, row)*; hole (1, 1) is the top-left corner. The header is on the **bottom edge**, pin 1 at (3, 20) on the lower of its two rows; the Pi's outer row (even pins) is the upper one.
-- The **Pi socket hangs under the board**: its body is on the solder side, its pin tips come through on the component side. The ESP32 sockets, D1, R3, J4 and C1 are on the component side. **All wires run on the solder side**, except the four short links of step 1.
+- The **Pi socket hangs under the board**: its body is on the solder side, its pin tips come through on the component side. The ESP32 sockets, D1, R3, J4 and C1 are on the component side. **All wires run on the solder side**, except the ten short links of step 1.
 - When you flip the board, flip it **left to right** like a book page: column 1 ends up on the right. The solder-side figures are drawn that way.
 - **The strip's current must not flow through the board.** The strip supply and the strip wires go into the **same clamps** of J4.
-- Never put 5 V on a 3.3 V pin: only the four header pins listed here are wired.
+- Never put 5 V on a 3.3 V pin. **J5 is 3.3 V only**: the LoRa module is destroyed by 5 V. Only the ten header pins listed here are wired.
 :::
 
 Only the strip along the header (rows 18 to 20) sits above the Amp2. Everything above the dashed line of the figures hangs
@@ -72,14 +82,19 @@ the red zone free of parts and wires.
 1. **Pi socket.** Plug the 2×20 female header on a spare 2×20 male header (or on the Amp2's pins), slide the board on from above so the pin tips come through, check that the socket sits flat against the **underside**, tack two corner pins, then solder all 40 pins on the component side.
 2. **ESP32 sockets.** Push the two 1×15 female headers on the devkit's pins, drop them in their holes (rows 6 and 15, columns 4 to 18, pin 1 on the right), tack one pin at each end, then solder from the solder side.
 3. Solder D1 (band toward the cathode), R3, J4 and C1 (long lead on +) at the holes of the table. R3 and C1 stand above the devkit, near J4.
+   Solder **J5** (1×6 male header, pins up) in row 17, columns 11 to 16, from the solder side.
 4. **Cover the solder side of the strip along the header** with Kapton tape once everything is soldered and tested: it sits a few millimetres from the top of the Amp2.
 
 ## Step 1 — link the header pins to their feed holes
 
 The socket body covers the pads of its own two rows on the solder side, so each pin you use is
-**linked on the component side to a free hole just above it**, in row 18 (a *feed hole*, outside the body). The four pins used (2, 6, 8, 10)
-are all on the outer row, so the wires of the next steps start from those holes and go **straight up**, toward the devkit:
-nothing may run under the socket body.
+**linked on the component side to a free hole just above the body**, in row 18 (a *feed hole*, outside the body). The wires of the next steps
+start from those holes and go **straight up**: nothing may run under the socket body.
+
+The four ESP32 pins (2, 6, 8, 10) and the LoRa chip select (24) are on the outer row: their feed hole is right above them.
+The other five LoRa pins (17, 19, 21, 23, 25) are on the **inner row**, one row further down, so their link hops over the outer row:
+three go straight up over an **unused pad** (pins 18, 20 and 22: cover those three pads with a strip of Kapton tape first),
+and two (L9 and L10) go diagonally through the gap between two pads.
 
 <Perfboard svg={step1} />
 
@@ -120,6 +135,27 @@ At J4, **each clamp takes two wires**:
 The strip's current goes from its supply to the strip inside the clamps and never crosses the board.
 The board only sees the data, the ground reference and the capacitor.
 
+## Step 4 — LoRa connector
+
+<Perfboard svg={step4} />
+
+{{WIRES4}}
+
+| J5 pin (left to right, component side) | Pi header pin | Role |
+|---|---|---|
+| 1 · 3V3 | 17 | 3.3 V |
+| 2 · MOSI | 19 | SPI0 data to the module |
+| 3 · MISO | 21 | SPI0 data from the module |
+| 4 · NSS | 24, CE0 | chip select (`spidev0.0`) |
+| 5 · SCLK | 23 | SPI0 clock |
+| 6 · GND | 25 | ground |
+
+The order of J5 is the order of the HAT, not that of your module: join each J5 pin to the module pin of the **same name**
+(the table of the [Pi 3 guide](../wiring-pi3/#3-bedside-button--lora-module-sx1276--rfm95) lists them).
+`DIO0` stays unconnected and `RESET` takes a 10 kΩ pull-up to 3.3 V, both on the module side.
+The 100 nF and 10 µF decoupling capacitors go **on the module's 3V3 and GND pins**, not on the HAT: a cable of a few centimetres
+is too long to decouple from.
+
 ## Checks before stacking
 
 Multimeter in continuity mode, **nothing plugged on the sockets, Pi off**.
@@ -132,7 +168,10 @@ Multimeter in continuity mode, **nothing plugged on the sockets, Pi off**.
 | header pin 8 ↔ ESP32 D18, header pin 10 ↔ ESP32 TX2 | beep |
 | ESP32 D13 ↔ J4 DATA | about 330 Ω |
 | J4 +5V ↔ J4 GND | no beep (the capacitor charges slowly) |
-| header pins 1, 3 to 5, 7 and 9 to 40 ↔ anything of ours | no beep |
+| header pin 17 ↔ J5 3V3, pin 19 ↔ J5 MOSI, pin 21 ↔ J5 MISO, pin 24 ↔ J5 NSS, pin 23 ↔ J5 SCLK, pin 25 ↔ J5 GND | beep |
+| J5 3V3 ↔ J5 GND, J5 3V3 ↔ ESP32 3V3 or VIN | **no beep** |
+| header pins 18, 20 and 22 ↔ J5 or the links above them | no beep (the links only pass over them) |
+| any other header pin ↔ anything of ours | no beep |
 
 Then, in this order:
 
@@ -140,9 +179,14 @@ Then, in this order:
 2. Power off, plug the **ESP32 devkit**, power on, flash it through its USB port (left edge) with `cargo run --release --bin pi_light`
    from `experimental/robine-wake-rs/firmware/esp32`. The build needs a `wifi.ini` file even though `pi_light` does not use Wi-Fi.
 3. Connect the **strip and its supply**, then send a `light.program` from the web app.
+4. Power off. Fit the **antenna on the LoRa module**, then join the module to J5 with the cable. Power on: in the web interface the
+   *remote button* panel must read *Récepteur à 868.1 MHz*. A *Récepteur indisponible* message means the module does not answer on SPI:
+   recheck 3V3, GND and the cable, in that order.
 
 ## Software
 
-Nothing changes on the Pi: the UART is the same (`ttyS0`, GPIO 14 and 15), and so is the configuration
+Nothing changes on the Pi: the SPI is already on (`dtparam=spi=on`) and the target already enables the radio
+(`lora_enabled: true`, `spi_bus: "spidev0.0"`, 868.1 MHz). On start, the driver reads the module's version register (`0x42`) and
+expects `0x12`; any other value leaves the radio *unavailable* instead of listening with a broken module. The UART is the same (`ttyS0`, GPIO 14 and 15), and so is the configuration
 (`guide_light: [driver: RobineWake.GuideLight.Driver.UART, device: "ttyS0"]`). The ESP32 firmware is the
 one of the current setup: strip data on GPIO 13 (`D13`), link on UART2 with RX on GPIO 18 and TX on GPIO 17.

@@ -5,8 +5,10 @@ The board (65 x 51 mm, 25 x 20 holes) plugs on the 40 pins of the HiFiBerry
 Amp2 by a narrow strip along the header only: the Amp2 has components too tall
 for a full-size HAT. The rest of the board hangs beyond the edge of the Pi, in
 the air, and carries the 30-pin ESP32 devkit that runs `pi_light`, a diode for
-its 5 V, the strip data resistor, the strip terminal and a capacitor. One source of truth: running this checks the layout (no hole used
-twice, every wire end on a real hole) and writes
+its 5 V, the strip data resistor, the strip terminal and a capacitor, and J5, the
+connector of the LoRa module (SX1276 / RFM95W) of the bedside button. One source
+of truth: running this checks the layout (no hole used twice, every wire end on a
+real hole, no link crossing another) and writes
 
   website/src/assets/perfboard-pi3/*.svg
   hardware/perfboard_pi3/layout.md
@@ -16,10 +18,12 @@ Holes are (column, row), column 1 at the left edge and row 1 at the top edge
 of the board seen from the component side, 2.54 mm pitch. The 2x20 socket
 hangs under the board, along the bottom edge, and is soldered from the
 component side: its pins are on the component side, its body on the solder
-side, where the wires run. The Pi's outer row (even pins) is the upper one, so
-the four pins used all face the part of the board that hangs in the air.
+side, where the wires run. The Pi's outer row (even pins) is the upper one. The
+ESP32 uses four outer pins; the LoRa module needs the SPI0 pins, which are on the
+inner row (row 20, the bottom edge of the board): their links hop over the outer row.
 """
 
+import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,17 +65,25 @@ def pi(pin):
 # Feed-through holes: the socket body covers the pads of its two rows on the
 # solder side, so each header pin used is linked on the component side to a
 # free hole just above the body (row 18), from where the wire goes straight up.
-FEED = {2: (3, 18), 6: (5, 18), 8: (6, 18), 10: (7, 18)}
+FEED = {2: (3, 18), 6: (5, 18), 8: (6, 18), 10: (7, 18),
+        # LoRa: three straight hops over an unused pad (pins 18, 20, 22), one
+        # straight link (pin 24, outer row) and two diagonals through the gap
+        # between two pads (pins 23 and 25, inner row).
+        17: (11, 18), 19: (12, 18), 21: (13, 18), 24: (14, 18), 23: (15, 18), 25: (16, 18)}
 BODY = [(x, y) for x in range(3, 23) for y in (HAT_EVEN_ROW, HAT_ODD_ROW)]   # socket body, solder side
 
 D1 = ((2, 16), (2, 12))      # Schottky 1N5819, anode (2, 16), cathode band (2, 12)
 R3 = ((6, 4), (6, 1))        # 330 Ohm, strip data, above the devkit
 J4 = {"DATA": (8, 1), "+5V": (10, 1), "GND": (12, 1)}   # 5.08 mm screw terminal, top edge
 C1 = {"+": (10, 3), "-": (12, 3)}                        # 1000 uF radial, 5 mm
+# J5: 1x6 male header, LoRa module (3.3 V logic). Row 17, just above the feed holes.
+J5 = {"3V3": (11, 17), "MOSI": (12, 17), "MISO": (13, 17), "NSS": (14, 17), "SCLK": (15, 17), "GND": (16, 17)}
 
 # Links on the component side: header pin pad to its feed-through hole.
 LINKS = [(f"L{i + 1}", pi(p), FEED[p], role) for i, (p, role) in enumerate(
-    [(2, "5 V"), (6, "GND"), (8, "TXD"), (10, "RXD")])]
+    [(2, "5 V"), (6, "GND"), (8, "TXD"), (10, "RXD"),
+     (17, "3V3 (LoRa)"), (19, "MOSI (LoRa)"), (21, "MISO (LoRa)"), (24, "NSS = CE0 (LoRa)"),
+     (23, "SCLK (LoRa)"), (25, "GND (LoRa)")])]
 
 # Wires on the solder side: (id, from, to, colour, role)
 WIRES = [
@@ -85,6 +97,12 @@ WIRES = [
     ("W8", C1["+"], J4["+5V"], "red", "capacitor + to the terminal +5 V"),
     ("W9", C1["-"], J4["GND"], "black", "capacitor − to the terminal GND"),
     ("W10", C1["-"], e32("L", 14), "black", "capacitor − (ground) to the ESP32 GND"),
+    ("W11", FEED[17], J5["3V3"], "orange", "Pi 3.3 V to J5"),
+    ("W12", FEED[19], J5["MOSI"], "green", "Pi MOSI to J5"),
+    ("W13", FEED[21], J5["MISO"], "green", "Pi MISO to J5"),
+    ("W14", FEED[24], J5["NSS"], "green", "Pi CE0 to J5 NSS"),
+    ("W15", FEED[23], J5["SCLK"], "green", "Pi SCLK to J5"),
+    ("W16", FEED[25], J5["GND"], "black", "Pi GND to J5"),
 ]
 # Corners of each path. Every wire runs in the rows between the header and the
 # devkit (16 to 18) or in the rows above it (1 to 5), or down the free columns
@@ -102,6 +120,7 @@ ROUTES = {
     "W8": [],
     "W9": [],
     "W10": [(12, 5), (5, 5)],
+    "W11": [], "W12": [], "W13": [], "W14": [], "W15": [], "W16": [],
 }
 LANES = {}
 LANE_PX = 5
@@ -138,6 +157,8 @@ def occupied():
         put(v, f"J4 {k}")
     for k, v in C1.items():
         put(v, f"C1 {k}")
+    for k, v in J5.items():
+        put(v, f"J5 {k}")
     return holes
 
 
@@ -146,9 +167,7 @@ def check():
     for wid, a, b, _, _ in WIRES:
         assert a in holes, f"{wid}: start {a} is not a pin or a lead"
         assert b in holes, f"{wid}: end {b} is not a pin or a lead"
-    for lid, a, b, _ in LINKS:
-        assert a in holes and b in holes, lid
-        assert abs(a[0] - b[0]) + abs(a[1] - b[1]) == 1, f"{lid}: link must join adjacent holes"
+    check_links(holes)
     # No wire may run over another net's pad, nor under the socket body.
     for wid, a, b, _, _ in WIRES:
         points = route(wid, a, b)
@@ -161,9 +180,40 @@ def check():
                 if hole in holes and hole not in (a, b) and holes[hole] != holes.get(a) and holes[hole] != holes.get(b):
                     raise AssertionError(f"{wid} runs over {holes[hole]} at {hole}")
     assert E32("D18") == e32("R", 7) and E32("TX2") == e32("R", 9)
-    assert pi(2)[1] == pi(6)[1] == pi(8)[1] == pi(10)[1] == HAT_EVEN_ROW, "the four pins used are on the outer row"
+    assert pi(2)[1] == pi(6)[1] == pi(8)[1] == pi(10)[1] == HAT_EVEN_ROW, "the four ESP32 pins are on the outer row"
+    spi = {"3V3": 17, "MOSI": 19, "MISO": 21, "SCLK": 23, "NSS": 24, "GND": 25}   # SPI0 + CE0 of the Pi
+    for name, pin in spi.items():
+        assert FEED[pin] == (J5[name][0], J5[name][1] + 1), f"J5 {name} is not fed by header pin {pin}"
     assert E32("VIN") == e32("L", 15) and E32("D13") == e32("L", 13)
     return holes
+
+
+def link_cut_mm(a, b):
+    """Insulated wire of a link: the run plus 9 mm to strip and tin both ends."""
+    return math.ceil(math.hypot(a[0] - b[0], a[1] - b[1]) * 2.54 + 9)
+
+
+def check_links(holes):
+    """A link joins a header pad to a free hole: adjacent, diagonal, or two rows up. It may pass
+    over an unused pad of the socket, never over a linked pad, and never cross another link."""
+    pads = {a for _, a, _, _ in LINKS}
+    for lid, a, b, _ in LINKS:
+        assert a in holes and b in holes, lid
+        dx, dy = abs(a[0] - b[0]), a[1] - b[1]
+        assert dx <= 1 and dy in (1, 2), f"{lid}: link too long"
+        if dx == 0 and dy == 2:
+            middle = (a[0], a[1] - 1)
+            assert middle in holes and middle not in pads, f"{lid} passes over a linked pad {middle}"
+
+    def side(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+
+    for i, (l1, a1, b1, _) in enumerate(LINKS):
+        for l2, a2, b2, _ in LINKS[i + 1:]:
+            if {a1, b1} & {a2, b2}:
+                continue
+            crossing = side(a1, b1, a2) * side(a1, b1, b2) < 0 and side(a2, b2, a1) * side(a2, b2, b1) < 0
+            assert not crossing, f"{l1} crosses {l2}"
 
 
 def route(wid, a, b):
@@ -193,6 +243,8 @@ def hole_names():
         names[pi(p)] = f"Pi pin {p}"
     for p, hole in FEED.items():
         names[hole] = f"feed hole of Pi pin {p}"
+    for k, v in J5.items():
+        names[v] = f"J5 {k}"
     names[D1[0]] = "D1 anode"; names[D1[1]] = "D1 cathode (band)"
     names[R3[0]] = "R3 lead 1"; names[R3[1]] = "R3 lead 2"
     for k, v in J4.items():
@@ -216,7 +268,7 @@ def link_table():
     names = hole_names()
     out = ["| # | Joins (component side) | Wire |", "|---|---|---|"]
     for lid, a, b, role in LINKS:
-        out.append(f"| **{lid}** {role} | {names[a]} ({a[0]}, {a[1]}) and its feed hole ({b[0]}, {b[1]}) | 12 mm insulated, soldered on the component side |")
+        out.append(f"| **{lid}** {role} | {names[a]} ({a[0]}, {a[1]}) and its feed hole ({b[0]}, {b[1]}) | {link_cut_mm(a, b)} mm insulated, soldered on the component side |")
     return "\n".join(out)
 
 
@@ -228,6 +280,7 @@ def parts_table():
         ("R3", "330 Ω", f"({R3[0][0]}, {R3[0][1]}) and ({R3[1][0]}, {R3[1][1]})", "strip data"),
         ("J4", "3-position screw terminal, 5.08 mm", f"DATA ({J4['DATA'][0]}, {J4['DATA'][1]}), +5V ({J4['+5V'][0]}, {J4['+5V'][1]}), GND ({J4['GND'][0]}, {J4['GND'][1]})", "strip and 5 V supply, wires toward the top edge"),
         ("C1", "1000 µF 10 V radial, 5 mm pitch", f"+ ({C1['+'][0]}, {C1['+'][1]}), − ({C1['-'][0]}, {C1['-'][1]})", "long lead is +"),
+        ("J5", "1 × 6 male pin header, 2.54 mm", "row 17, columns 11 to 16: " + ", ".join(f"{k} ({v[0]}, {v[1]})" for k, v in J5.items()), "LoRa module, 3.3 V only; plastic on the component side"),
     ]
     out = ["| Part | Value | Holes (col, row) | Note |", "|---|---|---|---|"]
     out += [f"| {a} | {b} | {c} | {d} |" for a, b, c, d in rows]
@@ -235,7 +288,7 @@ def parts_table():
 
 
 def total_wire():
-    return sum(length_mm(pts) for _, pts, _, _ in routed()) + 12 * len(LINKS)
+    return sum(length_mm(pts) for _, pts, _, _ in routed()) + sum(link_cut_mm(a, b) for _, a, b, _ in LINKS)
 
 
 def tables():
@@ -282,8 +335,8 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
     ex0, ey = px((0.5, PI_EDGE_ROW))
     ex1, _ = px((COLS + 0.5, PI_EDGE_ROW))
     o.append(f'<line x1="{ex0:.1f}" y1="{ey:.1f}" x2="{ex1:.1f}" y2="{ey:.1f}" stroke="#444" stroke-width="2" stroke-dasharray="10 5"/>')
-    o.append(f'<text x="{(ex0 + ex1) / 2:.1f}" y="{ey - 6:.1f}" font-size="11" fill="#444" text-anchor="middle">'
-             f'edge of the Pi and the Amp2: above this line the board hangs in the air</text>')
+    o.append(f'<text x="{(ex1 - 6) if not mirror else (ex1 + 6):.1f}" y="{ey + 14:.1f}" font-size="11" fill="#444" '
+             f'text-anchor="{"end" if not mirror else "start"}">edge of the Pi</text>')
 
     for yy in range(1, ROWS + 1):
         for xx in range(1, COLS + 1):
@@ -351,6 +404,18 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
         pad(hole, "#fff", name, size=6, dy=-10)
     tx, ty = px((14, 3))
     o.append(f'<text x="{tx}" y="{ty + 4}" font-size="11" fill="#222" text-anchor="{"end" if mirror else "start"}">C1 1000 µF</text>')
+    # Rotated pin names above J5 when a step shows it alone; on the placement plan they would
+    # print over the ESP32 pin names, so the order goes in a caption instead.
+    named = not highlight_all and any(index >= 10 for index in wires)
+    for name, hole in J5.items():
+        pad(hole, "#2a9d8f", name if named else None, size=6, dy=-10, rotate=True)
+    anchor = "end" if mirror else "start"
+    tx, ty = px((17.2, 16.4 if highlight_all else 17))
+    o.append(f'<text x="{tx:.1f}" y="{ty + 4:.1f}" font-size="11" fill="#1f6f66" text-anchor="{anchor}">J5 LoRa (3.3 V)</text>')
+    if highlight_all:
+        tx, ty = px((17.2, 17.0))
+        o.append(f'<text x="{tx:.1f}" y="{ty:.1f}" font-size="10" fill="#1f6f66" text-anchor="start">'
+                 f'3V3 · MOSI · MISO · NSS · SCLK · GND</text>')
 
     dash = "" if mirror else 'stroke-dasharray="6 4" '
     for index, (wid, points, colour, _) in enumerate(routed()):
@@ -378,15 +443,16 @@ def render(mirror, wires=(), links=False, title="", highlight_all=False):
     o.append(f'<text x="{MARGIN}" y="{ly + 30}" font-size="12" fill="#333">{side} · hole = 2.54 mm · '
              f'red hatched = antenna zone, keep it free</text>')
     o.append(f'<text x="{MARGIN}" y="{ly + 48}" font-size="12" fill="#333">grey dashed = Pi socket body (solder side) · '
-             f'dashed line = edge of the Pi</text>')
+             f'dashed line = edge of the Pi and the Amp2: above it the board hangs in the air</text>')
     o.append("</svg>")
     return "\n".join(o)
 
 
 STEPS = {
-    "step1-links": (range(0), True, False, "Step 1: link the four header pins to their feed holes (component side)"),
+    "step1-links": (range(0), True, False, "Step 1: link the ten header pins to their feed holes (component side)"),
     "step2-power-uart": (range(0, 5), False, True, "Step 2: 5 V, GND and UART to the Pi"),
     "step3-strip": (range(5, 10), False, True, "Step 3: light strip (data, terminal, capacitor, ground)"),
+    "step4-lora": (range(10, 16), False, True, "Step 4: LoRa connector J5 (3.3 V, SPI0, CE0, ground)"),
 }
 
 if __name__ == "__main__":
@@ -401,7 +467,8 @@ if __name__ == "__main__":
     (Path(__file__).parent / "layout.md").write_text(tables())
     template = (Path(__file__).parent / "page.mdx.in").read_text()
     fill = {"PARTS": parts_table(), "LINKS": link_table(), "TOTAL": f"{total_wire() / 1000:.1f}",
-            "WIRES2": wire_table(set(STEPS["step2-power-uart"][0])), "WIRES3": wire_table(set(STEPS["step3-strip"][0]))}
+            "WIRES2": wire_table(set(STEPS["step2-power-uart"][0])), "WIRES3": wire_table(set(STEPS["step3-strip"][0])),
+            "WIRES4": wire_table(set(STEPS["step4-lora"][0]))}
     for key, value in fill.items():
         template = template.replace("{{" + key + "}}", value)
     (ROOT / "website/src/content/docs/docs/guides/wiring-pi3-hat.mdx").write_text(template)
