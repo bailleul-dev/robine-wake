@@ -28,3 +28,13 @@ dtoverlay=ramoops
 enable_uart=1
 dtparam=krnbt=on
 core_freq=250
+
+# The device sits in a bedroom: keep every board LED dark (Pi 3 B+).
+# Red PWR and green ACT LEDs off.
+dtparam=pwr_led_trigger=none
+dtparam=pwr_led_activelow=off
+dtparam=act_led_trigger=none
+dtparam=act_led_activelow=off
+# LAN7515 Ethernet jack LEDs off (14 = off on the 3 B+, unlike the Pi 4's 4).
+dtparam=eth_led0=14
+dtparam=eth_led1=14
