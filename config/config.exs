@@ -16,6 +16,9 @@ config :robine_wake,
   # Keep remote dismissal implemented, but require the physical button in this build.
   remote_dismiss_enabled: false,
   network_driver: RobineWake.Network.Driver.Host,
+  # Nightly Wi-Fi/Bluetooth quiet window (RobineWake.NightRadio).
+  night_radio_driver: RobineWake.NightRadio.Driver.Host,
+  night_radio_interval_ms: 5_000,
   # ESP32 LED strip; nil when none is wired (RobineWake.GuideLight).
   guide_light: nil,
   data_path: "data/robine_wake.json",

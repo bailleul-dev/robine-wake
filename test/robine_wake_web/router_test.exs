@@ -25,6 +25,31 @@ defmodule RobineWakeWeb.RouterTest do
              Jason.decode!(conn.resp_body)
   end
 
+  test "night radio window is exposed and configurable" do
+    conn =
+      conn(:patch, "/api/settings/night-radio", Jason.encode!(%{enabled: true, start: "22:00"}))
+      |> put_req_header("content-type", "application/json")
+      |> csrf()
+      |> RobineWakeWeb.Router.call(@opts)
+
+    assert conn.status == 200
+
+    assert %{"data" => %{"enabled" => true, "start" => "22:00", "end" => "07:00"}} =
+             Jason.decode!(conn.resp_body)
+
+    state = conn(:get, "/api/state") |> RobineWakeWeb.Router.call(@opts)
+    assert %{"night_radio" => %{"enabled" => true}} = Jason.decode!(state.resp_body)
+
+    invalid =
+      conn(:patch, "/api/settings/night-radio", Jason.encode!(%{end: "22:00"}))
+      |> put_req_header("content-type", "application/json")
+      |> csrf()
+      |> RobineWakeWeb.Router.call(@opts)
+
+    assert invalid.status == 422
+    {:ok, _settings} = Settings.set_night_radio(%{enabled: false})
+  end
+
   test "smartphone dismissal setting is persistent and locked during an alarm" do
     disabled =
       conn(

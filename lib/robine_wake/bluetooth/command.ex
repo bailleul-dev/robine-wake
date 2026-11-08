@@ -13,6 +13,7 @@ defmodule RobineWake.Bluetooth.Command do
     Health,
     LightAmbience,
     Nap,
+    NightRadio,
     RemoteButton,
     Scheduler,
     Settings,
@@ -38,6 +39,7 @@ defmodule RobineWake.Bluetooth.Command do
     "session.snooze",
     "session.dismiss",
     "settings.smartphone_dismiss.set",
+    "settings.night_radio.set",
     "clock.confirm",
     "camera.calibrate",
     "history.erase",
@@ -163,6 +165,11 @@ defmodule RobineWake.Bluetooth.Command do
          do: {:ok, smartphone_dismiss_dto(enabled, false)}
   end
 
+  defp dispatch("settings.night_radio.set", body) when is_map(body) do
+    with {:ok, _settings} <- Settings.set_night_radio(body),
+         do: {:ok, night_radio_dto(NightRadio.evaluate())}
+  end
+
   defp dispatch("clock.confirm", _body) do
     with {:ok, clock} <- ClockQuality.confirm(), do: {:ok, normalize(clock)}
   end
@@ -263,12 +270,23 @@ defmodule RobineWake.Bluetooth.Command do
       "light_ambience" => normalize(LightAmbience.status()),
       "remote_button" => normalize(RemoteButton.status()),
       "lora" => normalize(LoRaServer.safe_status()),
+      "night_radio" => night_radio_dto(NightRadio.status()),
       "transport" => transport_dto(health)
     }
   end
 
   defp smartphone_dismiss_dto(enabled, locked),
     do: %{"enabled" => enabled, "locked" => locked}
+
+  defp night_radio_dto(status) do
+    %{
+      "enabled" => status.enabled,
+      "start" => status.start,
+      "end" => status.end,
+      "state" => text(status.state),
+      "reason" => text(status.reason)
+    }
+  end
 
   defp transport_dto(health) do
     port = Application.get_env(:robine_wake, :web_port, 4000)

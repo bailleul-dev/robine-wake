@@ -144,6 +144,7 @@ defmodule RobineWake.Bluetooth.ServerTest do
     assert "alarm.update" in operations
     assert "session.get" in operations
     assert "settings.smartphone_dismiss.set" in operations
+    assert "settings.night_radio.set" in operations
     refute "hue.pair" in operations
     assert "breathing.start" in operations
     assert "breathing.volume" in operations
@@ -161,6 +162,36 @@ defmodule RobineWake.Bluetooth.ServerTest do
            } = response()
 
     refute Settings.smartphone_dismiss_enabled()
+  end
+
+  test "configures the nightly radio quiet window" do
+    send_request(
+      request("night-radio", "settings.night_radio.set", %{
+        enabled: true,
+        start: "22:30",
+        end: "06:45"
+      })
+    )
+
+    assert %{
+             "status" => "ok",
+             "body" => %{
+               "enabled" => true,
+               "start" => "22:30",
+               "end" => "06:45",
+               "state" => "radios_on",
+               "reason" => "outside_window"
+             }
+           } = response()
+
+    send_request(request("night-radio-bad", "settings.night_radio.set", %{start: "25:00"}))
+
+    assert %{"status" => "error", "error" => %{"code" => "validation_failed"}} = response()
+
+    send_request(request("night-radio-state", "state.get", %{}))
+    assert %{"body" => %{"night_radio" => %{"enabled" => true}}} = response()
+
+    {:ok, _settings} = Settings.set_night_radio(%{enabled: false})
   end
 
   test "returns the active wake session through the lightweight session endpoint" do

@@ -1628,6 +1628,84 @@ fn smartphone_dismiss_card(state: AppState, desktop: Bool) -> Element {
   ])
 }
 
+fn night_radio_card(state: AppState, desktop: Bool) -> Element {
+  let snapshot.NightRadio(enabled:, start:, until:, silenced: _) =
+    state.clock.night_radio
+  let send = fn(enabled, start, until) {
+    ignore(actions.send(command.SetNightRadio(enabled:, start:, until:)))
+  }
+  theme.card(!enabled, dashboard_card_style(desktop), [
+    column([s.gap(13)], [
+      header(
+        theme.eyebrow("Radios la nuit", theme.lavender),
+        theme.toggle(
+          enabled,
+          "Couper le Wi-Fi et le Bluetooth du réveil la nuit",
+          state.busy,
+          fn(value) { send(value, start, until) },
+        ),
+      ),
+      label(
+        [s.font_size(14), s.line_height(20), s.color(theme.muted)],
+        pick(
+          enabled,
+          "Wi-Fi et Bluetooth coupés de "
+            <> start
+            <> " à "
+            <> until
+            <> ". L’alarme sonne normalement et les radios reviennent dès qu’elle se déclenche ; l’app ne joint plus le réveil pendant ce créneau.",
+          "Le Wi-Fi et le Bluetooth du réveil restent allumés toute la nuit.",
+        ),
+      ),
+      night_radio_bound("Coupure", start, until, state.busy, fn(value) {
+        send(enabled, value, until)
+      }),
+      night_radio_bound("Retour", until, start, state.busy, fn(value) {
+        send(enabled, start, value)
+      }),
+    ]),
+  ])
+}
+
+/// One bound of the night window, moved by half hours; it never lands on
+/// the other bound, which the clock would refuse.
+fn night_radio_bound(
+  title: String,
+  time: String,
+  other: String,
+  busy: Bool,
+  on_change: fn(String) -> Nil,
+) -> Element {
+  let step = fn(minutes) {
+    fn() {
+      let moved = snapshot.shift_time(time, minutes)
+      case moved == other {
+        True -> on_change(snapshot.shift_time(moved, minutes))
+        False -> on_change(moved)
+      }
+    }
+  }
+  row([s.align_items("center"), s.gap(10)], [
+    label([s.font_size(14), s.color(theme.muted)], title),
+    spacer(),
+    theme.icon_button(
+      "remove",
+      title <> " une demi-heure plus tôt",
+      step(-30),
+      busy,
+      theme.moon,
+    ),
+    label([s.font_size(18), s.font_weight("700"), s.color(theme.text)], time),
+    theme.icon_button(
+      "add",
+      title <> " une demi-heure plus tard",
+      step(30),
+      busy,
+      theme.moon,
+    ),
+  ])
+}
+
 fn api_host(endpoint: Option(String)) -> String {
   case endpoint {
     None -> "À découvrir"
@@ -1772,6 +1850,7 @@ fn render_system_screen(desktop: Bool) -> Element {
         ]),
       ]),
       smartphone_dismiss_card(state, desktop),
+      night_radio_card(state, desktop),
       remote_button_card(state, desktop),
       sounds_card(state, desktop),
       history_card(state, desktop),

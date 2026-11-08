@@ -48,6 +48,22 @@ defmodule RobineWake.Settings do
   def set_smartphone_dismiss_enabled(_enabled),
     do: {:error, %{smartphone_dismiss_enabled: "must be a boolean"}}
 
+  @night_radio_defaults %{
+    "enabled" => false,
+    "start" => "23:00",
+    "end" => "07:00",
+    "timezone" => "Europe/Paris"
+  }
+
+  @doc "Nightly radio quiet window (`NRV-008`), defaults merged in."
+  def night_radio, do: GenServer.call(__MODULE__, :night_radio)
+
+  @doc "Validates and persists a partial update of the quiet window."
+  def set_night_radio(attrs) when is_map(attrs),
+    do: GenServer.call(__MODULE__, {:set_night_radio, attrs})
+
+  def set_night_radio(_attrs), do: {:error, %{night_radio: "must be an object"}}
+
   def detection_profile, do: GenServer.call(__MODULE__, :detection_profile)
   def remote_buttons, do: GenServer.call(__MODULE__, :remote_buttons)
 
@@ -236,7 +252,8 @@ defmodule RobineWake.Settings do
       exported_at: DateTime.to_iso8601(Clock.utc_now()),
       alarms: state |> sorted_alarms() |> Enum.map(&Alarm.to_map/1),
       detection_profile: state.settings["detection_profile"],
-      smartphone_dismiss_enabled: smartphone_dismiss_enabled(state)
+      smartphone_dismiss_enabled: smartphone_dismiss_enabled(state),
+      night_radio: night_radio(state)
     }
 
     {:reply, export, state}
@@ -255,6 +272,25 @@ defmodule RobineWake.Settings do
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call(:night_radio, _from, state), do: {:reply, night_radio(state), state}
+
+  def handle_call({:set_night_radio, attrs}, _from, state) do
+    current = Map.merge(@night_radio_defaults, Map.get(state.settings, "night_radio", %{}))
+
+    with {:ok, updated} <- validate_night_radio(current, attrs),
+         next = %{state | settings: Map.put(state.settings, "night_radio", updated)},
+         :ok <- persist(next) do
+      RobineWake.NightRadio.notify_settings_changed()
+
+      if Process.whereis(RobineWake.EventStream),
+        do: RobineWake.EventStream.publish("state.changed")
+
+      {:reply, {:ok, night_radio(next)}, next}
+    else
+      {:error, reason} -> {:reply, {:error, reason}, state}
     end
   end
 
@@ -411,6 +447,52 @@ defmodule RobineWake.Settings do
 
   defp smartphone_dismiss_enabled(state),
     do: remote_dismiss_enabled?() and Map.get(state.settings, "smartphone_dismiss_enabled", true)
+
+  defp night_radio(state) do
+    stored = Map.merge(@night_radio_defaults, Map.get(state.settings, "night_radio", %{}))
+
+    %{
+      enabled: stored["enabled"],
+      start: stored["start"],
+      end: stored["end"],
+      timezone: stored["timezone"]
+    }
+  end
+
+  defp validate_night_radio(current, attrs) do
+    updated =
+      Enum.reduce([enabled: "enabled", start: "start", end: "end"], current, fn {atom, key},
+                                                                                acc ->
+        case fetch_attr(attrs, key, atom) do
+          {:ok, value} -> Map.put(acc, key, value)
+          :error -> acc
+        end
+      end)
+
+    errors =
+      %{}
+      |> night_radio_error(:enabled, is_boolean(updated["enabled"]), "must be a boolean")
+      |> night_radio_error(:start, clock_time?(updated["start"]), "must be HH:MM")
+      |> night_radio_error(:end, clock_time?(updated["end"]), "must be HH:MM")
+      |> night_radio_error(:end, updated["start"] != updated["end"], "must differ from start")
+
+    if errors == %{}, do: {:ok, updated}, else: {:error, errors}
+  end
+
+  defp fetch_attr(attrs, key, atom) do
+    case Map.fetch(attrs, key) do
+      {:ok, value} -> {:ok, value}
+      :error -> Map.fetch(attrs, atom)
+    end
+  end
+
+  defp night_radio_error(errors, _field, true, _message), do: errors
+  defp night_radio_error(errors, field, false, message), do: Map.put_new(errors, field, message)
+
+  defp clock_time?(value) when is_binary(value),
+    do: Regex.match?(~r/\A([01][0-9]|2[0-3]):[0-5][0-9]\z/, value)
+
+  defp clock_time?(_value), do: false
 
   defp fetch_alarm(state, id) do
     case Map.fetch(state.alarms, id) do

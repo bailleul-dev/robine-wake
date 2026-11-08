@@ -55,7 +55,17 @@ vibration. USB audio support is required only if that optional variant is select
 - An alarm is armed only when time quality is `trusted`, or after the user
   explicitly confirms local time following boot.
 
-## Safe boot
+## Night radio quiet window
+
+The user may turn the onboard Wi-Fi and Bluetooth radios off during a nightly
+window (default 23:00–07:00, local time, disabled by default). The alarm never
+depends on them. The target blocks them with kernel rfkill soft blocks, which a
+reboot clears; Ethernet and the LoRa receiver are unaffected. While silenced,
+the smartphone and the local API cannot reach the clock over those radios, and
+network loss is reported as `silenced`, not as a fault. Measured on the Pi 3:
+Wi-Fi reassociates about 5 s after unblocking and BlueZ powers the adapter back
+on by itself.
+
 
 Firmware exposes `booting`, `ready`, `degraded`, and `maintenance` states. New
 firmware is validated only after configuration is readable, the scheduler is
@@ -79,6 +89,14 @@ avoid restart loops.
 - `NRV-005` — Unvalidated firmware shall be able to revert to its predecessor.
 - `NRV-006` — No secret shall appear in public firmware, logs, or diagnostics.
 - `NRV-007` — Clock health shall be observable by the domain layer.
+- `NRV-008` — The nightly radio window shall be validated (`HH:MM` bounds that
+  differ, possibly spanning midnight) and persisted before it takes effect.
+- `NRV-009` — Radios shall stay on while wall-clock time is untrusted, so a
+  boot during the window can still synchronize through NTP.
+- `NRV-010` — Radios shall come back while a wake session runs, when the window
+  ends, when the feature is disabled, and whenever a condition cannot be evaluated.
+- `NRV-011` — A radio left off by the window shall not degrade device health;
+  a failure to switch the radios shall be reported and retried.
 
 ## Acceptance criteria
 

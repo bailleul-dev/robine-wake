@@ -50,6 +50,10 @@ Status meanings:
 | NRV-005 | Implemented | Nerves A/B slot status and `StartupGuard` validation/rollback are enabled; a target rollback drill is still required. |
 | NRV-006 | Verified | Target configuration contains no administrator password; exports/events filter sensitive fields. |
 | NRV-007 | Verified | `ClockQuality` is in health and prevents automatic arming until confirmed on target. |
+| NRV-008 | Verified | `Settings.set_night_radio/1` validation; `night_radio_test.exs`, command and router tests. |
+| NRV-009 | Verified | `NightRadio.decide/4`; `night_radio_test.exs` untrusted-clock case. |
+| NRV-010 | Implemented | Host tests cover wake session, window end and disable; rfkill block/unblock and radio recovery measured manually on the Pi 3 (2026-11-08); the firmware with `NightRadio` is not yet deployed. |
+| NRV-011 | Verified | `Network` reports `silenced`, `Health` ignores it; driver failure retried in `night_radio_test.exs`. |
 
 ## Hardware profile
 

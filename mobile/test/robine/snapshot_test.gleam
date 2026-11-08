@@ -127,3 +127,36 @@ pub fn an_alarm_beyond_the_clock_bounds_is_refused_test() {
   let assert Error(_) =
     json.parse(alarm("\"prewake_seconds\":7200"), snapshot.decoder())
 }
+
+/// Firmware without the night window reads as switched off.
+pub fn night_radio_defaults_when_absent_test() {
+  let decoder = decode.at(["body"], snapshot.decoder())
+  let assert Ok(clock) = json.parse(read_fixture("state_fixture.json"), decoder)
+  assert clock.night_radio
+    == snapshot.NightRadio(
+      enabled: False,
+      start: "23:00",
+      until: "07:00",
+      silenced: False,
+    )
+}
+
+pub fn decodes_the_night_radio_window_test() {
+  let text =
+    "{\"night_radio\":{\"enabled\":true,\"start\":\"22:30\",\"end\":\"06:15\",\"state\":\"silenced\",\"reason\":\"quiet_window\"}}"
+  let assert Ok(clock) = json.parse(text, snapshot.decoder())
+  assert clock.night_radio
+    == snapshot.NightRadio(
+      enabled: True,
+      start: "22:30",
+      until: "06:15",
+      silenced: True,
+    )
+}
+
+pub fn shifts_night_times_around_midnight_test() {
+  assert snapshot.shift_time("23:30", 30) == "00:00"
+  assert snapshot.shift_time("00:00", -30) == "23:30"
+  assert snapshot.shift_time("06:45", 30) == "07:15"
+  assert snapshot.shift_time("bad", 30) == "bad"
+}

@@ -50,6 +50,10 @@ pub fn requests_carry_the_operation_and_its_body_test() {
     )
   assert command.encode(breathing, "id-3")
     == "{\"v\":1,\"id\":\"id-3\",\"op\":\"breathing.start\",\"body\":{\"cadence\":\"0-4-0-6\",\"duration_minutes\":3,\"volume_percent\":100}}"
+  let night =
+    command.SetNightRadio(enabled: True, start: "23:30", until: "06:45")
+  assert command.encode(night, "id-4")
+    == "{\"v\":1,\"id\":\"id-4\",\"op\":\"settings.night_radio.set\",\"body\":{\"enabled\":true,\"start\":\"23:30\",\"end\":\"06:45\"}}"
   assert !command.changes_state(command.GetState)
   assert command.changes_state(command.Dismiss)
 }

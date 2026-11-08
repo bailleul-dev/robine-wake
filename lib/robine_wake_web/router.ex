@@ -11,6 +11,7 @@ defmodule RobineWakeWeb.Router do
     EventLog,
     EventStream,
     Health,
+    NightRadio,
     RemoteButton,
     Scheduler,
     Settings,
@@ -145,7 +146,8 @@ defmodule RobineWakeWeb.Router do
       },
       breathing: Breathing.status(),
       remote_button: RemoteButton.status(),
-      lora: LoRaServer.safe_status()
+      lora: LoRaServer.safe_status(),
+      night_radio: NightRadio.status()
     })
   end
 
@@ -266,6 +268,13 @@ defmodule RobineWakeWeb.Router do
   patch "/api/settings/smartphone-dismiss" do
     case Settings.set_smartphone_dismiss_enabled(conn.body_params["enabled"]) do
       {:ok, enabled} -> json(conn, 200, %{data: %{enabled: enabled, locked: false}})
+      {:error, reason} -> api_error(conn, reason)
+    end
+  end
+
+  patch "/api/settings/night-radio" do
+    case Settings.set_night_radio(conn.body_params) do
+      {:ok, _settings} -> json(conn, 200, %{data: NightRadio.evaluate()})
       {:error, reason} -> api_error(conn, reason)
     end
   end

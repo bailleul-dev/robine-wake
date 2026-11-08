@@ -27,6 +27,8 @@ pub type Command {
   CancelNap
   Dismiss
   SetSmartphoneDismiss(enabled: Bool)
+  /// The nightly radio window, with local "HH:MM" bounds.
+  SetNightRadio(enabled: Bool, start: String, until: String)
   ConfirmClock
   EraseHistory
   StartBreathing(cadence: light.Cadence, length: light.Length, volume: Percent)
@@ -99,6 +101,7 @@ pub fn operation(command: Command) -> String {
     CancelNap -> "nap.cancel"
     Dismiss -> "session.dismiss"
     SetSmartphoneDismiss(..) -> "settings.smartphone_dismiss.set"
+    SetNightRadio(..) -> "settings.night_radio.set"
     ConfirmClock -> "clock.confirm"
     EraseHistory -> "history.erase"
     StartBreathing(..) -> "breathing.start"
@@ -140,6 +143,12 @@ pub fn body(command: Command) -> Json {
       json.object([#("duration_minutes", json.int(nap.minutes(length)))])
     SetSmartphoneDismiss(enabled) ->
       json.object([#("enabled", json.bool(enabled))])
+    SetNightRadio(enabled:, start:, until:) ->
+      json.object([
+        #("enabled", json.bool(enabled)),
+        #("start", json.string(start)),
+        #("end", json.string(until)),
+      ])
     StartBreathing(cadence:, length:, volume:) ->
       json.object([
         #("cadence", json.string(light.cadence_text(cadence))),

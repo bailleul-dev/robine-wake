@@ -12,6 +12,7 @@ defmodule RobineWake.Health do
     EventLog,
     Firmware,
     Network,
+    NightRadio,
     Scheduler,
     Settings,
     UpdatePolicy,
@@ -33,6 +34,7 @@ defmodule RobineWake.Health do
     metrics = safe(&EventLog.metrics/0, :telemetry)
     firmware = safe(&Firmware.status/0, :firmware)
     network = safe(&Network.status/0, :network)
+    night_radio = safe(&NightRadio.status/0, :night_radio)
     updates = safe(&UpdatePolicy.status/0, :updates)
     scheduler = safe(&Scheduler.status/0, :scheduler)
     settings = safe(&Settings.snapshot/0, :settings)
@@ -50,6 +52,7 @@ defmodule RobineWake.Health do
       metrics: json_safe(metrics),
       firmware: json_safe(firmware),
       network: json_safe(network),
+      night_radio: json_safe(night_radio),
       updates: json_safe(updates),
       scheduler: json_safe(scheduler),
       audio: json_safe(audio),
@@ -73,7 +76,7 @@ defmodule RobineWake.Health do
       error?(settings),
       degraded_auth?(authentication),
       degraded?(clock),
-      degraded?(network),
+      degraded_network?(network),
       degraded_audio?(audio),
       degraded_camera?(camera)
     ]
@@ -90,6 +93,9 @@ defmodule RobineWake.Health do
 
   defp degraded?(%{state: state}) when state in [:healthy, :available], do: false
   defp degraded?(_), do: true
+
+  defp degraded_network?(%{state: :silenced}), do: false
+  defp degraded_network?(network), do: degraded?(network)
 
   defp degraded_auth?(%{state: :available}), do: false
   defp degraded_auth?(_), do: true

@@ -30,6 +30,7 @@ defmodule RobineWake.Application do
       {DynamicSupervisor, strategy: :one_for_one, name: RobineWake.SessionSupervisor},
       RobineWake.SessionRecovery,
       RobineWake.Scheduler,
+      RobineWake.NightRadio,
       RobineWakeWeb.CSRF
     ]
 
