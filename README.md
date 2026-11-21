@@ -97,8 +97,12 @@ first to refresh it. See the
 The public instance runs in the k3s cluster managed by `../silo01`, like the
 other apps there. `make docker-build-and-push` builds the image for the
 cluster, tagged with the current commit (uncommitted changes are refused), and
-pushes it to the registry; `make robine-wake-demo` in `../silo01` runs it and
-then rolls the image out to <https://robine-wake-demo.bailleul.dev/demo>.
+pushes it to the registry; `make robine-wake-demo-deploy ROBINE_WAKE_DEMO_VERSION=<tag>`
+in `../silo01` rolls it out to <https://robine-wake-demo.bailleul.dev/demo>.
+A demo release is a `demo-v*` tag of main (`make demo-release RELEASE=demo-v0.2.0`):
+its CI (`.github/workflows/ci.yml`, on robine-actions' runners) runs the host
+tests, builds and pushes the image tagged with it, then robine-actions rolls it
+out; silo01 never builds.
 
 The Raspberry Pi web interface is intentionally passwordless and intended only
 for the trusted local network. Firmware updates and SSH remain authenticated.

@@ -1,0 +1,67 @@
+name: CI
+
+# main, branches and pull requests: the host tests (`mix test`, MIX_TARGET=host). A demo-v* tag
+# (`make demo-release RELEASE=demo-v0.2.0`): the tests, then the demo image built and pushed with
+# that tag and rolled out by robine-actions (silo01's robine-wake-demo-deploy). The firmware and
+# the apps keep their own releases. The standard procedure: ../silo01/roles/robine_actions/README.md.
+on:
+  push:
+    branches: ['**']
+    tags: ['demo-v*']
+  pull_request:
+  workflow_dispatch:
+
+# Runners are ephemeral Kata micro-VMs on silo59 (robine-actions), each with its own Docker
+# daemon. A pending run is replaced by a newer one of its group: releases get their own.
+concurrency:
+  group: robine-wake-ci-${{ github.ref_type == 'tag' && 'release' || github.ref }}
+  cancel-in-progress: false
+
+env:
+  MIX_TARGET: host
+
+jobs:
+  test:
+    name: Tests (host)
+    runs-on: [self-hosted, robine]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      # The runner image is a bare Ubuntu 24.04 (passwordless sudo); the Dockerfile's packages.
+      - name: System libraries
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            build-essential git libmnl-dev
+      # .tool-versions'.
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.0.3'
+          elixir-version: '1.20.2-otp-29'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build/host_test
+          key: mix-host-${{ hashFiles('mix.lock') }}
+      - run: mix local.hex --force && mix local.rebar --force && mix archive.install hex nerves_bootstrap --force
+      - run: mix deps.get
+      - run: mix test
+
+  # Once the tests pass on a demo-v* tag: builds and pushes the demo image tagged with it, then
+  # robine (silo59) rolls it out. The job only proves who it is (GitHub's OIDC token, hence
+  # id-token: write): robine hands it the registry's CI account, no secret lives here.
+  deploy:
+    name: Deploy
+    needs: [test]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/demo-v')
+    runs-on: [self-hosted, robine]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: robine-registry-login
+      - run: make docker-build-and-push VERSION=${{ github.ref_name }}
+      - run: robine-deploy

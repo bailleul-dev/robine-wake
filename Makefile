@@ -25,10 +25,14 @@ HOMEBREW_RUBY_PREFIX := $(shell brew --prefix ruby 2>/dev/null)
 BUNDLE ?= $(if $(HOMEBREW_RUBY_PREFIX),$(HOMEBREW_RUBY_PREFIX)/bin/bundle,bundle)
 PLATFORMIO ?= uvx --from platformio platformio
 # Demo image (Dockerfile at the root), pushed to the cluster registry and
-# deployed by ../silo01 (`make robine-wake-demo` there).
+# rolled out by ../silo01 (`make robine-wake-demo-deploy` there). Releases are
+# demo-v* tags (`make demo-release RELEASE=demo-v0.2.0`): their CI builds and
+# pushes the image and robine-actions rolls it out.
 DEMO_REGISTRY ?= registry.bailleul.dev/robine-wake-demo
 DEMO_PLATFORM ?= linux/amd64
-VERSION ?= $(shell git rev-parse --short=12 HEAD)
+COMMIT := $(shell git rev-parse --short=12 HEAD)
+# The commit's demo-v* tag when it carries one, else the commit.
+VERSION ?= $(or $(shell git describe --tags --exact-match --match 'demo-v*' HEAD 2>/dev/null),$(COMMIT))
 
 # robine-airplayd (experimental/robine-wake-rs), built static for the Pi 3
 # and shipped in the root filesystem; selected by `airplay_receiver: :robine`.
@@ -36,7 +40,7 @@ AIRPLAYD_DIR := experimental/robine-wake-rs
 AIRPLAYD_TARGET := arm-unknown-linux-musleabihf
 AIRPLAYD := rootfs_overlay/usr/bin/robine-airplayd
 
-.PHONY: site-dev site-build site-deploy firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version
+.PHONY: site-dev site-build site-deploy firmware firmware-rpi0 airplayd burn-sd verify-firmware ios-beta play-store android-bundle dsp button-build button-upload button-monitor expo-test expo-build expo-web expo-iphone docker-build-and-push version demo-release
 
 firmware: airplayd
 	@$(WITH_ENV) env MIX_TARGET="$(MIX_TARGET)" mix deps.get
@@ -162,12 +166,24 @@ expo-iphone:
 docker-build-and-push:
 	@test -z "$$(git status --porcelain)" || \
 		{ echo "Uncommitted changes: commit first, the image must match a commit." >&2; exit 1; }
-	docker buildx build --platform $(DEMO_PLATFORM) -t $(DEMO_REGISTRY):$(VERSION) --push .
-	@echo "Pushed $(DEMO_REGISTRY):$(VERSION)"
+	docker buildx build --platform $(DEMO_PLATFORM) -t $(DEMO_REGISTRY):$(COMMIT) -t $(DEMO_REGISTRY):$(VERSION) --push .
+	@echo "Pushed $(DEMO_REGISTRY):$(VERSION) ($(COMMIT))"
 
-# The tag docker-build-and-push uses (for ../silo01's make robine-wake-demo).
+# The tag docker-build-and-push uses (for ../silo01's make robine-wake-demo-deploy).
 version:
 	@echo $(VERSION)
+
+# Releases main's HEAD as the demo: pushes the demo-v* tag, whose CI deploys it.
+demo-release:
+	@echo "$(RELEASE)" | grep -Eq '^demo-v[0-9]+\.[0-9]+\.[0-9]+$$' || { echo "RELEASE=demo-vX.Y.Z is required (got '$(RELEASE)')" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "Uncommitted changes." >&2; exit 1; }
+	@test "$$(git rev-parse --abbrev-ref HEAD)" = main || { echo "Release from main." >&2; exit 1; }
+	@git fetch --quiet --tags origin main
+	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo "main is not origin/main: pull or push first." >&2; exit 1; }
+	@! git rev-parse --quiet --verify "refs/tags/$(RELEASE)" >/dev/null || { echo "$(RELEASE) already exists." >&2; exit 1; }
+	git tag -a "$(RELEASE)" -m "$(RELEASE)"
+	git push origin "refs/tags/$(RELEASE)"
+	@echo "$(RELEASE) pushed: its CI then deploys it (GitHub Actions, job Deploy)."
 
 button-build:
 	$(WITH_ENV) $(PLATFORMIO) run --project-dir hardware/remote_button
